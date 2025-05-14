@@ -1,45 +1,68 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { MongooseModule } from '@nestjs/mongoose';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { PrismaModule } from './modules/prisma/prisma.module';
+import { RedisModule } from './modules/redis/redis.module';
+import { CacheModule } from './modules/cache/cache.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { MetricsInterceptor } from './interceptors/metrics.interceptor';
+import { UserModule } from './modules/user/user.module';
+import { ProductModule } from './modules/product/product.module';
+import { CartModule } from './modules/cart/cart.module';
+import { OrderModule } from './modules/order/order.module';
+import { PaymentModule } from './modules/payment/payment.module';
+import { NotificationModule } from './modules/notification/notification.module';
+import { CustomCacheInterceptor } from './interceptors/cache.interceptor';
+import { PrometheusModule } from './modules/prometheus/prometheus.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
     // Configuração de variáveis de ambiente
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env',
     }),
 
-    // Configuração do PostgreSQL
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.POSTGRES_HOST,
-      port: parseInt(process.env.POSTGRES_PORT, 10),
-      username: process.env.POSTGRES_USER,
-      password: process.env.POSTGRES_PASSWORD,
-      database: process.env.POSTGRES_DB,
-      autoLoadEntities: true,
-      synchronize: process.env.NODE_ENV !== 'production',
-    }),
+    // Prisma
+    PrismaModule,
 
-    // Configuração do MongoDB
-    MongooseModule.forRoot(process.env.MONGODB_URI),
-
-    // Configuração do Rate Limiting
+    // Rate Limiting
     ThrottlerModule.forRoot([{
-      ttl: parseInt(process.env.RATE_LIMIT_TTL, 10),
-      limit: parseInt(process.env.RATE_LIMIT_MAX, 10),
+      ttl: 60, // 1 minuto
+      limit: 100, // 100 requisições por minuto
     }]),
 
-    // Módulos da aplicação serão importados aqui
+    // Cache e Redis
+    CacheModule,
+
+    // Prometheus para Métricas
+    PrometheusModule,
+
+    // Módulos da aplicação
+    AuthModule,
+    UserModule,
+    ProductModule,
+    CartModule,
+    OrderModule,
+    HealthModule,
+    PaymentModule,
+    NotificationModule,
   ],
   providers: [
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: CustomCacheInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: MetricsInterceptor,
     },
   ],
 })

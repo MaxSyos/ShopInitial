@@ -1,0 +1,145 @@
+version: '3.8'
+
+services:
+  # Banco de Dados Principal (PostgreSQL)
+  postgres:
+    image: postgres:14-alpine
+    container_name: shop-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=shopdb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - shop-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Redis para Cache e Gerenciamento de Sessão
+  redis:
+    image: redis:6.2-alpine
+    container_name: shop-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - shop-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Backend (NestJS)
+  backend:
+    build:
+      context: ./BackEnd
+      dockerfile: Dockerfile
+      target: development # Permite hot-reload em desenvolvimento
+    container_name: shop-backend
+    ports:
+      - "3000:3000"
+      - "5555:5555" # Porta para o Prisma Studio
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/shopdb?schema=public
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=your-secret-key
+      - JWT_EXPIRATION=3600
+      - CORS_ORIGIN=http://localhost:3001
+    volumes:
+      - ./BackEnd:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - shop-network
+    restart: unless-stopped
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./FrontEnd
+      dockerfile: Dockerfile
+      target: development # Permite hot-reload em desenvolvimento
+    container_name: shop-frontend
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - NEXT_PUBLIC_BACKEND_URL=http://backend:3000
+    volumes:
+      - ./FrontEnd:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - shop-network
+    restart: unless-stopped
+
+  # Prometheus (Monitoramento de Métricas)
+  prometheus:
+    image: prom/prometheus:v2.37.0
+    container_name: shop-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - shop-network
+    restart: unless-stopped
+
+  # Grafana (Visualização de Métricas)
+  grafana:
+    image: grafana/grafana:9.0.0
+    container_name: shop-grafana
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=localhost
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - shop-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    name: shop-postgres-data
+  redis_data:
+    name: shop-redis-data
+  prometheus_data:
+    name: shop-prometheus-data
+  grafana_data:
+    name: shop-grafana-data
+
+networks:
+  shop-network:
+    name: shop-network
+    driver: bridge
