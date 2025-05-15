@@ -10,6 +10,9 @@ import {
   UseGuards,
   DefaultValuePipe,
   ParseIntPipe,
+  ParseUUIDPipe,
+  HttpStatus,
+  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,16 +20,20 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiQuery,
+  ApiParam,
 } from '@nestjs/swagger';
 import { ProductService } from './product.service';
 import {
   CreateProductDto,
   UpdateProductDto,
   ProductResponseDto,
+  GetProductsQueryDto,
+  ProductListResponseDto,
 } from './dto/product.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../guards/roles.guard';
 import { Roles } from '../../decorators/roles.decorator';
+import { Public } from '../../decorators/public.decorator';
 import { ApiErrorResponse } from '../../interfaces/api-error-response.interface';
 
 @ApiTags('products')
@@ -39,52 +46,52 @@ export class ProductController {
   @Roles('ADMIN', 'MANAGER')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Criar um novo produto' })
-  @ApiResponse({ status: 201, type: ProductResponseDto })
-  @ApiResponse({ status: 400, type: ApiErrorResponse })
-  create(@Body() createProductDto: CreateProductDto) {
+  @ApiResponse({ 
+    status: HttpStatus.CREATED, 
+    description: 'Produto criado com sucesso',
+    type: ProductResponseDto 
+  })
+  @ApiResponse({ 
+    status: HttpStatus.BAD_REQUEST, 
+    description: 'Dados inválidos',
+    type: ApiErrorResponse 
+  })
+  @ApiResponse({ 
+    status: HttpStatus.CONFLICT, 
+    description: 'SKU já existe',
+    type: ApiErrorResponse 
+  })
+  async create(@Body(ValidationPipe) createProductDto: CreateProductDto): Promise<ProductResponseDto> {
     return this.productService.create(createProductDto);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar todos os produtos' })
-  @ApiResponse({ status: 200, type: [ProductResponseDto] })
-  @ApiQuery({ name: 'skip', required: false, type: Number })
-  @ApiQuery({ name: 'take', required: false, type: Number })
-  @ApiQuery({ name: 'search', required: false })
-  @ApiQuery({ name: 'orderBy', required: false, enum: ['price_asc', 'price_desc', 'name_asc', 'name_desc'] })
-  async findAll(
-    @Query('skip', new DefaultValuePipe(0), ParseIntPipe) skip: number,
-    @Query('take', new DefaultValuePipe(10), ParseIntPipe) take: number,
-    @Query('search') search?: string,
-    @Query('orderBy') orderBy?: string,
-  ) {
-    const orderByMap = {
-      price_asc: { price: 'asc' },
-      price_desc: { price: 'desc' },
-      name_asc: { name: 'asc' },
-      name_desc: { name: 'desc' },
-    };
-
-    if (search) {
-      return this.productService.searchProducts(search, {
-        skip,
-        take,
-        orderBy: orderByMap[orderBy],
-      });
-    }
-
-    return this.productService.findAll({
-      skip,
-      take,
-      orderBy: orderByMap[orderBy],
-    });
+  @Public()
+  @ApiOperation({ summary: 'Listar produtos com filtros e paginação' })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: 'Lista de produtos retornada com sucesso',
+    type: ProductListResponseDto 
+  })
+  async findAll(@Query(ValidationPipe) query: GetProductsQueryDto): Promise<ProductListResponseDto> {
+    return this.productService.findAll(query);
   }
 
   @Get(':id')
+  @Public()
   @ApiOperation({ summary: 'Buscar um produto pelo ID' })
-  @ApiResponse({ status: 200, type: ProductResponseDto })
-  @ApiResponse({ status: 404, type: ApiErrorResponse })
-  findOne(@Param('id') id: string) {
+  @ApiParam({ name: 'id', description: 'ID do produto' })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: 'Produto encontrado',
+    type: ProductResponseDto 
+  })
+  @ApiResponse({ 
+    status: HttpStatus.NOT_FOUND, 
+    description: 'Produto não encontrado',
+    type: ApiErrorResponse 
+  })
+  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<ProductResponseDto> {
     return this.productService.findOne(id);
   }
 
@@ -93,9 +100,26 @@ export class ProductController {
   @Roles('ADMIN', 'MANAGER')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Atualizar um produto' })
-  @ApiResponse({ status: 200, type: ProductResponseDto })
-  @ApiResponse({ status: 404, type: ApiErrorResponse })
-  update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
+  @ApiParam({ name: 'id', description: 'ID do produto' })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: 'Produto atualizado com sucesso',
+    type: ProductResponseDto 
+  })
+  @ApiResponse({ 
+    status: HttpStatus.NOT_FOUND, 
+    description: 'Produto não encontrado',
+    type: ApiErrorResponse 
+  })
+  @ApiResponse({ 
+    status: HttpStatus.CONFLICT, 
+    description: 'SKU já existe',
+    type: ApiErrorResponse 
+  })
+  async update(
+    @Param('id', ParseUUIDPipe) id: string, 
+    @Body(ValidationPipe) updateProductDto: UpdateProductDto
+  ): Promise<ProductResponseDto> {
     return this.productService.update(id, updateProductDto);
   }
 
@@ -104,9 +128,17 @@ export class ProductController {
   @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Remover um produto' })
-  @ApiResponse({ status: 200, description: 'Produto removido com sucesso' })
-  @ApiResponse({ status: 404, type: ApiErrorResponse })
-  remove(@Param('id') id: string) {
+  @ApiParam({ name: 'id', description: 'ID do produto' })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: 'Produto removido com sucesso' 
+  })
+  @ApiResponse({ 
+    status: HttpStatus.NOT_FOUND, 
+    description: 'Produto não encontrado',
+    type: ApiErrorResponse 
+  })
+  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<{ message: string }> {
     return this.productService.remove(id);
   }
 
@@ -115,12 +147,26 @@ export class ProductController {
   @Roles('ADMIN', 'MANAGER')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Atualizar estoque do produto' })
-  @ApiResponse({ status: 200, type: ProductResponseDto })
-  @ApiResponse({ status: 404, type: ApiErrorResponse })
-  updateStock(
-    @Param('id') id: string,
-    @Body('quantity', ParseIntPipe) quantity: number,
-  ) {
+  @ApiParam({ name: 'id', description: 'ID do produto' })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: 'Estoque atualizado com sucesso',
+    type: ProductResponseDto 
+  })
+  @ApiResponse({ 
+    status: HttpStatus.NOT_FOUND, 
+    description: 'Produto não encontrado',
+    type: ApiErrorResponse 
+  })
+  @ApiResponse({ 
+    status: HttpStatus.CONFLICT, 
+    description: 'Estoque insuficiente',
+    type: ApiErrorResponse 
+  })
+  async updateStock(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('quantity', new ParseIntPipe()) quantity: number
+  ): Promise<ProductResponseDto> {
     return this.productService.updateStock(id, quantity);
   }
 }

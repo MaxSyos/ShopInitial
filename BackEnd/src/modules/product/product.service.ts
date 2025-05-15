@@ -3,10 +3,19 @@ import {
   NotFoundException,
   ConflictException,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../services/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
+import { 
+  CreateProductDto, 
+  UpdateProductDto, 
+  GetProductsQueryDto,
+  ProductListResponseDto,
+  ProductResponseDto,
+  ProductSortField,
+  SortOrder
+} from './dto/product.dto';
 import { Prisma, Product } from '@prisma/client';
 
 @Injectable()
@@ -105,16 +114,7 @@ export class ProductService {
     return product;
   }
 
-  async findAll(params: {
-    skip?: number;
-    take?: number;
-    cursor?: Prisma.ProductWhereUniqueInput;
-    where?: Prisma.ProductWhereInput;
-    orderBy?: Prisma.ProductOrderByWithRelationInput;
-  }): Promise<{
-    products: Product[];
-    total: number;
-  }> {
+  async findAll(query: GetProductsQueryDto): Promise<ProductListResponseDto> {
     const cacheKey = `${this.CACHE_PREFIX}list:${JSON.stringify(params)}`;
     const cachedData = await this.redisService.get(cacheKey);
 
