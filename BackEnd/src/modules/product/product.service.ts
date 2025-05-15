@@ -2,10 +2,12 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../../services/prisma.service';
+import { RedisService } from '../redis/redis.service';
 import { CreateProductDto, UpdateProductDto } from './dto/product.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, Product } from '@prisma/client';
 
 @Injectable()
 export class ProductService {
@@ -17,36 +19,71 @@ export class ProductService {
     private readonly redisService: RedisService,
   ) {}
 
-  async create(createProductDto: CreateProductDto) {
-    // Verifica se já existe um produto com o mesmo SKU
-    const existingProduct = await this.prisma.product.findUnique({
-      where: { sku: createProductDto.sku },
-    });
-
-    if (existingProduct) {
-      throw new ConflictException('SKU já está em uso');
+  private async getFromCache<T>(key: string): Promise<T | null> {
+    try {
+      const cachedData = await this.redisService.get(`${this.CACHE_PREFIX}${key}`);
+      return cachedData ? JSON.parse(cachedData) : null;
+    } catch (error) {
+      console.error(`Erro ao buscar cache: ${error.message}`);
+      return null;
     }
+  }
 
-    // Verifica se a categoria existe
-    const category = await this.prisma.category.findUnique({
-      where: { id: createProductDto.categoryId },
-    });
-
-    if (!category) {
-      throw new NotFoundException('Categoria não encontrada');
+  private async setCache<T>(key: string, data: T): Promise<void> {
+    try {
+      await this.redisService.setex(
+        `${this.CACHE_PREFIX}${key}`,
+        this.CACHE_TTL,
+        JSON.stringify(data)
+      );
+    } catch (error) {
+      console.error(`Erro ao definir cache: ${error.message}`);
     }
+  }
 
-    // Verifica se a marca existe
-    const brand = await this.prisma.brand.findUnique({
-      where: { id: createProductDto.brandId },
-    });
-
-    if (!brand) {
-      throw new NotFoundException('Marca não encontrada');
+  private async invalidateCache(patterns: string[]): Promise<void> {
+    try {
+      await Promise.all(
+        patterns.map(pattern => 
+          this.redisService.del(`${this.CACHE_PREFIX}${pattern}`)
+        )
+      );
+    } catch (error) {
+      console.error(`Erro ao invalidar cache: ${error.message}`);
     }
+  }
 
-    // Cria o produto
-    const product = await this.prisma.product.create({
+  async create(createProductDto: CreateProductDto): Promise<Product> {
+    try {
+      // Verifica se já existe um produto com o mesmo SKU
+      const existingProduct = await this.prisma.product.findUnique({
+        where: { sku: createProductDto.sku },
+      });
+
+      if (existingProduct) {
+        throw new ConflictException('SKU já está em uso');
+      }
+
+      // Verifica se a categoria existe
+      const category = await this.prisma.category.findUnique({
+        where: { id: createProductDto.categoryId },
+      });
+
+      if (!category) {
+        throw new NotFoundException('Categoria não encontrada');
+      }
+
+      // Verifica se a marca existe
+      const brand = await this.prisma.brand.findUnique({
+        where: { id: createProductDto.brandId },
+      });
+
+      if (!brand) {
+        throw new NotFoundException('Marca não encontrada');
+      }
+
+      // Cria o produto
+      const product = await this.prisma.product.create({
       data: createProductDto,
       include: {
         category: {
@@ -74,7 +111,10 @@ export class ProductService {
     cursor?: Prisma.ProductWhereUniqueInput;
     where?: Prisma.ProductWhereInput;
     orderBy?: Prisma.ProductOrderByWithRelationInput;
-  }) {
+  }): Promise<{
+    products: Product[];
+    total: number;
+  }> {
     const cacheKey = `${this.CACHE_PREFIX}list:${JSON.stringify(params)}`;
     const cachedData = await this.redisService.get(cacheKey);
 

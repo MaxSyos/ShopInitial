@@ -43,19 +43,7 @@ async function bootstrap() {
     );
 
     // Filtro de exceções global
-    app.useGlobalFilters(new HttpExceptionFilter());
-
-  // Configuração do Validator global
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-    }),
-  );    // Configuração de monitoramento e métricas
+    app.useGlobalFilters(new HttpExceptionFilter());    // Configuração de monitoramento e métricas
     const prometheusService = app.get(PrometheusService);
     app.use('/metrics', async (req: Request, res: Response) => {
       res.set('Content-Type', prometheusService.getContentType());
@@ -76,12 +64,20 @@ async function bootstrap() {
       .addTag('payments', 'Processamento de pagamentos')
       .addTag('metrics', 'Métricas e monitoramento')
       .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
 
-  // Inicialização do servidor
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
-  console.log(`Servidor rodando na porta ${port}`);
+    // Inicialização do servidor
+    const port = process.env.PORT || 3000;
+    await app.listen(port);
+    logger.log(`Servidor rodando na porta ${port}`);
+  } catch (error) {
+    logger.error(`Erro ao iniciar o servidor: ${error.message}`);
+    process.exit(1);
+  }
 }
-bootstrap();
+
+bootstrap().catch((err) => {
+  console.error('Erro fatal durante o bootstrap:', err);
+  process.exit(1);
+});

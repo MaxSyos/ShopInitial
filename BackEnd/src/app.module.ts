@@ -29,14 +29,21 @@ import { HealthModule } from './modules/health/health.module';
     // Prisma
     PrismaModule,
 
+    // Redis e Cache
+    RedisModule.forRoot({
+      config: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379'),
+        password: process.env.REDIS_PASSWORD,
+      },
+    }),
+    CacheModule,
+
     // Rate Limiting
     ThrottlerModule.forRoot([{
       ttl: 60, // 1 minuto
       limit: 100, // 100 requisições por minuto
     }]),
-
-    // Cache e Redis
-    CacheModule,
 
     // Prometheus para Métricas
     PrometheusModule,
@@ -58,11 +65,11 @@ import { HealthModule } from './modules/health/health.module';
     },
     {
       provide: APP_INTERCEPTOR,
-      useClass: CustomCacheInterceptor,
+      useClass: MetricsInterceptor,
     },
     {
       provide: APP_INTERCEPTOR,
-      useClass: MetricsInterceptor,
+      useClass: CustomCacheInterceptor,
     },
   ],
 })

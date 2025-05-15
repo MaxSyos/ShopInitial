@@ -11,6 +11,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=shopdb
+      - POSTGRES_EXPORTER_ENABLED=true
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -24,21 +25,28 @@ services:
 
   # Redis para Cache e Gerenciamento de Sessão
   redis:
-    image: redis:6.2-alpine
+    image: redis:7.2-alpine
     container_name: shop-redis
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123} --maxmemory 512mb --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis123}
     volumes:
       - redis_data:/data
     networks:
       - shop-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis123}", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
     restart: unless-stopped
+    ulimits:
+      nproc: 65535
+      nofile:
+        soft: 26677
+        hard: 46677
 
   # Backend (NestJS)
   backend:
@@ -111,6 +119,21 @@ services:
       - shop-network
     restart: unless-stopped
 
+  # PostgreSQL Exporter (Métricas do Postgres)
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.12.0
+    container_name: shop-postgres-exporter
+    ports:
+      - "9187:9187"
+    environment:
+      - DATA_SOURCE_NAME=postgresql://postgres:postgres@postgres:5432/shopdb?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - shop-network
+    restart: unless-stopped
+
   # Grafana (Visualização de Métricas)
   grafana:
     image: grafana/grafana:9.0.0
@@ -128,6 +151,19 @@ services:
     networks:
       - shop-network
     restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    volumes:
+      - ./alertmanager/:/etc/alertmanager/
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    ports:
+      - "9093:9093"
+    restart: always
+    networks:
+      - shop-network
 
 volumes:
   postgres_data:
