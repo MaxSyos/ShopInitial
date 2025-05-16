@@ -3,6 +3,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RedisService } from './redis.service';
 import { REDIS_OPTIONS } from './redis.constants';
 import { RedisOptions } from './interfaces/redis-options.interface';
+import { CircuitBreakerService } from './services/circuit-breaker.service';
+import { PrometheusModule } from '../prometheus/prometheus.module';
 
 @Global()
 @Module({})
@@ -10,8 +12,9 @@ export class RedisModule {
   static forRoot(options?: { config: Partial<RedisOptions> }): DynamicModule {
     return {
       module: RedisModule,
-      imports: [ConfigModule],
+      imports: [ConfigModule, PrometheusModule],
       providers: [
+        CircuitBreakerService,
         {
           provide: REDIS_OPTIONS,
           inject: [ConfigService],
@@ -24,18 +27,12 @@ export class RedisModule {
             ttl: options?.config?.ttl || 86400, // 24 horas
             maxRetriesPerRequest: options?.config?.maxRetriesPerRequest || 3,
             enableReadyCheck: options?.config?.enableReadyCheck !== false,
-            retryStrategy: (times) => {
-              if (times > 3) {
-                return null; // desiste após 3 tentativas
-              }
-              return Math.min(times * 1000, 3000); // espera exponencial até 3s
-            },
-            ...options?.config,
+            retryStrategy: (times) => Math.min(times * 50, 2000),
           }),
         },
         RedisService,
       ],
-      exports: [RedisService],
+      exports: [RedisService, CircuitBreakerService],
     };
   }
 }

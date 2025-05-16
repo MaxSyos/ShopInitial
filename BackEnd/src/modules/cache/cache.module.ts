@@ -1,36 +1,31 @@
 import { Module, Global } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { RedisModule } from '@nestjs/redis';
-import { RedisService } from '../config/redis.config';
-import { CustomCacheInterceptor } from '../interceptors/cache.interceptor';
+import { ConfigModule } from '@nestjs/config';
+import { RedisModule } from '../redis/redis.module';
+import { PrometheusModule } from '../prometheus/prometheus.module';
+import { DistributedCacheService } from '../../services/distributed-cache.service';
+import { CustomCacheInterceptor } from '../../interceptors/cache.interceptor';
 
 @Global()
 @Module({
   imports: [
-    RedisModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        config: {
-          url: configService.get('REDIS_URL'),
-          // Configurações adicionais do Redis
-          retryStrategy: (times: number) => {
-            // Estratégia de retry exponencial
-            return Math.min(times * 50, 2000);
-          },
-          maxRetriesPerRequest: 3,
-          enableReadyCheck: true,
-        },
-      }),
-      inject: [ConfigService],
+    RedisModule.forRoot({
+      config: {
+        keyPrefix: 'cache:',
+        ttl: 3600, // 1 hora em segundos
+        maxRetriesPerRequest: 3,
+        enableReadyCheck: true,
+      },
     }),
+    ConfigModule,
+    PrometheusModule,
   ],
   providers: [
-    RedisService,
+    DistributedCacheService,
     {
       provide: 'APP_INTERCEPTOR',
       useClass: CustomCacheInterceptor,
     },
   ],
-  exports: [RedisService],
+  exports: [DistributedCacheService],
 })
 export class CacheModule {}

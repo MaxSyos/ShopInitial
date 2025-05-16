@@ -6,7 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { RateLimitService } from '../rate-limit/rate-limit.service';
+import { RateLimitService } from '../modules/rate-limit/rate-limit.service';
 import { Observable } from 'rxjs';
 
 export interface RateLimitOptions {
@@ -14,6 +14,23 @@ export interface RateLimitOptions {
   ttl?: number;
   errorMessage?: string;
   keyPrefix?: string;
+}
+
+interface RequestWithUser {
+  user?: {
+    id: string | number;
+  };
+  ip?: string;
+  connection?: {
+    remoteAddress?: string;
+  };
+  headers: {
+    'x-forwarded-for'?: string;
+  };
+  method: string;
+  route: {
+    path: string;
+  };
 }
 
 @Injectable()
@@ -59,7 +76,7 @@ export class RateLimitGuard implements CanActivate {
     return true;
   }
 
-  private getIdentifier(request: any): string {
+  private getIdentifier(request: RequestWithUser): string {
     // Prioriza o ID do usuário se estiver autenticado
     if (request.user && request.user.id) {
       return `user:${request.user.id}`;
@@ -67,8 +84,9 @@ export class RateLimitGuard implements CanActivate {
 
     // Caso contrário, usa o IP
     const ip = request.ip || 
-               request.connection.remoteAddress ||
-               request.headers['x-forwarded-for'];
+               (request.connection?.remoteAddress) ||
+               request.headers['x-forwarded-for'] ||
+               'unknown';
 
     return `ip:${ip}`;
   }

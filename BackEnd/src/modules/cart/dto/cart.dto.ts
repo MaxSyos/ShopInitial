@@ -77,7 +77,14 @@ export class CartItemResponseDto {
 
   @ApiProperty({
     description: 'Informações do produto',
-    type: 'object'
+    type: 'object',
+    properties: {
+      id: { type: 'string' },
+      name: { type: 'string' },
+      price: { type: 'number' },
+      quantity: { type: 'number' }
+    },
+    additionalProperties: false
   })
   product: {
     id: string;

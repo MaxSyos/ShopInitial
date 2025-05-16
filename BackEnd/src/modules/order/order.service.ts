@@ -8,18 +8,11 @@ import { PrismaService } from '../../services/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CartService } from '../cart/cart.service';
 import { ProductService } from '../product/product.service';
-import { OrderResponse } from './interfaces/order-response.interface';
+import { OrderResponse, IOrderItemResponse } from './interfaces/order-response.interface';
 import { OrderStatus, Prisma } from '@prisma/client';
 
 /**
  * Serviço responsável pelo gerenciamento de pedidos
- * 
- * @remarks
- * Este serviço gerencia:
- * - Criação de pedidos a partir do carrinho
- * - Validação de estoque
- * - Atualização de status do pedido
- * - Cálculo de valores
  */
 @Injectable()
 export class OrderService {
@@ -40,74 +33,36 @@ export class OrderService {
    * - Se o carrinho estiver vazio
    * - Se algum produto estiver fora de estoque
    */
-  /**
-   * Mapeia um pedido do banco de dados para o formato da resposta da API
-   */
-  private mapOrderToResponse(order: any): OrderResponse {
-    return {
-      id: order.id,
-      userId: order.userId,
-      status: order.status,
-      total: order.total.toNumber(),
-      items: order.items.map((item: any) => ({
-        id: item.id,
-        productId: item.productId,
-        quantity: item.quantity,
-        price: item.price.toNumber(),
-        product: {
-          name: item.product.name,
-          images: item.product.images,
-        },
-      })),
-      shippingAddress: {
-        street: order.street,
-        city: order.city,
-        state: order.state,
-        country: order.country,
-        postalCode: order.postalCode,
-      },
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt,
-    };
-  }
-
   async create(userId: string, createOrderDto: CreateOrderDto): Promise<OrderResponse> {
-    // Obtém o carrinho do usuário
-    const cart = await this.cartService.getOrCreateCart(userId);
-    
-    if (!cart.items || cart.items.length === 0) {
-      throw new BadRequestException('O carrinho está vazio');
+    const cart = await this.cartService.findByUserId(userId);
+    if (!cart || !cart.items.length) {
+      throw new BadRequestException('Carrinho vazio');
     }
 
-    // Valida o estoque de todos os produtos
-    for (const item of cart.items) {
-      const product = await this.productService.findOne(item.product.id);
-      if (product.stock < item.quantity) {
-        throw new BadRequestException(
-          `Produto ${product.name} não tem estoque suficiente. Disponível: ${product.stock}`,
+    try {
+      const order = await this.prisma.$transaction(async (prisma) => {
+        // 1. Calcular o total
+        const total = cart.items.reduce(
+          (sum, item) => sum + Number(item.product.price) * item.quantity,
+          0
         );
-      }
-    }
 
-    // Inicia uma transação
-    const order = await this.prisma.$transaction(async (tx) => {
-      try {
-        // Cria o pedido
-        const order = await tx.order.create({
+        // 2. Criar o pedido com os itens do carrinho
+        const order = await prisma.order.create({
           data: {
             userId,
-            status: 'PENDING',
-            total: cart.total,
-            street: createOrderDto.shippingAddress.street,
-            city: createOrderDto.shippingAddress.city,
-            state: createOrderDto.shippingAddress.state,
-            country: createOrderDto.shippingAddress.country,
-            postalCode: createOrderDto.shippingAddress.postalCode,
+            status: OrderStatus.PENDING,
+            total,
+            street: createOrderDto.street || '',
+            city: createOrderDto.city || '',
+            state: createOrderDto.state || '',
+            country: createOrderDto.country || '',
+            postalCode: createOrderDto.postalCode || '',
             items: {
               create: cart.items.map((item) => ({
-                productId: item.product.id,
                 quantity: item.quantity,
                 price: item.product.price,
+                productId: item.product.id,
               })),
             },
           },
@@ -117,32 +72,65 @@ export class OrderService {
                 product: true,
               },
             },
-            shippingAddress: true,
+            user: true,
           },
         });
 
-        // Atualiza o estoque dos produtos
+        // 3. Atualizar o estoque dos produtos
         for (const item of cart.items) {
-          await tx.product.update({
-            where: { id: item.productId },
-            data: {
-              stock: {
-                decrement: item.quantity,
-              },
-            },
+          await prisma.product.update({
+            where: { id: item.product.id },
+            data: { stock: { decrement: item.quantity } },
           });
         }
 
-        // Limpa o carrinho
-        await this.cartService.clearCart(userId);
+        // 4. Limpar o carrinho
+        await this.cartService.clear(userId);
 
         return order;
-      } catch (error) {
-        throw new InternalServerErrorException(
-          'Erro ao processar o pedido. Por favor, tente novamente.',
-        );
+      });
+
+      // 5. Transformar a resposta
+      const items: IOrderItemResponse[] = order.items.map((item) => ({
+        id: item.id,
+        quantity: item.quantity,
+        price: Number(item.price),
+        product: {
+          id: item.product.id,
+          name: item.product.name,
+          price: Number(item.product.price),
+        },
+      }));
+
+      return {
+        id: order.id,
+        status: order.status,
+        total: Number(order.total),
+        items,
+        user: {
+          id: order.user.id,
+          name: order.user.name,
+          email: order.user.email,
+        },
+        shippingAddress: {
+          id: order.id,
+          street: order.street,
+          city: order.city,
+          state: order.state,
+          country: order.country,
+          postalCode: order.postalCode,
+        },
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+      };
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new BadRequestException('Erro de restrição única');
+        }
       }
-    });
+      throw new InternalServerErrorException('Erro ao criar pedido');
+    }
   }
 
   /**
@@ -156,24 +144,58 @@ export class OrderService {
    * - Se o pedido não for encontrado
    * - Se o pedido não pertencer ao usuário
    */
-  async findOne(orderId: string, userId: string) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
+  async findOne(orderId: string, userId: string): Promise<OrderResponse> {
+    const order = await this.prisma.order.findFirst({
+      where: { 
+        id: orderId,
+        userId,
+      },
       include: {
         items: {
           include: {
             product: true,
           },
         },
-        shippingAddress: true,
+        user: true,
       },
     });
 
-    if (!order || order.userId !== userId) {
+    if (!order) {
       throw new NotFoundException('Pedido não encontrado');
     }
 
-    return order;
+    const items: IOrderItemResponse[] = order.items.map((item) => ({
+      id: item.id,
+      quantity: item.quantity,
+      price: Number(item.price),
+      product: {
+        id: item.product.id,
+        name: item.product.name,
+        price: Number(item.product.price),
+      },
+    }));
+
+    return {
+      id: order.id,
+      status: order.status,
+      total: Number(order.total),
+      items,
+      user: {
+        id: order.user.id,
+        name: order.user.name,
+        email: order.user.email,
+      },
+      shippingAddress: {
+        id: order.id,
+        street: order.street,
+        city: order.city,
+        state: order.state,
+        country: order.country,
+        postalCode: order.postalCode,
+      },
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+    };
   }
 
   /**
@@ -182,24 +204,55 @@ export class OrderService {
    * @param userId - ID do usuário
    * @returns Lista de pedidos com detalhes básicos
    */
-  async findAll(userId: string) {
-    return this.prisma.order.findMany({
+  async findAll(userId: string): Promise<OrderResponse[]> {
+    const orders = await this.prisma.order.findMany({
       where: { userId },
       include: {
         items: {
           include: {
-            product: {
-              select: {
-                name: true,
-                images: true,
-              },
-            },
+            product: true,
           },
         },
+        user: true,
       },
       orderBy: {
         createdAt: 'desc',
       },
+    });
+
+    return orders.map((order) => {
+      const items: IOrderItemResponse[] = order.items.map((item) => ({
+        id: item.id,
+        quantity: item.quantity,
+        price: Number(item.price),
+        product: {
+          id: item.product.id,
+          name: item.product.name,
+          price: Number(item.product.price),
+        },
+      }));
+
+      return {
+        id: order.id,
+        status: order.status,
+        total: Number(order.total),
+        items,
+        user: {
+          id: order.user.id,
+          name: order.user.name,
+          email: order.user.email,
+        },
+        shippingAddress: {
+          id: order.id,
+          street: order.street,
+          city: order.city,
+          state: order.state,
+          country: order.country,
+          postalCode: order.postalCode,
+        },
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+      };
     });
   }
 }

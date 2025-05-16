@@ -7,6 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  ADMIN
+  USER
+  MANAGER
+}
+
 // Modelo de Usuário
 model User {
   id            String    @id @default(uuid())
@@ -124,11 +130,11 @@ model Order {
   id              String         @id @default(uuid())
   userId          String
   user            User           @relation(fields: [userId], references: [id])
+  payment         Payment?       @relation("OrderPayment")
   items           OrderItem[]
   status          OrderStatus    @default(PENDING)
   total           Decimal        @db.Decimal(10, 2)
   paymentId       String?        @unique
-  payment         Payment?       @relation(fields: [paymentId], references: [id])
   street          String
   city            String
   state           String
@@ -155,13 +161,16 @@ model OrderItem {
 
 model Payment {
   id            String        @id @default(uuid())
-  order         Order?
-  amount        Decimal       @db.Decimal(10, 2)
-  status        PaymentStatus @default(PENDING)
-  provider      String
-  transactionId String?       @unique
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  order         Order        @relation("OrderPayment", fields: [orderId], references: [id])
+  orderId       String       @unique
+  amount        Decimal      @db.Decimal(10, 2)
+  currency      String       @default("BRL")
+  status        PaymentStatus
+  paymentMethod String       @default("CREDIT_CARD")
+  transactionId String?      @unique
+  refundId      String?      @unique
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@map("payments")
 }
@@ -178,12 +187,6 @@ model Review {
   @@map("reviews")
 }
 
-enum UserRole {
-  ADMIN
-  MANAGER
-  USER
-}
-
 enum OrderStatus {
   PENDING
   PROCESSING
@@ -194,8 +197,8 @@ enum OrderStatus {
 
 enum PaymentStatus {
   PENDING
-  PROCESSING
   COMPLETED
   FAILED
   REFUNDED
+  CANCELLED
 }

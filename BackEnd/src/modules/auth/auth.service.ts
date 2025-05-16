@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../services/prisma.service';
 import { UserService } from '../user/user.service';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { UserRole } from '../user/entities/user.entity';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -54,29 +55,28 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto) {
-    const existingUser = await this.userService.findByEmail(registerDto.email);
+    const { email, password } = registerDto;
+
+    // Verifica se o usuário já existe
+    const existingUser = await this.userService.findByEmail(email);
     if (existingUser) {
       throw new BadRequestException('Email já está em uso');
     }
 
-    const user = await this.userService.create({
-      ...registerDto,
-      role: 'USER',
+    // Hash da senha
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Cria o usuário
+    const user = await this.prisma.user.create({
+      data: {
+        ...registerDto,
+        password: hashedPassword,
+        role: UserRole.USER,
+      },
     });
 
-    const tokens = await this.generateTokens(user);
-    await this.saveRefreshToken(user.id, tokens.refreshToken);
-
-    return {
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
-    };
+    // Retorna o token JWT
+    return this.generateTokens(user);
   }
 
   async refreshToken(refreshToken: string) {

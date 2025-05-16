@@ -1,5 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { RedisService } from '../redis/redis.service';
+import { RedisService } from '../modules/redis/redis.service';
+
+interface BaseSessionData {
+  userId: string;
+  email: string;
+  data?: Record<string, any>;
+  lastAccess?: string;
+}
+
+interface SessionWithId extends BaseSessionData {
+  id: string;
+}
 
 @Injectable()
 export class SessionService {
@@ -10,10 +21,10 @@ export class SessionService {
 
   async createSession(userId: string, sessionData: any): Promise<string> {
     const sessionId = `${this.SESSION_PREFIX}${userId}:${Date.now()}`;
-    const sessionInfo = {
+    const sessionInfo: BaseSessionData = {
       ...sessionData,
       userId,
-      createdAt: new Date().toISOString(),
+      email: sessionData.email,
       lastAccess: new Date().toISOString(),
     };
 
@@ -26,7 +37,7 @@ export class SessionService {
     return sessionId;
   }
 
-  async getSession(sessionId: string): Promise<any | null> {
+  async getSession(sessionId: string): Promise<BaseSessionData | null> {
     const sessionData = await this.redisService.get(sessionId);
     if (!sessionData) {
       return null;
@@ -35,7 +46,6 @@ export class SessionService {
     const session = JSON.parse(sessionData);
     session.lastAccess = new Date().toISOString();
 
-    // Atualiza o último acesso e renova o TTL
     await this.redisService.set(
       sessionId,
       JSON.stringify(session),
@@ -45,14 +55,17 @@ export class SessionService {
     return session;
   }
 
-  async updateSession(sessionId: string, updates: any): Promise<boolean> {
-    const currentSession = await this.getSession(sessionId);
-    if (!currentSession) {
+  async updateSession(
+    sessionId: string,
+    updates: Partial<BaseSessionData>,
+  ): Promise<boolean> {
+    const session = await this.getSession(sessionId);
+    if (!session) {
       return false;
     }
 
     const updatedSession = {
-      ...currentSession,
+      ...session,
       ...updates,
       lastAccess: new Date().toISOString(),
     };
@@ -67,53 +80,35 @@ export class SessionService {
   }
 
   async removeSession(sessionId: string): Promise<boolean> {
-    const exists = await this.redisService.get(sessionId);
-    if (!exists) {
-      return false;
-    }
-
-    await this.redisService.del(sessionId);
-    return true;
+    return this.redisService.del(sessionId);
   }
 
-  async getAllUserSessions(userId: string): Promise<any[]> {
+  async getAllUserSessions(userId: string): Promise<SessionWithId[]> {
     const pattern = `${this.SESSION_PREFIX}${userId}:*`;
-    const sessionKeys = await this.redisService.keys(pattern);
-    
-    const sessions = await Promise.all(
-      sessionKeys.map(async (key) => {
-        const session = await this.getSession(key);
-        return session ? { ...session, id: key } : null;
-      }),
-    );
+    const keys = await this.redisService.keys(pattern);
+    const sessions: SessionWithId[] = [];
 
-    return sessions.filter(Boolean);
+    for (const key of keys) {
+      const data = await this.redisService.get(key);
+      if (data) {
+        const session = JSON.parse(data);
+        sessions.push({ ...session, id: key.replace(this.SESSION_PREFIX, '') });
+      }
+    }
+
+    return sessions;
   }
 
   async removeAllUserSessions(userId: string): Promise<number> {
     const pattern = `${this.SESSION_PREFIX}${userId}:*`;
-    const sessionKeys = await this.redisService.keys(pattern);
-    
-    await Promise.all(
-      sessionKeys.map((key) => this.redisService.del(key)),
-    );
+    const keys = await this.redisService.keys(pattern);
+    let count = 0;
 
-    return sessionKeys.length;
-  }
-
-  async cleanupExpiredSessions(): Promise<number> {
-    const pattern = `${this.SESSION_PREFIX}*`;
-    const sessionKeys = await this.redisService.keys(pattern);
-    let removed = 0;
-
-    for (const key of sessionKeys) {
-      const session = await this.redisService.get(key);
-      if (!session) {
-        await this.redisService.del(key);
-        removed++;
-      }
+    for (const key of keys) {
+      const deleted = await this.redisService.del(key);
+      if (deleted) count++;
     }
 
-    return removed;
+    return count;
   }
 }

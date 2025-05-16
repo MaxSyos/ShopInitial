@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsUUID, ValidateNested } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsNotEmpty, IsString, IsUUID, IsOptional, ValidateIf } from 'class-validator';
 
 /**
  * DTO para o endereço de entrega do pedido
@@ -21,41 +20,41 @@ export class OrderAddressDto {
     description: 'Rua',
     example: 'Av. Paulista, 1000'
   })
+  @ValidateIf(o => !o.addressId)
   @IsString()
-  @IsNotEmpty()
-  street: string;
+  street?: string;
 
   @ApiProperty({
     description: 'Cidade',
     example: 'São Paulo'
   })
+  @ValidateIf(o => !o.addressId)
   @IsString()
-  @IsNotEmpty()
-  city: string;
+  city?: string;
 
   @ApiProperty({
     description: 'Estado',
     example: 'SP'
   })
+  @ValidateIf(o => !o.addressId)
   @IsString()
-  @IsNotEmpty()
-  state: string;
+  state?: string;
 
   @ApiProperty({
     description: 'País',
     example: 'Brasil'
   })
+  @ValidateIf(o => !o.addressId)
   @IsString()
-  @IsNotEmpty()
-  country: string;
+  country?: string;
 
   @ApiProperty({
     description: 'CEP',
     example: '01310-100'
   })
+  @ValidateIf(o => !o.addressId)
   @IsString()
-  @IsNotEmpty()
-  postalCode: string;
+  postalCode?: string;
 }
 
 /**
@@ -68,9 +67,32 @@ export class OrderAddressDto {
  */
 export class CreateOrderDto {
   @ApiProperty({
-    description: 'Endereço de entrega do pedido'
+    description: 'Rua do endereço de entrega'
   })
-  @ValidateNested()
-  @Type(() => OrderAddressDto)
-  shippingAddress: OrderAddressDto;
+  @IsString()
+  street: string;
+
+  @ApiProperty({
+    description: 'Cidade do endereço de entrega'
+  })
+  @IsString()
+  city: string;
+
+  @ApiProperty({
+    description: 'Estado do endereço de entrega'
+  })
+  @IsString()
+  state: string;
+
+  @ApiProperty({
+    description: 'País do endereço de entrega'
+  })
+  @IsString()
+  country: string;
+
+  @ApiProperty({
+    description: 'CEP do endereço de entrega'
+  })
+  @IsString()
+  postalCode: string;
 }

@@ -89,6 +89,6 @@ export class CartController {
   @ApiOperation({ summary: 'Limpar carrinho' })
   @ApiResponse({ status: 200, description: 'Carrinho limpo com sucesso' })
   async clearCart(@GetUser() user: User) {
-    return this.cartService.clearCart(user.id);
+    return this.cartService.clear(user.id);
   }
 }

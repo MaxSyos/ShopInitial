@@ -13,35 +13,37 @@ import { ApiErrorResponse } from '../interfaces/api-error-response.interface';
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
-  catch(exception: Error, host: ArgumentsHost) {
+  catch(exception: Error | HttpException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+    let status = HttpStatus.INTERNAL_SERVER_ERROR;
+    let message = 'Erro interno do servidor';
 
-    const message =
-      exception instanceof HttpException
-        ? exception.message
-        : 'Erro interno do servidor';
+    if (exception instanceof HttpException) {
+      status = exception.getStatus();
+      const response = exception.getResponse();
+      message = typeof response === 'string' 
+        ? response 
+        : (response as any).message || exception.message;
+    }
 
-    const errorResponse: ApiErrorResponse = {
+    const errorResponse = {
       statusCode: status,
       message,
       timestamp: new Date().toISOString(),
       path: request.url,
       method: request.method,
-    };
+    } as const;
 
     // Log do erro
     this.logger.error(
       `${request.method} ${request.url} - Status: ${status} - ${message}`,
-      exception instanceof HttpException ? null : exception.stack,
+      exception instanceof HttpException ? null : (exception as Error).stack,
     );
 
-    response.status(status).json(errorResponse);
+    const res = response as any;
+    res.status(status).json(errorResponse);
   }
 }

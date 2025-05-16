@@ -11,47 +11,45 @@ import {
   CreateProductDto, 
   UpdateProductDto, 
   GetProductsQueryDto,
-  ProductSortField,
-  SortOrder
+  ProductListResponseDto,
 } from './dto/product.dto';
-import { ProductResponse, ProductListResponse } from './types/product.types';
 import { Prisma, Product } from '@prisma/client';
 
 @Injectable()
 export class ProductService {
   private readonly CACHE_TTL = 300; // 5 minutos
   private readonly CACHE_PREFIX = 'product:';
-  private readonly logger = new Logger(ProductService.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
   ) {}
 
-  private async getCache<T>(key: string): Promise<T | null> {
-    try {
-      const cached = await this.redisService.get(key);
-      return cached ? JSON.parse(cached) : null;
-    } catch (error) {
-      this.logger.error(`Erro ao obter cache: ${error.message}`);
-      return null;
-    }
-  }
-
   private async setCache<T>(key: string, data: T): Promise<void> {
     try {
-      await this.redisService.set(key, JSON.stringify(data), this.CACHE_TTL);
+      await this.redisService.set(
+        `${this.CACHE_PREFIX}${key}`,
+        JSON.stringify(data)
+      );
     } catch (error) {
-      this.logger.error(`Erro ao definir cache: ${error.message}`);
+      console.error(`Erro ao definir cache: ${error.message}`);
     }
   }
 
-  private transformBrandLogo(logo: string | null): string | undefined {
-    return logo === null ? undefined : logo;
+  private async invalidateCache(patterns: string[]): Promise<void> {
+    try {
+      await Promise.all(
+        patterns.map(pattern => 
+          this.redisService.del(`${this.CACHE_PREFIX}${pattern}`)
+        )
+      );
+    } catch (error) {
+      console.error(`Erro ao invalidar cache: ${error.message}`);
+    }
   }
 
-  async findAll(query: GetProductsQueryDto): Promise<ProductListResponse> {
-    const { page = 1, limit = 10, sortBy = ProductSortField.CREATED_AT, order = SortOrder.DESC } = query;
+  async findAll(query: GetProductsQueryDto): Promise<ProductListResponseDto> {
+    const { page = 1, limit = 10, sortBy = 'createdAt', order = 'desc' } = query;
     const skip = (page - 1) * limit;
     const take = limit;
     const orderBy = { [sortBy]: order.toLowerCase() };
@@ -64,42 +62,42 @@ export class ProductService {
       return JSON.parse(cachedData);
     }
 
-    const products = await this.prisma.product.findMany({
-      skip,
-      take,
-      where,
-      orderBy,
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
+    const [products, total] = await Promise.all([
+      this.prisma.product.findMany({
+        skip,
+        take,
+        where,
+        orderBy,
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          brand: {
+            select: {
+              id: true,
+              name: true,
+              logo: true,
+            },
           },
         },
-        brand: {
-          select: {
-            id: true,
-            name: true,
-            logo: true,
-          },
-        },
-      },
-    });
-
-    const total = await this.prisma.product.count({ where });
+      }),
+      this.prisma.product.count({ where }),
+    ]);
 
     const totalPages = Math.ceil(total / take);
-    const items: ProductResponse[] = products.map(product => ({
-      ...product,
-      price: Number(product.price),
-      brand: {
-        ...product.brand,
-        logo: product.brand.logo || undefined
-      }
-    }));
 
-    const result: ProductListResponse = {
-      items,
+    const result = {
+      items: products.map(product => ({
+        ...product,
+        price: Number(product.price),
+        brand: {
+          ...product.brand,
+          logo: product.brand.logo || undefined,
+        },
+      })),
       total,
       page,
       limit,
@@ -111,11 +109,13 @@ export class ProductService {
     return result;
   }
 
-  async findOne(id: string): Promise<ProductResponse> {
-    const cacheKey = `${this.CACHE_PREFIX}${id}`;
-    
-    const cached = await this.getCache<ProductResponse>(cacheKey);
-    if (cached) return cached;
+  async findOne(id: string): Promise<Product> {
+    const cacheKey = `${id}`;
+    const cachedData = await this.redisService.get(`${this.CACHE_PREFIX}${cacheKey}`);
+
+    if (cachedData) {
+      return JSON.parse(cachedData);
+    }
 
     const product = await this.prisma.product.findUnique({
       where: { id },
@@ -137,33 +137,39 @@ export class ProductService {
     });
 
     if (!product) {
-      throw new NotFoundException(`Produto com ID ${id} não encontrado`);
+      throw new NotFoundException('Produto não encontrado');
     }
 
-    const response: ProductResponse = {
-      id: product.id,
-      name: product.name,
-      description: product.description,
-      price: Number(product.price),
-      stock: product.stock,
-      sku: product.sku,
-      images: product.images,
-      category: product.category,
-      brand: {
-        id: product.brand.id,
-        name: product.brand.name,
-        logo: this.transformBrandLogo(product.brand.logo)
-      },
-      createdAt: product.createdAt,
-      updatedAt: product.updatedAt
-    };
+    await this.setCache(cacheKey, product);
 
-    await this.setCache(cacheKey, response);
-
-    return response;
+    return product;
   }
 
-  async create(createProductDto: CreateProductDto): Promise<ProductResponse> {
+  async create(createProductDto: CreateProductDto): Promise<Product> {
+    const existingProduct = await this.prisma.product.findUnique({
+      where: { sku: createProductDto.sku },
+    });
+
+    if (existingProduct) {
+      throw new ConflictException('SKU já está em uso');
+    }
+
+    const category = await this.prisma.category.findUnique({
+      where: { id: createProductDto.categoryId },
+    });
+
+    if (!category) {
+      throw new NotFoundException('Categoria não encontrada');
+    }
+
+    const brand = await this.prisma.brand.findUnique({
+      where: { id: createProductDto.brandId },
+    });
+
+    if (!brand) {
+      throw new NotFoundException('Marca não encontrada');
+    }
+
     const product = await this.prisma.product.create({
       data: createProductDto,
       include: {
@@ -183,19 +189,10 @@ export class ProductService {
       },
     });
 
-    const response: ProductResponse = {
-      ...product,
-      price: Number(product.price),
-      brand: {
-        id: product.brand.id,
-        name: product.brand.name,
-        logo: product.brand.logo || undefined
-      }
-    };
-    return response;
+    return product;
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto): Promise<ProductResponse> {
+  async update(id: string, updateProductDto: UpdateProductDto): Promise<Product> {
     const existingProduct = await this.prisma.product.findUnique({
       where: { id },
     });
@@ -258,15 +255,7 @@ export class ProductService {
       },
     });
 
-    const response: ProductResponse = {
-      ...product,
-      price: Number(product.price),
-      brand: {
-        ...product.brand,
-        logo: product.brand.logo || undefined
-      }
-    };
-    return response;
+    return product;
   }
 
   async remove(id: string): Promise<{ message: string }> {
@@ -286,24 +275,9 @@ export class ProductService {
     return { message: 'Produto removido com sucesso' };
   }
 
-  async updateStock(id: string, quantity: number): Promise<ProductResponse> {
+  async updateStock(id: string, quantity: number): Promise<Product> {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        brand: {
-          select: {
-            id: true,
-            name: true,
-            logo: true,
-          },
-        },
-      },
     });
 
     if (!product) {
@@ -314,39 +288,14 @@ export class ProductService {
       throw new ConflictException('Estoque insuficiente');
     }
 
-    const updatedProduct = await this.prisma.product.update({
+    return this.prisma.product.update({
       where: { id },
       data: {
         stock: {
           increment: quantity,
         },
       },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        brand: {
-          select: {
-            id: true,
-            name: true,
-            logo: true,
-          },
-        },
-      },
     });
-
-    const response: ProductResponse = {
-      ...updatedProduct,
-      price: Number(updatedProduct.price),
-      brand: {
-        ...updatedProduct.brand,
-        logo: updatedProduct.brand.logo || undefined
-      }
-    };
-    return response;
   }
 
   private async invalidateProductCache(id: string): Promise<void> {

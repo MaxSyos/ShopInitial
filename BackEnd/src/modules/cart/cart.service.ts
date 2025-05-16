@@ -28,6 +28,36 @@ export class CartService {
     private readonly productService: ProductService,
   ) {}
 
+  async findByUserId(userId: string) {
+    const cart = await this.prisma.cart.findUnique({
+      where: { userId },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                images: true,
+                stock: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!cart) {
+      return null;
+    }
+
+    return {
+      ...cart,
+      total: this.calculateTotal(cart.items),
+    };
+  }
+
   async getOrCreateCart(userId: string) {
     let cart = await this.prisma.cart.findUnique({
       where: { userId },
@@ -175,7 +205,7 @@ export class CartService {
     return this.getOrCreateCart(userId);
   }
 
-  async clearCart(userId: string) {
+  async clear(userId: string) {
     const cart = await this.prisma.cart.findUnique({
       where: { userId },
     });
@@ -193,7 +223,7 @@ export class CartService {
 
   private calculateTotal(items: any[]): number {
     return items.reduce(
-      (total, item) => total + item.quantity * item.product.price,
+      (total, item) => total + Number(item.product.price) * item.quantity,
       0,
     );
   }

@@ -1,97 +1,58 @@
 import { Injectable } from '@nestjs/common';
-import { Counter, Histogram, Gauge } from 'prom-client';
+import { Counter, Histogram } from 'prom-client';
 import { PrometheusService } from '../prometheus/prometheus.service';
 
 @Injectable()
 export class DatabaseMetricsService {
-  private readonly queryTotal: Counter;
-  private readonly queryDuration: Histogram;
-  private readonly errors: Counter;
-  private readonly connections: Gauge;
-  private readonly transactions: Counter;
-  private readonly rowsAffected: Counter;
+  private readonly queryCounter: Counter<string>;
+  private readonly queryDurationHistogram: Histogram<string>;
+  private readonly queryErrorCounter: Counter<string>;
+  private readonly rowsAffectedCounter: Counter<string>;
 
   constructor(private readonly prometheusService: PrometheusService) {
-    this.queryTotal = new Counter({
-      name: 'database_queries_total',
-      help: 'Total de queries executadas',
-      labelNames: ['operation', 'entity'],
+    // Query Counter
+    this.queryCounter = new Counter({
+      name: 'database_query_total',
+      help: 'Total number of database queries',
+      labelNames: ['action', 'model'],
     });
 
-    this.queryDuration = new Histogram({
+    // Query Duration
+    this.queryDurationHistogram = new Histogram({
       name: 'database_query_duration_seconds',
-      help: 'Duração das queries em segundos',
-      labelNames: ['operation', 'entity'],
-      buckets: [0.1, 0.3, 0.5, 1, 2, 5],
+      help: 'Duration of database queries in seconds',
+      labelNames: ['action', 'model'],
+      buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 7, 10],
     });
 
-    this.errors = new Counter({
-      name: 'database_errors_total',
-      help: 'Total de erros nas operações do banco de dados',
-      labelNames: ['operation', 'error_type'],
+    // Query Errors
+    this.queryErrorCounter = new Counter({
+      name: 'database_query_errors_total',
+      help: 'Total number of database query errors',
+      labelNames: ['action', 'model'],
     });
 
-    this.connections = new Gauge({
-      name: 'database_connections',
-      help: 'Número atual de conexões com o banco de dados',
-      labelNames: ['pool'],
-    });
-
-    this.transactions = new Counter({
-      name: 'database_transactions_total',
-      help: 'Total de transações no banco de dados',
-      labelNames: ['status'],
-    });
-
-    this.rowsAffected = new Counter({
+    // Rows Affected
+    this.rowsAffectedCounter = new Counter({
       name: 'database_rows_affected_total',
-      help: 'Total de linhas afetadas por operações',
-      labelNames: ['operation', 'entity'],
+      help: 'Total number of rows affected by database operations',
+      labelNames: ['action', 'model'],
     });
   }
 
-  recordQuery(operation: string, entity: string): void {
-    this.queryTotal.inc({ operation, entity });
+  recordQuery(action: string, model: string): void {
+    this.queryCounter.labels(action, model).inc();
   }
 
-  recordQueryDuration(operation: string, entity: string, duration: number): void {
-    this.queryDuration.observe({ operation, entity }, duration / 1000);
+  recordQueryDuration(action: string, model: string, durationMs: number): void {
+    this.queryDurationHistogram.labels(action, model).observe(durationMs / 1000);
   }
 
-  recordError(operation: string, errorType: string): void {
-    this.errors.inc({ operation, error_type: errorType });
+  recordQueryError(action: string, model: string): void {
+    this.queryErrorCounter.labels(action, model).inc();
   }
 
-  setConnections(pool: string, count: number): void {
-    this.connections.set({ pool }, count);
-  }
-
-  recordTransaction(status: 'committed' | 'rolled_back'): void {
-    this.transactions.inc({ status });
-  }
-
-  recordRowsAffected(operation: string, entity: string, count: number): void {
-    this.rowsAffected.inc({ operation, entity }, count);
-  }
-
-  // Método para medir a duração de uma query
-  async measureQuery<T>(
-    operation: string,
-    entity: string,
-    queryFn: () => Promise<T>,
-  ): Promise<T> {
-    const startTime = Date.now();
-    try {
-      const result = await queryFn();
-      const duration = Date.now() - startTime;
-      
-      this.recordQuery(operation, entity);
-      this.recordQueryDuration(operation, entity, duration);
-      
-      return result;
-    } catch (error) {
-      this.recordError(operation, error.name || 'UnknownError');
-      throw error;
-    }
+  recordRowsAffected(action: string, model: string, count: number): void {
+    this.rowsAffectedCounter.labels(action, model).inc(count);
   }
 }

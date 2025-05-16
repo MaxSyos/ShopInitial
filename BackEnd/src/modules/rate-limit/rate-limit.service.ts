@@ -50,7 +50,6 @@ export class RateLimitService {
         };
       }
 
-      // Incrementa o contador
       await this.redisService.set(
         key,
         (currentCount + 1).toString(),
@@ -58,14 +57,14 @@ export class RateLimitService {
       );
 
       this.recordMetrics('allowed', startTime);
+      
       return {
         allowed: true,
         remaining: maxLimit - (currentCount + 1),
         resetTime: timeWindow,
       };
     } catch (error) {
-      // Em caso de erro, permite a requisição mas registra o erro
-      this.prometheusService.incrementOrderProcessingError(
+      this.prometheusService.incrementProcessingError(
         'rate_limit',
         error.message,
       );
@@ -100,14 +99,13 @@ export class RateLimitService {
     
     this.prometheusService.recordDatabaseQueryDuration(
       'rate_limit',
-      type,
-      duration,
+      duration
     );
 
     if (type === 'blocked') {
-      this.prometheusService.incrementOrderProcessingError(
+      this.prometheusService.incrementProcessingError(
         'rate_limit',
-        'limit_exceeded',
+        'limit_exceeded'
       );
     }
   }
