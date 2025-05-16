@@ -5,7 +5,7 @@ import { Request, Response, NextFunction } from 'express';
 export class LoggerMiddleware implements NestMiddleware {
   private logger = new Logger('HTTP');
 
-  use(req: Request, res: Response, next: NextFunction) {
+  use = (req: Request, res: Response, next: NextFunction): void => {
     const { ip, method, originalUrl } = req;
     const userAgent = req.get('user-agent') || '';
 

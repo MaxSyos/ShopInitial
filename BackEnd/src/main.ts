@@ -2,12 +2,13 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
-import compression from 'compression';
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { PrometheusService } from './modules/prometheus/prometheus.service';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './filters/http-exception.filter';
 import { LoggerMiddleware } from './middlewares/logger.middleware';
+
+const compression = require('compression');
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
