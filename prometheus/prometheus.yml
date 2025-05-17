@@ -1,29 +1,45 @@
+# Configurações globais
 global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+  scrape_interval: 15s     # Intervalo de coleta de métricas
+  evaluation_interval: 15s  # Intervalo de avaliação de regras
+  scrape_timeout: 10s      # Timeout para coleta de métricas
 
+# Regras de alerta
 rule_files:
   - "rules/alerts.yml"
 
+# Configuração do AlertManager
 alerting:
   alertmanagers:
     - static_configs:
         - targets:
           - "alertmanager:9093"
 
+# Configurações de coleta de métricas
 scrape_configs:
-  - job_name: "api"
+  # Backend (NestJS)
+  - job_name: "backend"
+    metrics_path: "/metrics"
     static_configs:
-      - targets: ["api:3000"]
+      - targets: ["backend:3000"]
+    scrape_interval: 10s
 
+  # PostgreSQL Metrics
   - job_name: "postgres"
     static_configs:
       - targets: ["postgres-exporter:9187"]
 
+  # Redis Metrics (quando configurado)
   - job_name: "redis"
     static_configs:
       - targets: ["redis-exporter:9121"]
 
+  # Node Exporter (métricas do sistema)
   - job_name: "node"
     static_configs:
       - targets: ["node-exporter:9100"]
+
+  # Próprio Prometheus
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]

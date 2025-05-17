@@ -1,114 +1,224 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole, OrderStatus, PaymentStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  // Criar categorias
-  const categories = await Promise.all([
-    prisma.category.create({
-      data: {
-        name: 'Eletrônicos',
-        description: 'Produtos eletrônicos em geral',
-      },
-    }),
-    prisma.category.create({
-      data: {
-        name: 'Vestuário',
-        description: 'Roupas e acessórios',
-      },
-    }),
-    prisma.category.create({
-      data: {
-        name: 'Livros',
-        description: 'Livros físicos e digitais',
-      },
-    }),
-  ]);
+  // Limpar banco de dados
+  await prisma.orderItem.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.order.deleteMany();
+  await prisma.cartItem.deleteMany();
+  await prisma.cart.deleteMany();
+  await prisma.review.deleteMany();
+  await prisma.product.deleteMany();
+  await prisma.category.deleteMany();
+  await prisma.brand.deleteMany();
+  await prisma.address.deleteMany();
+  await prisma.user.deleteMany();
 
-  // Criar marcas
-  const brands = await Promise.all([
-    prisma.brand.create({
-      data: {
-        name: 'TechPro',
-        logo: 'https://example.com/techpro-logo.png',
-      },
-    }),
-    prisma.brand.create({
-      data: {
-        name: 'FashionStyle',
-        logo: 'https://example.com/fashionstyle-logo.png',
-      },
-    }),
-    prisma.brand.create({
-      data: {
-        name: 'BookWorld',
-        logo: 'https://example.com/bookworld-logo.png',
-      },
-    }),
-  ]);
-
-  // Criar produtos
-  const products = await Promise.all([
-    prisma.product.create({
-      data: {
-        name: 'Smartphone X1',
-        description: 'Smartphone último modelo',
-        price: 1999.99,
-        stock: 50,
-        sku: 'TECH-001',
-        images: ['https://example.com/smartphone-x1.jpg'],
-        categoryId: categories[0].id,
-        brandId: brands[0].id,
-      },
-    }),
-    prisma.product.create({
-      data: {
-        name: 'Camiseta Básica',
-        description: 'Camiseta 100% algodão',
-        price: 49.99,
-        stock: 100,
-        sku: 'FSH-001',
-        images: ['https://example.com/camiseta-basica.jpg'],
-        categoryId: categories[1].id,
-        brandId: brands[1].id,
-      },
-    }),
-    prisma.product.create({
-      data: {
-        name: 'Clean Code',
-        description: 'Livro sobre boas práticas de programação',
-        price: 89.99,
-        stock: 30,
-        sku: 'BK-001',
-        images: ['https://example.com/clean-code.jpg'],
-        categoryId: categories[2].id,
-        brandId: brands[2].id,
-      },
-    }),
-  ]);
-
-  // Criar usuário administrador
-  const adminPassword = await bcrypt.hash('admin123', 10);
+  // Criar usuários
+  const hashedPassword = await bcrypt.hash('Senha@123', 10);
   const admin = await prisma.user.create({
     data: {
-      email: 'admin@example.com',
-      password: adminPassword,
+      email: 'admin@shop.com',
+      password: hashedPassword,
       name: 'Administrador',
-      role: 'ADMIN',
+      role: UserRole.ADMIN,
+      isActive: true,
+    },
+  });
+
+  const user = await prisma.user.create({
+    data: {
+      email: 'cliente@shop.com',
+      password: hashedPassword,
+      name: 'Cliente Teste',
+      role: UserRole.USER,
+      isActive: true,
+    },
+  });
+
+  // Criar categorias
+  const category = await prisma.category.create({
+    data: {
+      name: 'Eletrônicos',
+      description: 'Produtos eletrônicos',
+    },
+  });
+
+  // Criar marcas
+  const brand = await prisma.brand.create({
+    data: {
+      name: 'TechBrand',
+      logo: 'https://example.com/logo.png',
+    },
+  });
+
+  // Criar produtos
+  const product = await prisma.product.create({
+    data: {
+      name: 'Smartphone X',
+      description: 'Um smartphone avançado',
+      price: 1999.99,
+      stock: 100,
+      sku: 'SMART-X',
+      images: ['https://example.com/smartphone.jpg'],
+      categoryId: category.id,
+      brandId: brand.id,
+    },
+  });
+
+  // Criar mais categorias
+  const category2 = await prisma.category.create({
+    data: {
+      name: 'Informática',
+      description: 'Produtos de informática',
+    },
+  });
+
+  const category3 = await prisma.category.create({
+    data: {
+      name: 'Áudio',
+      description: 'Equipamentos de áudio',
+    },
+  });
+
+  // Criar mais marcas
+  const brand2 = await prisma.brand.create({
+    data: {
+      name: 'NotebookBrand',
+      logo: 'https://example.com/notebookbrand-logo.png',
+    },
+  });
+
+  const brand3 = await prisma.brand.create({
+    data: {
+      name: 'AudioBrand',
+      logo: 'https://example.com/audiobrand-logo.png',
+    },
+  });
+
+  // Criar mais produtos
+  const product2 = await prisma.product.create({
+    data: {
+      name: 'Notebook Pro',
+      description: 'Um notebook de alta performance',
+      price: 4999.99,
+      stock: 50,
+      sku: 'NOTE-PRO',
+      images: ['https://example.com/notebook.jpg'],
+      categoryId: category2.id,
+      brandId: brand2.id,
+    },
+  });
+
+  const product3 = await prisma.product.create({
+    data: {
+      name: 'Fone de Ouvido',
+      description: 'Fone de ouvido com cancelamento de ruído',
+      price: 299.99,
+      stock: 200,
+      sku: 'FONE-OUV',
+      images: ['https://example.com/headphone.jpg'],
+      categoryId: category3.id,
+      brandId: brand3.id,
+    },
+  });
+
+  // Criar pedido
+  await prisma.order.create({
+    data: {
+      userId: user.id,
+      status: OrderStatus.DELIVERED,
+      total: 1999.99,
+      street: 'Rua Exemplo',
+      city: 'São Paulo',
+      state: 'SP',
+      country: 'Brasil',
+      postalCode: '01000-000',
+      items: {
+        create: [{
+          productId: product.id,
+          quantity: 1,
+          price: 1999.99,
+        }],
+      },
+      payment: {
+        create: {
+          amount: 1999.99,
+          status: PaymentStatus.COMPLETED,
+          paymentMethod: 'CREDIT_CARD',
+        },
+      },
+    },
+  });
+
+  // Criar reviews
+  await prisma.review.createMany({
+    data: [
+      {
+        productId: product.id,
+        userId: user.id,
+        rating: 5,
+        comment: 'Produto excelente! Superou minhas expectativas.',
+      },
+      {
+        productId: product2.id,
+        userId: user.id,
+        rating: 4,
+        comment: 'Ótimo desempenho, mas poderia ser mais leve.',
+      },
+      {
+        productId: product3.id,
+        userId: user.id,
+        rating: 3,
+        comment: 'Bom som, mas o preço é um pouco alto.',
+      },
+    ],
+  });
+
+  // Criar mais pedidos
+  await prisma.order.create({
+    data: {
+      userId: user.id,
+      status: OrderStatus.PENDING,
+      total: 5299.98,
+      street: 'Rua Nova',
+      city: 'Rio de Janeiro',
+      state: 'RJ',
+      country: 'Brasil',
+      postalCode: '20000-000',
+      items: {
+        create: [
+          {
+            productId: product2.id,
+            quantity: 1,
+            price: 4999.99,
+          },
+          {
+            productId: product3.id,
+            quantity: 1,
+            price: 299.99,
+          },
+        ],
+      },
+      payment: {
+        create: {
+          amount: 5299.98,
+          status: PaymentStatus.PENDING,
+          paymentMethod: 'PIX',
+        },
+      },
     },
   });
 
   console.log('Seed concluído com sucesso!');
-  console.log('Categorias criadas:', categories.length);
-  console.log('Marcas criadas:', brands.length);
-  console.log('Produtos criados:', products.length);
-  console.log('Usuário admin criado:', admin.email);
 }
 
 main()
   .catch((e) => {
-    console.error('Erro durante o seed:', e);
+    console.error(e);
     process.exit(1);
   })
   .finally(async () => {

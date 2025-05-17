@@ -28,6 +28,7 @@ model User {
   orders        Order[]
   cart          Cart?
   favorites     Product[]
+  reviews       Review[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -179,6 +180,8 @@ model Review {
   id        String   @id @default(uuid())
   productId String
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   rating    Int      @db.SmallInt
   comment   String?
   createdAt DateTime @default(now())

@@ -8,13 +8,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instala as dependências
-RUN npm ci
+RUN yarn install
 
 # Copia o código fonte
 COPY . .
 
 # Compila a aplicação Next.js
-RUN npm run build
+RUN yarn build
 
 # Estágio de produção
 FROM node:18-alpine
@@ -33,4 +33,4 @@ COPY --from=builder /app/next.config.js ./
 EXPOSE 3000
 
 # Comando para iniciar a aplicação
-CMD ["npm", "run", "start"]
+CMD ["yarn", "start"]

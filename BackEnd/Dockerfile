@@ -1,5 +1,5 @@
 # Estágio de build
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 # Define o diretório de trabalho
 WORKDIR /app
@@ -10,7 +10,7 @@ COPY prisma ./prisma/
 COPY tsconfig.json ./
 
 # Instala as dependências
-RUN npm ci
+RUN yarn install 
 
 # Copia o código fonte
 COPY . .
@@ -19,10 +19,10 @@ COPY . .
 RUN npx prisma generate
 
 # Compila o TypeScript
-RUN npm run build
+RUN yarn build
 
 # Estágio de produção
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Define o diretório de trabalho
 WORKDIR /app
@@ -37,4 +37,4 @@ COPY --from=builder /app/prisma ./prisma
 EXPOSE 3000
 
 # Comando para iniciar a aplicação
-CMD ["npm", "run", "start:prod"]
+CMD ["yarn", "start:prod"]
