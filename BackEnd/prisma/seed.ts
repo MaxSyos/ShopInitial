@@ -18,24 +18,26 @@ async function main() {
   await prisma.user.deleteMany();
 
   // Criar usuários
-  const hashedPassword = await bcrypt.hash('Senha@123', 10);
+  const hashedPassword = await bcrypt.hash('Senha@123456', 10);
   const admin = await prisma.user.create({
     data: {
-      email: 'admin@shop.com',
+      email: 'admin@example.com',
       password: hashedPassword,
-      name: 'Administrador',
+      name: 'Administrador do Sistema',
       role: UserRole.ADMIN,
       isActive: true,
+      mfaEnabled: false,
     },
   });
 
   const user = await prisma.user.create({
     data: {
-      email: 'cliente@shop.com',
+      email: 'usuario@example.com',
       password: hashedPassword,
-      name: 'Cliente Teste',
+      name: 'Usuário Teste',
       role: UserRole.USER,
       isActive: true,
+      mfaEnabled: false,
     },
   });
 

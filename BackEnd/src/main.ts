@@ -31,6 +31,17 @@ async function bootstrap() {
       credentials: true,
     });
 
+    // Configuração do Validation Pipe
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        transform: true,
+        transformOptions: { enableImplicitConversion: true },
+        forbidNonWhitelisted: true,
+      }),
+    );
+    });
+
     // Configuração de validação global
     app.useGlobalPipes(
       new ValidationPipe({
@@ -40,6 +51,8 @@ async function bootstrap() {
         transformOptions: {
           enableImplicitConversion: true,
         },
+        disableErrorMessages: false,
+        validateCustomDecorators: true,
       }),
     );
 
