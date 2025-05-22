@@ -27,7 +27,7 @@ services:
   redis:
     image: redis:7.2-alpine
     container_name: shop-redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123} --maxmemory 512mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123} --maxmemory 512mb --maxmemory-policy allkeys-lru --save 900 1 300 10 60 10000
     ports:
       - "6379:6379"
     environment:
@@ -78,28 +78,28 @@ services:
       - shop-network
     restart: unless-stopped
 
-  # Frontend (Next.js)
-  frontend:
-    build:
-      context: ./FrontEnd
-      dockerfile: Dockerfile
-      #target: development # Permite hot-reload em desenvolvimento
-    container_name: shop-frontend
-    ports:
-      - "3001:3000"
-    environment:
-      #- NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://localhost:3000
-      - NEXT_PUBLIC_BACKEND_URL=http://backend:3000
-    volumes:
-      - ./FrontEnd:/app
-      - /app/node_modules
-      - /app/.next
-    depends_on:
-      - backend
-    networks:
-      - shop-network
-    restart: unless-stopped
+  # # Frontend (Next.js)
+  # frontend:
+  #   build:
+  #     context: ./FrontEnd
+  #     dockerfile: Dockerfile
+  #     #target: development # Permite hot-reload em desenvolvimento
+  #   container_name: shop-frontend
+  #   ports:
+  #     - "3001:3000"
+  #   environment:
+  #     #- NODE_ENV=development
+  #     - NEXT_PUBLIC_API_URL=http://localhost:3000
+  #     - NEXT_PUBLIC_BACKEND_URL=http://backend:3000
+  #   volumes:
+  #     - ./FrontEnd:/app
+  #     - /app/node_modules
+  #     - /app/.next
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - shop-network
+  #   restart: unless-stopped
 
   # Prometheus (Monitoramento de Métricas)
   prometheus:
@@ -108,7 +108,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus:/etc/prometheus
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -141,9 +141,11 @@ services:
     ports:
       - "3002:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_DOMAIN=localhost
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-worldmap-panel
     volumes:
       - grafana_data:/var/lib/grafana
     depends_on:
@@ -154,14 +156,18 @@ services:
 
   alertmanager:
     image: prom/alertmanager:latest
+    container_name: shop-alertmanager
     volumes:
       - ./alertmanager/:/etc/alertmanager/
+      - alertmanager_data:/alertmanager
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
     ports:
       - "9093:9093"
-    restart: always
+    restart: unless-stopped
+    depends_on:
+      - prometheus
     networks:
       - shop-network
 
@@ -174,6 +180,8 @@ volumes:
     name: shop-prometheus-data
   grafana_data:
     name: shop-grafana-data
+  alertmanager_data:
+    name: shop-alertmanager-data
 
 networks:
   shop-network:

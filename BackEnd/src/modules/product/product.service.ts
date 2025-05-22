@@ -14,6 +14,8 @@ import {
   ProductSortField,
   SortOrder
 } from './dto/product.dto';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '@prisma/client';
 import { ProductResponse, ProductListResponse } from './types/product.types';
 import { Prisma, Product } from '@prisma/client';
 
@@ -26,6 +28,7 @@ export class ProductService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly redisService: RedisService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   private async getCache<T>(key: string): Promise<T | null> {
@@ -269,7 +272,7 @@ export class ProductService {
     return response;
   }
 
-  async remove(id: string): Promise<{ message: string }> {
+  async remove(id: string): Promise<void> {
     const product = await this.prisma.product.findUnique({
       where: { id },
     });
@@ -278,13 +281,32 @@ export class ProductService {
       throw new NotFoundException('Produto não encontrado');
     }
 
+    // Notificar administradores sobre a remoção do produto
+    const admins = await this.prisma.user.findMany({
+      where: {
+        role: 'ADMIN'
+      }
+    });
+
     await this.prisma.product.delete({
       where: { id },
     });
 
     await this.invalidateProductCache(id);
-    return { message: 'Produto removido com sucesso' };
+
+    // Enviar notificação para cada administrador
+    for (const admin of admins) {
+      await this.notificationService.create({
+        type: NotificationType.PRODUCT_REMOVED,
+        userId: admin.id,
+        title: 'Produto Removido',
+        message: `O produto "${product.name}" foi removido do catálogo.`,
+        link: '/products',
+      });
+    }
   }
+
+  private readonly STOCK_LOW_THRESHOLD = 10; // Limite para considerar estoque baixo
 
   async updateStock(id: string, quantity: number): Promise<ProductResponse> {
     const product = await this.prisma.product.findUnique({
@@ -337,6 +359,26 @@ export class ProductService {
         },
       },
     });
+
+    // Verificar se o novo estoque está baixo
+    const newStock = product.stock + quantity;
+    if (newStock <= this.STOCK_LOW_THRESHOLD) {
+      // Buscar administradores para notificar
+      const admins = await this.prisma.user.findMany({
+        where: {
+          role: 'ADMIN'
+        }
+      });
+
+      // Enviar notificação para cada administrador
+      for (const admin of admins) {
+        await this.notificationService.notifyLowStock(
+          admin.id,
+          product.id,
+          product.name
+        );
+      }
+    }
 
     const response: ProductResponse = {
       ...updatedProduct,

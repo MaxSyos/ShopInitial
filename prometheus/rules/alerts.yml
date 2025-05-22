@@ -1,14 +1,27 @@
 groups:
 - name: Alertas do Sistema
   rules:
+  # Alertas de Infraestrutura
   - alert: MemoriaAltaRedis
     expr: redis_memory_used_bytes > 1e9  # 1GB
     for: 5m
     labels:
       severity: warning
+      service: redis
     annotations:
       summary: "Uso alto de memória no Redis"
       description: "O Redis está usando mais de 1GB de memória"
+      dashboard: "https://grafana:3000/d/redis"
+
+  - alert: ServidorFaltandoMemoria
+    expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100) < 10
+    for: 5m
+    labels:
+      severity: critical
+      service: system
+    annotations:
+      summary: "Servidor com pouca memória disponível"
+      description: "Menos de 10% de memória disponível no servidor"
 
   - alert: LatenciaAltaAPI
     expr: http_request_duration_seconds{quantile="0.95"} > 1
@@ -45,3 +58,76 @@ groups:
     annotations:
       summary: "Taxa de acerto do cache baixa"
       description: "Cache hit rate menor que 50% nos últimos 15 minutos"
+
+  # Alertas de Negócio
+  - alert: TaxaDeErrosEmPedidos
+    expr: rate(order_creation_errors_total[5m]) > 0.05
+    for: 5m
+    labels:
+      severity: critical
+      service: orders
+    annotations:
+      summary: "Alta taxa de erros em pedidos"
+      description: "Mais de 5% dos pedidos estão falhando nos últimos 5 minutos"
+
+  - alert: EstoqueBaixo
+    expr: product_stock < 5
+    for: 10m
+    labels:
+      severity: warning
+      service: inventory
+    annotations:
+      summary: "Produto com estoque baixo"
+      description: "Produto {{ $labels.product_name }} com menos de 5 unidades em estoque"
+
+  - alert: FalhasEmPagamentos
+    expr: rate(payment_failures_total[15m]) > 0.1
+    for: 5m
+    labels:
+      severity: critical
+      service: payments
+    annotations:
+      summary: "Alta taxa de falhas em pagamentos"
+      description: "Mais de 10% dos pagamentos estão falhando nos últimos 15 minutos"
+
+  # Alertas de Performance
+  - alert: LatenciaAltaEmPedidos
+    expr: histogram_quantile(0.95, rate(order_processing_duration_seconds_bucket[5m])) > 30
+    for: 5m
+    labels:
+      severity: warning
+      service: orders
+    annotations:
+      summary: "Processamento lento de pedidos"
+      description: "95% dos pedidos estão demorando mais de 30 segundos para processar"
+
+  - alert: TaxaDeErros5xx
+    expr: sum(rate(http_requests_total{status=~"5.."}[5m])) by (service) / sum(rate(http_requests_total[5m])) by (service) > 0.05
+    for: 5m
+    labels:
+      severity: critical
+      service: api
+    annotations:
+      summary: "Alta taxa de erros 5xx"
+      description: "Mais de 5% das requisições estão resultando em erros 5xx"
+
+  # Alertas de Banco de Dados
+  - alert: ConexoesDBCriticas
+    expr: pg_stat_activity_count > 150
+    for: 5m
+    labels:
+      severity: critical
+      service: database
+    annotations:
+      summary: "Número crítico de conexões no banco de dados"
+      description: "PostgreSQL tem mais de 150 conexões ativas"
+
+  - alert: LatenciaAltaDB
+    expr: rate(pg_stat_activity_max_tx_duration[1m]) > 30
+    for: 5m
+    labels:
+      severity: warning
+      service: database
+    annotations:
+      summary: "Consultas lentas no banco de dados"
+      description: "Transações estão demorando mais de 30 segundos"

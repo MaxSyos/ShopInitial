@@ -4,11 +4,13 @@ import { ProductService } from './product.service';
 import { ProductController } from './product.controller';
 import { RedisModule } from '../redis/redis.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
     RedisModule,
     PrismaModule,
+    NotificationModule,
     CacheModule.registerAsync({
       useFactory: () => ({
         ttl: 300, // 5 minutos em segundos

@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nes
 import { ApiBearerAuth, ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CartService } from './cart.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { AddToCartDto, UpdateCartItemDto } from './dto/cart.dto';
+import { AddToCartDto, UpdateCartItemDto, CartResponseDto } from './dto/cart.dto';
 import { User } from '@prisma/client';
 import { GetUser } from '../../decorators/get-user.decorator';
 
@@ -16,7 +16,7 @@ import { GetUser } from '../../decorators/get-user.decorator';
  * @swagger
  * Documentado com decorators do Swagger para geração automática da documentação da API
  */
-@ApiTags('cart') // Tag Swagger para agrupar endpoints do carrinho
+@ApiTags('Cart') // Tag Swagger para agrupar endpoints do carrinho
 @Controller('cart') // Prefixo da rota: /cart
 @UseGuards(JwtAuthGuard) // Protege todas as rotas com autenticação JWT
 @ApiBearerAuth() // Indica que as rotas requerem token Bearer
@@ -29,8 +29,15 @@ export class CartController {
    * @returns Carrinho com itens e total calculado
    */
   @Get()
-  @ApiOperation({ summary: 'Obter carrinho do usuário' })
-  @ApiResponse({ status: 200, description: 'Carrinho encontrado com sucesso' })
+  @ApiOperation({ 
+    summary: 'Obter carrinho do usuário',
+    description: 'Retorna o carrinho atual do usuário com lista de itens e totais calculados'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Carrinho retornado com sucesso',
+    type: CartResponseDto
+  })
   async getCart(@GetUser() user: User) {
     return this.cartService.getOrCreateCart(user.id);
   }
@@ -42,8 +49,15 @@ export class CartController {
    * @returns Carrinho atualizado
    */
   @Post('items')
-  @ApiOperation({ summary: 'Adicionar item ao carrinho' })
-  @ApiResponse({ status: 201, description: 'Item adicionado com sucesso' })
+  @ApiOperation({ 
+    summary: 'Adicionar item ao carrinho',
+    description: 'Adiciona um novo produto ao carrinho ou atualiza a quantidade se já existir'
+  })
+  @ApiResponse({ 
+    status: 201, 
+    description: 'Item adicionado com sucesso',
+    type: CartResponseDto
+  })
   async addToCart(
     @GetUser() user: User,
     @Body() addToCartDto: AddToCartDto,
@@ -59,8 +73,15 @@ export class CartController {
    * @returns Carrinho atualizado
    */
   @Put('items/:itemId')
-  @ApiOperation({ summary: 'Atualizar quantidade do item no carrinho' })
-  @ApiResponse({ status: 200, description: 'Item atualizado com sucesso' })
+  @ApiOperation({ 
+    summary: 'Atualizar quantidade do item',
+    description: 'Atualiza a quantidade de um item específico no carrinho'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Item atualizado com sucesso',
+    type: CartResponseDto
+  })
   async updateCartItem(
     @GetUser() user: User,
     @Param('itemId') itemId: string,
@@ -76,8 +97,15 @@ export class CartController {
    * @returns Carrinho atualizado
    */
   @Delete('items/:itemId')
-  @ApiOperation({ summary: 'Remover item do carrinho' })
-  @ApiResponse({ status: 200, description: 'Item removido com sucesso' })
+  @ApiOperation({ 
+    summary: 'Remover item do carrinho',
+    description: 'Remove um item específico do carrinho'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Item removido com sucesso',
+    type: CartResponseDto
+  })
   async removeFromCart(
     @GetUser() user: User,
     @Param('itemId') itemId: string,
@@ -85,9 +113,21 @@ export class CartController {
     return this.cartService.removeItem(user.id, itemId);
   }
 
+  /**
+   * Limpa o carrinho do usuário
+   * @param user Usuário autenticado
+   * @returns Carrinho vazio
+   */
   @Delete()
-  @ApiOperation({ summary: 'Limpar carrinho' })
-  @ApiResponse({ status: 200, description: 'Carrinho limpo com sucesso' })
+  @ApiOperation({ 
+    summary: 'Limpar carrinho',
+    description: 'Remove todos os itens do carrinho'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Carrinho limpo com sucesso',
+    type: CartResponseDto
+  })
   async clearCart(@GetUser() user: User) {
     return this.cartService.clear(user.id);
   }

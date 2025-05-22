@@ -21,7 +21,7 @@ import { OrderResponse } from './interfaces/order-response.interface';
  * @remarks
  * Todas as rotas requerem autenticação JWT
  */
-@ApiTags('orders')
+@ApiTags('Orders')
 @Controller('orders')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()

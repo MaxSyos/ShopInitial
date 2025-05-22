@@ -2,7 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CacheTestService } from '../../services/cache-test.service';
 
-@ApiTags('health')
+@ApiTags('Health')
 @Controller('health')
 export class HealthController {
   constructor(private readonly cacheTestService: CacheTestService) {}

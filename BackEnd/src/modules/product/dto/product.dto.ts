@@ -1,4 +1,4 @@
-import { ApiProperty, PartialType } from '@nestjs/swagger';
+import { ApiProperty, PartialType, ApiTags } from '@nestjs/swagger';
 import { 
   IsString, 
   IsNumber, 
@@ -15,46 +15,82 @@ import {
 import { Type } from 'class-transformer';
 
 // DTOs para criação e atualização
+@ApiTags('Products')
 export class CreateProductDto {
-  @ApiProperty({ example: 'Smartphone XYZ' })
+  @ApiProperty({ 
+    example: 'Smartphone XYZ', 
+    description: 'Nome do produto',
+    minLength: 3,
+    maxLength: 100 
+  })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ example: 'Um smartphone incrível com câmera de 108MP' })
+  @ApiProperty({ 
+    example: 'Um smartphone incrível com câmera de 108MP',
+    description: 'Descrição detalhada do produto',
+    minLength: 10,
+    maxLength: 1000
+  })
   @IsString()
   @IsNotEmpty()
   description: string;
 
-  @ApiProperty({ example: 1999.99 })
+  @ApiProperty({ 
+    example: 1999.99,
+    description: 'Preço do produto',
+    minimum: 0.01,
+    type: Number
+  })
   @IsNumber({ maxDecimalPlaces: 2 })
   @IsPositive()
   @Type(() => Number)
   price: number;
 
-  @ApiProperty({ example: 100 })
+  @ApiProperty({ 
+    example: 100,
+    description: 'Quantidade em estoque',
+    minimum: 0,
+    type: Number
+  })
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   stock: number;
 
-  @ApiProperty({ example: 'SKU123456' })
+  @ApiProperty({ 
+    example: 'SKU123456',
+    description: 'Código único do produto',
+    uniqueItems: true
+  })
   @IsString()
   @IsNotEmpty()
   sku: string;
 
-  @ApiProperty({ example: ['http://example.com/image1.jpg'] })
+  @ApiProperty({ 
+    example: ['http://example.com/image1.jpg'],
+    description: 'URLs das imagens do produto',
+    minItems: 1,
+    type: [String]
+  })
   @IsArray()
   @IsString({ each: true })
   @ArrayMinSize(1)
   images: string[];
 
-  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiProperty({ 
+    example: '9f5f3142-719c-4f43-9d12-0f2f1c7f4f92',
+    description: 'ID da categoria do produto'
+  })
   @IsUUID()
   @IsNotEmpty()
   categoryId: string;
 
-  @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiProperty({ 
+    example: '1f5f3142-719c-4f43-9d12-0f2f1c7f4f92',
+    description: 'ID da marca do produto'
+  })
   @IsUUID()
   @IsNotEmpty()
   brandId: string;

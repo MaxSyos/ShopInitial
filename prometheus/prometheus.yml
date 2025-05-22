@@ -43,3 +43,31 @@ scrape_configs:
   - job_name: "prometheus"
     static_configs:
       - targets: ["localhost:9090"]
+
+  # Métricas de Negócio
+  - job_name: "business_metrics"
+    metrics_path: "/metrics/business"
+    static_configs:
+      - targets: ["backend:3000"]
+    scrape_interval: 30s
+
+  # Métricas de Cache
+  - job_name: "cache_metrics"
+    metrics_path: "/metrics/cache"
+    static_configs:
+      - targets: ["backend:3000"]
+    scrape_interval: 15s
+
+  # Métricas de Pagamento
+  - job_name: "payment_metrics"
+    metrics_path: "/metrics/payment"
+    static_configs:
+      - targets: ["backend:3000"]
+    scrape_interval: 20s
+
+  # Métricas de Usuários
+  - job_name: "user_metrics"
+    metrics_path: "/metrics/users"
+    static_configs:
+      - targets: ["backend:3000"]
+    scrape_interval: 1m

@@ -10,6 +10,7 @@ import { CartService } from '../cart/cart.service';
 import { ProductService } from '../product/product.service';
 import { OrderResponse, IOrderItemResponse } from './interfaces/order-response.interface';
 import { OrderStatus, Prisma } from '@prisma/client';
+import { NotificationService } from '../notification/notification.service';
 
 /**
  * Serviço responsável pelo gerenciamento de pedidos
@@ -20,6 +21,7 @@ export class OrderService {
     private readonly prisma: PrismaService,
     private readonly cartService: CartService,
     private readonly productService: ProductService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   /**
@@ -87,10 +89,13 @@ export class OrderService {
         // 4. Limpar o carrinho
         await this.cartService.clear(userId);
 
+        // 5. Enviar notificação
+        await this.notificationService.notifyOrderCreated(userId, order.id);
+
         return order;
       });
 
-      // 5. Transformar a resposta
+      // 6. Transformar a resposta
       const items: IOrderItemResponse[] = order.items.map((item) => ({
         id: item.id,
         quantity: item.quantity,
@@ -254,5 +259,86 @@ export class OrderService {
         updatedAt: order.updatedAt,
       };
     });
+  }
+
+  /**
+   * Atualiza o status de um pedido
+   * 
+   * @param orderId - ID do pedido
+   * @param userId - ID do usuário (para validação de acesso)
+   * @param status - Novo status do pedido
+   * @returns Pedido atualizado com todos os detalhes
+   * 
+   * @throws NotFoundException
+   * - Se o pedido não for encontrado
+   */
+  async updateStatus(orderId: string, userId: string, status: OrderStatus): Promise<OrderResponse> {
+    // 1. Buscar o pedido
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, userId },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+        user: true,
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Pedido não encontrado');
+    }
+
+    // 2. Atualizar o status
+    const updatedOrder = await this.prisma.order.update({
+      where: { id: orderId },
+      data: { status },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+        user: true,
+      },
+    });
+
+    // 3. Enviar notificação
+    await this.notificationService.notifyOrderStatusUpdated(userId, orderId, status);
+
+    // 4. Transformar a resposta
+    const items: IOrderItemResponse[] = updatedOrder.items.map((item) => ({
+      id: item.id,
+      quantity: item.quantity,
+      price: Number(item.price),
+      product: {
+        id: item.product.id,
+        name: item.product.name,
+        price: Number(item.product.price),
+      },
+    }));
+
+    return {
+      id: updatedOrder.id,
+      status: updatedOrder.status,
+      total: Number(updatedOrder.total),
+      items,
+      user: {
+        id: updatedOrder.user.id,
+        name: updatedOrder.user.name,
+        email: updatedOrder.user.email,
+      },
+      shippingAddress: {
+        id: updatedOrder.id,
+        street: updatedOrder.street,
+        city: updatedOrder.city,
+        state: updatedOrder.state,
+        country: updatedOrder.country,
+        postalCode: updatedOrder.postalCode,
+      },
+      createdAt: updatedOrder.createdAt,
+      updatedAt: updatedOrder.updatedAt,
+    };
   }
 }

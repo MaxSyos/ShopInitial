@@ -3,7 +3,7 @@ import { PrometheusService } from './prometheus.service';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
 
-@ApiTags('metrics')
+@ApiTags('Metrics')
 @Controller('metrics')
 export class MetricsController {
   constructor(private readonly prometheusService: PrometheusService) {}

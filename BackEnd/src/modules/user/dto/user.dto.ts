@@ -1,4 +1,4 @@
-import { IsString, IsEmail, MinLength, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsEmail, MinLength, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateUserDto {
@@ -14,11 +14,6 @@ export class CreateUserDto {
   @IsString()
   @MinLength(8)
   password: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  mfaEnabled?: boolean;
 }
 
 export class UpdateUserDto {
@@ -26,11 +21,6 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   name?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  mfaEnabled?: boolean;
 }
 
 export class UserResponseDto {
@@ -48,9 +38,6 @@ export class UserResponseDto {
 
   @ApiProperty()
   isActive: boolean;
-
-  @ApiProperty()
-  mfaEnabled: boolean;
 
   @ApiProperty()
   createdAt: Date;

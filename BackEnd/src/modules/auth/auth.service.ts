@@ -21,12 +21,24 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, password: string) {
-    const user = await this.userService.findByEmail(email);
-    if (user && (await bcrypt.compare(password, user.password))) {
+    try {
+      
+      const user = await this.userService.findByEmail(email);
+      if (!user) {
+        throw new UnauthorizedException('Email ou senha inválidos');
+        
+      }
+      
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        throw new UnauthorizedException('Email ou senha inválidos');
+      }
+
       const { password: _, ...result } = user;
       return result;
+    } catch (error) {
+      throw new UnauthorizedException('Email ou senha inválidos');
     }
-    return null;
   }
 
   async login(loginDto: LoginDto) {
@@ -73,10 +85,29 @@ export class AuthService {
         password: hashedPassword,
         role: UserRole.USER,
       },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+      },
     });
 
-    // Retorna o token JWT
-    return this.generateTokens(user);
+    // Gera tokens
+    const tokens = await this.generateTokens(user);
+    await this.saveRefreshToken(user.id, tokens.refreshToken);
+
+    // Retorna o token JWT e dados do usuário
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    };
   }
 
   async refreshToken(refreshToken: string) {

@@ -17,6 +17,8 @@ import { NotificationModule } from './modules/notification/notification.module';
 import { CustomCacheInterceptor } from './interceptors/cache.interceptor';
 import { PrometheusModule } from './modules/prometheus/prometheus.module';
 import { HealthModule } from './modules/health/health.module';
+import { CategoryModule } from './modules/category/category.module';
+import { BrandModule } from './modules/brand/brand.module';
 
 @Module({
   imports: [
@@ -54,9 +56,11 @@ import { HealthModule } from './modules/health/health.module';
     ProductModule,
     CartModule,
     OrderModule,
-    HealthModule,
     PaymentModule,
     NotificationModule,
+    HealthModule,
+    CategoryModule, // Adicionado módulo de categorias
+    BrandModule, // Adicionado módulo de marcas
   ],
   providers: [
     {

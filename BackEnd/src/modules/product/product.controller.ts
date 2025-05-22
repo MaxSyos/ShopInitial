@@ -36,60 +36,97 @@ import { Roles } from '../../decorators/roles.decorator';
 import { Public } from '../../decorators/public.decorator';
 import { ApiErrorResponse } from '../../interfaces/api-error-response.interface';
 
-@ApiTags('products')
+@ApiTags('Products')
 @Controller('products')
+@ApiResponse({
+  status: HttpStatus.UNAUTHORIZED,
+  description: 'Não autorizado',
+  type: ApiErrorResponse
+})
+@ApiResponse({
+  status: HttpStatus.FORBIDDEN,
+  description: 'Acesso negado',
+  type: ApiErrorResponse
+})
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'MANAGER')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Criar um novo produto' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: 'Criar um novo produto',
+    description: 'Cria um novo produto no sistema. Requer permissões de ADMIN ou MANAGER.'
+  })
   @ApiResponse({ 
     status: HttpStatus.CREATED, 
     description: 'Produto criado com sucesso',
-    type: ProductResponseDto 
+    type: ProductResponseDto
   })
   @ApiResponse({ 
     status: HttpStatus.BAD_REQUEST, 
     description: 'Dados inválidos',
-    type: ApiErrorResponse 
+    type: ApiErrorResponse
   })
-  @ApiResponse({ 
-    status: HttpStatus.CONFLICT, 
-    description: 'SKU já existe',
-    type: ApiErrorResponse 
-  })
-  async create(@Body(ValidationPipe) createProductDto: CreateProductDto): Promise<ProductResponseDto> {
+  async create(@Body() createProductDto: CreateProductDto): Promise<ProductResponseDto> {
     return this.productService.create(createProductDto);
   }
 
   @Get()
   @Public()
-  @ApiOperation({ summary: 'Listar produtos com filtros e paginação' })
+  @ApiOperation({ 
+    summary: 'Listar produtos',
+    description: 'Retorna uma lista paginada de produtos com filtros opcionais.'
+  })
+  @ApiQuery({ 
+    name: 'page', 
+    required: false, 
+    description: 'Número da página',
+    type: Number 
+  })
+  @ApiQuery({ 
+    name: 'limit', 
+    required: false, 
+    description: 'Quantidade de itens por página',
+    type: Number 
+  })
+  @ApiQuery({ 
+    name: 'search', 
+    required: false, 
+    description: 'Termo de busca para filtrar produtos',
+    type: String 
+  })
   @ApiResponse({ 
     status: HttpStatus.OK, 
     description: 'Lista de produtos retornada com sucesso',
-    type: ProductListResponseDto 
+    type: ProductListResponseDto
   })
-  async findAll(@Query(ValidationPipe) query: GetProductsQueryDto): Promise<ProductListResponseDto> {
+  async findAll(@Query() query: GetProductsQueryDto): Promise<ProductListResponseDto> {
     return this.productService.findAll(query);
   }
 
   @Get(':id')
   @Public()
-  @ApiOperation({ summary: 'Buscar um produto pelo ID' })
-  @ApiParam({ name: 'id', description: 'ID do produto' })
+  @ApiOperation({ 
+    summary: 'Obter um produto',
+    description: 'Retorna os detalhes de um produto específico.'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'ID do produto',
+    type: String,
+    required: true
+  })
   @ApiResponse({ 
     status: HttpStatus.OK, 
-    description: 'Produto encontrado',
-    type: ProductResponseDto 
+    description: 'Produto encontrado com sucesso',
+    type: ProductResponseDto
   })
   @ApiResponse({ 
     status: HttpStatus.NOT_FOUND, 
     description: 'Produto não encontrado',
-    type: ApiErrorResponse 
+    type: ApiErrorResponse
   })
   async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<ProductResponseDto> {
     return this.productService.findOne(id);
@@ -98,27 +135,30 @@ export class ProductController {
   @Patch(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'MANAGER')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Atualizar um produto' })
-  @ApiParam({ name: 'id', description: 'ID do produto' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: 'Atualizar um produto',
+    description: 'Atualiza os dados de um produto existente. Requer permissões de ADMIN ou MANAGER.'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'ID do produto',
+    type: String,
+    required: true
+  })
   @ApiResponse({ 
     status: HttpStatus.OK, 
     description: 'Produto atualizado com sucesso',
-    type: ProductResponseDto 
+    type: ProductResponseDto
   })
   @ApiResponse({ 
     status: HttpStatus.NOT_FOUND, 
     description: 'Produto não encontrado',
-    type: ApiErrorResponse 
-  })
-  @ApiResponse({ 
-    status: HttpStatus.CONFLICT, 
-    description: 'SKU já existe',
-    type: ApiErrorResponse 
+    type: ApiErrorResponse
   })
   async update(
-    @Param('id', ParseUUIDPipe) id: string, 
-    @Body(ValidationPipe) updateProductDto: UpdateProductDto
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() updateProductDto: UpdateProductDto
   ): Promise<ProductResponseDto> {
     return this.productService.update(id, updateProductDto);
   }
@@ -126,47 +166,27 @@ export class ProductController {
   @Delete(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Remover um produto' })
-  @ApiParam({ name: 'id', description: 'ID do produto' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: 'Excluir um produto',
+    description: 'Remove um produto do sistema. Requer permissão de ADMIN.'
+  })
+  @ApiParam({ 
+    name: 'id', 
+    description: 'ID do produto',
+    type: String,
+    required: true
+  })
   @ApiResponse({ 
-    status: HttpStatus.OK, 
-    description: 'Produto removido com sucesso' 
+    status: HttpStatus.NO_CONTENT, 
+    description: 'Produto excluído com sucesso'
   })
   @ApiResponse({ 
     status: HttpStatus.NOT_FOUND, 
     description: 'Produto não encontrado',
-    type: ApiErrorResponse 
+    type: ApiErrorResponse
   })
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<{ message: string }> {
+  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.productService.remove(id);
-  }
-
-  @Patch(':id/stock')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'MANAGER')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Atualizar estoque do produto' })
-  @ApiParam({ name: 'id', description: 'ID do produto' })
-  @ApiResponse({ 
-    status: HttpStatus.OK, 
-    description: 'Estoque atualizado com sucesso',
-    type: ProductResponseDto 
-  })
-  @ApiResponse({ 
-    status: HttpStatus.NOT_FOUND, 
-    description: 'Produto não encontrado',
-    type: ApiErrorResponse 
-  })
-  @ApiResponse({ 
-    status: HttpStatus.CONFLICT, 
-    description: 'Estoque insuficiente',
-    type: ApiErrorResponse 
-  })
-  async updateStock(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body('quantity', new ParseIntPipe()) quantity: number
-  ): Promise<ProductResponseDto> {
-    return this.productService.updateStock(id, quantity);
   }
 }
