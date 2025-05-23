@@ -12,14 +12,14 @@ import { Type } from 'class-transformer';
  * 
  * @example
  * {
- *   "productId": "123e4567-e89b-12d3-a456-426614174000",
+ *   "productId": "550e8400-e29b-41d4-a716-446655440004",
  *   "quantity": 1
  * }
  */
 export class AddToCartDto {
   @ApiProperty({
     description: 'ID do produto a ser adicionado ao carrinho',
-    example: '123e4567-e89b-12d3-a456-426614174000'
+    example: '550e8400-e29b-41d4-a716-446655440004'
   })
   @IsUUID()
   productId: string;
@@ -66,25 +66,29 @@ export class UpdateCartItemDto {
  */
 export class CartItemResponseDto {
   @ApiProperty({
-    description: 'ID único do item no carrinho'
+    description: 'ID único do item no carrinho',
+    example: '550e8400-e29b-41d4-a716-446655440005'
   })
   id: string;
 
   @ApiProperty({
-    description: 'Quantidade do item selecionada'
+    description: 'Quantidade do item selecionada',
+    example: 1
   })
   quantity: number;
 
   @ApiProperty({
     description: 'Informações do produto',
-    type: 'object',
-    properties: {
-      id: { type: 'string' },
-      name: { type: 'string' },
-      price: { type: 'number' },
-      quantity: { type: 'number' }
-    },
-    additionalProperties: false
+    example: {
+      id: '550e8400-e29b-41d4-a716-446655440004',
+      name: 'Samsung Galaxy S24 Ultra',
+      price: 9999.99,
+      images: [
+        'https://shopinitial.com/images/s24-ultra-black.jpg',
+        'https://shopinitial.com/images/s24-ultra-detail.jpg'
+      ],
+      stock: 50
+    }
   })
   product: {
     id: string;
@@ -108,12 +112,14 @@ export class CartItemResponseDto {
  */
 export class CartResponseDto {
   @ApiProperty({
-    description: 'ID único do carrinho'
+    description: 'ID único do carrinho',
+    example: '550e8400-e29b-41d4-a716-446655440006'
   })
   id: string;
 
   @ApiProperty({
-    description: 'ID do usuário proprietário do carrinho'
+    description: 'ID do usuário proprietário do carrinho',
+    example: '550e8400-e29b-41d4-a716-446655440000'
   })
   userId: string;
 
@@ -125,17 +131,19 @@ export class CartResponseDto {
 
   @ApiProperty({
     description: 'Valor total do carrinho',
-    example: 299.99
+    example: 9999.99
   })
   total: number;
 
   @ApiProperty({
-    description: 'Data de criação do carrinho'
+    description: 'Data de criação do carrinho',
+    example: '2024-05-20T10:00:00Z'
   })
   createdAt: Date;
 
   @ApiProperty({
-    description: 'Data da última atualização do carrinho'
+    description: 'Data da última atualização do carrinho',
+    example: '2024-05-20T10:00:00Z'
   })
   updatedAt: Date;
 }

@@ -18,7 +18,7 @@ import { Type } from 'class-transformer';
 @ApiTags('Products')
 export class CreateProductDto {
   @ApiProperty({ 
-    example: 'Smartphone XYZ', 
+    example: 'Samsung Galaxy S24 Ultra', 
     description: 'Nome do produto',
     minLength: 3,
     maxLength: 100 
@@ -28,7 +28,7 @@ export class CreateProductDto {
   name: string;
 
   @ApiProperty({ 
-    example: 'Um smartphone incrível com câmera de 108MP',
+    example: 'O smartphone mais avançado da Samsung com câmera de 200MP, S Pen e tela Dynamic AMOLED 2X de 6.8"',
     description: 'Descrição detalhada do produto',
     minLength: 10,
     maxLength: 1000
@@ -38,7 +38,7 @@ export class CreateProductDto {
   description: string;
 
   @ApiProperty({ 
-    example: 1999.99,
+    example: 9999.99,
     description: 'Preço do produto',
     minimum: 0.01,
     type: Number
@@ -49,7 +49,7 @@ export class CreateProductDto {
   price: number;
 
   @ApiProperty({ 
-    example: 100,
+    example: 50,
     description: 'Quantidade em estoque',
     minimum: 0,
     type: Number
@@ -60,7 +60,7 @@ export class CreateProductDto {
   stock: number;
 
   @ApiProperty({ 
-    example: 'SKU123456',
+    example: 'SM-S928B-512GB',
     description: 'Código único do produto',
     uniqueItems: true
   })
@@ -69,7 +69,10 @@ export class CreateProductDto {
   sku: string;
 
   @ApiProperty({ 
-    example: ['http://example.com/image1.jpg'],
+    example: [
+      'https://shopinitial.com/images/s24-ultra-black.jpg',
+      'https://shopinitial.com/images/s24-ultra-detail.jpg'
+    ],
     description: 'URLs das imagens do produto',
     minItems: 1,
     type: [String]
@@ -80,7 +83,7 @@ export class CreateProductDto {
   images: string[];
 
   @ApiProperty({ 
-    example: '9f5f3142-719c-4f43-9d12-0f2f1c7f4f92',
+    example: '550e8400-e29b-41d4-a716-446655440001',
     description: 'ID da categoria do produto'
   })
   @IsUUID()
@@ -88,7 +91,7 @@ export class CreateProductDto {
   categoryId: string;
 
   @ApiProperty({ 
-    example: '1f5f3142-719c-4f43-9d12-0f2f1c7f4f92',
+    example: '550e8400-e29b-41d4-a716-446655440002',
     description: 'ID da marca do produto'
   })
   @IsUUID()
@@ -117,51 +120,51 @@ export enum SortOrder {
 }
 
 export class GetProductsQueryDto {
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, example: '550e8400-e29b-41d4-a716-446655440001' })
   @IsOptional()
   @IsUUID()
   categoryId?: string;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, example: '550e8400-e29b-41d4-a716-446655440002' })
   @IsOptional()
   @IsUUID()
   brandId?: string;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, example: 'samsung galaxy' })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiProperty({ required: false, enum: ProductSortField })
+  @ApiProperty({ required: false, enum: ProductSortField, example: ProductSortField.PRICE })
   @IsOptional()
   @IsEnum(ProductSortField)
   sortBy?: ProductSortField;
 
-  @ApiProperty({ required: false, enum: SortOrder })
+  @ApiProperty({ required: false, enum: SortOrder, example: SortOrder.ASC })
   @IsOptional()
   @IsEnum(SortOrder)
   order?: SortOrder;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, example: 1000 })
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
   minPrice?: number;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, example: 10000 })
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
   maxPrice?: number;
 
-  @ApiProperty({ required: false, default: 1 })
+  @ApiProperty({ required: false, default: 1, example: 1 })
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
   @Min(1)
   page?: number = 1;
 
-  @ApiProperty({ required: false, default: 10 })
+  @ApiProperty({ required: false, default: 10, example: 10 })
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
@@ -171,58 +174,64 @@ export class GetProductsQueryDto {
 
 // DTOs de resposta
 class CategoryResponse {
-  @ApiProperty()
+  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440001' })
   id: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'Smartphones' })
   name: string;
 }
 
 class BrandResponse {
-  @ApiProperty()
+  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440002' })
   id: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'Samsung' })
   name: string;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, example: 'https://shopinitial.com/brands/samsung.png' })
   logo?: string;
 }
 
 class ReviewResponse {
-  @ApiProperty()
+  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440003' })
   id: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 5 })
   rating: number;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ required: false, example: 'Excelente smartphone, superou minhas expectativas!' })
   comment?: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: '2024-05-20T10:00:00Z' })
   createdAt: Date;
 }
 
 export class ProductResponseDto {
-  @ApiProperty()
+  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440004' })
   id: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'Samsung Galaxy S24 Ultra' })
   name: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'O smartphone mais avançado da Samsung com câmera de 200MP, S Pen e tela Dynamic AMOLED 2X de 6.8"' })
   description: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: 9999.99 })
   price: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: 50 })
   stock: number;
 
-  @ApiProperty()
+  @ApiProperty({ example: 'SM-S928B-512GB' })
   sku: string;
 
-  @ApiProperty({ type: [String] })
+  @ApiProperty({ 
+    type: [String],
+    example: [
+      'https://shopinitial.com/images/s24-ultra-black.jpg',
+      'https://shopinitial.com/images/s24-ultra-detail.jpg'
+    ]
+  })
   images: string[];
 
   @ApiProperty({ type: CategoryResponse })
@@ -234,10 +243,10 @@ export class ProductResponseDto {
   @ApiProperty({ type: [ReviewResponse], required: false })
   reviews?: ReviewResponse[];
 
-  @ApiProperty()
+  @ApiProperty({ example: '2024-05-20T10:00:00Z' })
   createdAt: Date;
 
-  @ApiProperty()
+  @ApiProperty({ example: '2024-05-20T10:00:00Z' })
   updatedAt: Date;
 }
 

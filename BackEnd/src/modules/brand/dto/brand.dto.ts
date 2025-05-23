@@ -4,7 +4,7 @@ import { IsString, IsUrl, IsOptional } from 'class-validator';
 export class CreateBrandDto {
   @ApiProperty({
     description: 'Nome da marca',
-    example: 'Nike',
+    example: 'Samsung',
     minLength: 2,
     maxLength: 100
   })
@@ -13,7 +13,7 @@ export class CreateBrandDto {
 
   @ApiProperty({
     description: 'URL do logo da marca',
-    example: 'https://exemplo.com/logo.png',
+    example: 'https://shopinitial.com/brands/samsung.png',
     required: false
   })
   @IsOptional()
@@ -26,32 +26,32 @@ export class UpdateBrandDto extends PartialType(CreateBrandDto) {}
 export class BrandResponseDto {
   @ApiProperty({
     description: 'ID único da marca',
-    example: '123e4567-e89b-12d3-a456-426614174000'
+    example: '550e8400-e29b-41d4-a716-446655440002'
   })
   id: string;
 
   @ApiProperty({
     description: 'Nome da marca',
-    example: 'Nike'
+    example: 'Samsung'
   })
   name: string;
 
   @ApiProperty({
     description: 'URL do logo da marca',
-    example: 'https://exemplo.com/logo.png',
+    example: 'https://shopinitial.com/brands/samsung.png',
     required: false
   })
   logo?: string;
 
   @ApiProperty({
     description: 'Data de criação do registro',
-    example: '2025-05-20T10:00:00Z'
+    example: '2024-05-20T10:00:00Z'
   })
   createdAt: Date;
 
   @ApiProperty({
     description: 'Data da última atualização',
-    example: '2025-05-20T10:00:00Z'
+    example: '2024-05-20T10:00:00Z'
   })
   updatedAt: Date;
 }

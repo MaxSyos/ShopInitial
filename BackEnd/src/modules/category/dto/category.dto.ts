@@ -12,7 +12,7 @@ export class CreateCategoryDto {
   name: string;
 
   @ApiProperty({ 
-    example: 'Produtos eletrônicos em geral',
+    example: 'Produtos eletrônicos incluindo smartphones, tablets, notebooks e acessórios',
     description: 'Descrição da categoria',
     required: false
   })
@@ -21,7 +21,7 @@ export class CreateCategoryDto {
   description?: string;
 
   @ApiProperty({ 
-    example: '9f5f3142-719c-4f43-9d12-0f2f1c7f4f92',
+    example: '550e8400-e29b-41d4-a716-446655440007',
     description: 'ID da categoria pai (para subcategorias)',
     required: false
   })
@@ -33,20 +33,28 @@ export class CreateCategoryDto {
 export class UpdateCategoryDto extends PartialType(CreateCategoryDto) {}
 
 export class CategoryResponseDto {
-  @ApiProperty({ example: '9f5f3142-719c-4f43-9d12-0f2f1c7f4f92' })
+  @ApiProperty({ 
+    example: '550e8400-e29b-41d4-a716-446655440001',
+    description: 'ID único da categoria'
+  })
   id: string;
 
-  @ApiProperty({ example: 'Eletrônicos' })
+  @ApiProperty({ 
+    example: 'Smartphones',
+    description: 'Nome da categoria'
+  })
   name: string;
 
   @ApiProperty({ 
-    example: 'Produtos eletrônicos em geral',
+    example: 'Celulares e smartphones de última geração das melhores marcas',
+    description: 'Descrição da categoria',
     required: false
   })
   description?: string | null;
 
   @ApiProperty({ 
-    example: null,
+    example: '550e8400-e29b-41d4-a716-446655440007',
+    description: 'ID da categoria pai',
     required: false
   })
   parentId?: string | null;
@@ -67,6 +75,14 @@ export class CategoryResponseDto {
     description: 'Lista de subcategorias',
     type: () => [CategoryResponseDto],
     required: false,
+    example: [{
+      id: '550e8400-e29b-41d4-a716-446655440008',
+      name: 'Samsung',
+      description: 'Smartphones Samsung',
+      parentId: '550e8400-e29b-41d4-a716-446655440001',
+      createdAt: '2024-05-20T10:00:00Z',
+      updatedAt: '2024-05-20T10:00:00Z'
+    }]
   })
   children?: CategoryResponseDto[];
 
@@ -74,6 +90,14 @@ export class CategoryResponseDto {
     description: 'Categoria pai',
     type: () => CategoryResponseDto,
     required: false,
+    example: {
+      id: '550e8400-e29b-41d4-a716-446655440007',
+      name: 'Eletrônicos',
+      description: 'Produtos eletrônicos incluindo smartphones, tablets, notebooks e acessórios',
+      parentId: null,
+      createdAt: '2024-05-20T10:00:00Z',
+      updatedAt: '2024-05-20T10:00:00Z'
+    }
   })
   parent?: CategoryResponseDto;
 }

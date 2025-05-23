@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
+import { createHmac } from 'crypto';
 import {
   IPaymentProvider,
   CreatePaymentDTO,
@@ -12,6 +13,7 @@ export class MercadoPagoProvider implements IPaymentProvider {
   private readonly client: MercadoPagoConfig;
   private readonly payment: Payment;
   private readonly preference: Preference;
+  private readonly logger = new Logger(MercadoPagoProvider.name);
 
   constructor(private configService: ConfigService) {
     const accessToken = this.configService.get<string>('MERCADOPAGO_ACCESS_TOKEN');
@@ -34,39 +36,76 @@ export class MercadoPagoProvider implements IPaymentProvider {
     try {
       const paymentData = {
         body: {
-          items: [{
-            id: data.orderId,
-            title: data.description,
-            quantity: 1,
-            unit_price: Number(data.amount)
-          }],
-          description: data.description,
-          external_reference: data.orderId,
-          payment_method_id: 'pix',
           transaction_amount: Number(data.amount),
-          notification_url: this.configService.get('PAYMENT_WEBHOOK_URL'),
+          payment_method_id: "pix",
+          payment_type_id: "pix",
+          currency_id: data.currency,
+          description: data.description,
           payer: {
             email: data.customer.email,
             first_name: data.customer.firstName,
-            last_name: data.customer.lastName
-          }
+            last_name: data.customer.lastName,
+            identification: {
+              type: "CPF",
+              number: data.customer.document || '00000000000'
+            }
+          },
+          external_reference: data.orderId,
+          notification_url: this.configService.get('PAYMENT_WEBHOOK_URL'),
+          date_of_expiration: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 horas
         }
       };
 
       const result = await this.payment.create(paymentData);
+      this.logger.debug(`Pagamento PIX criado: ID=${result.id}, Status=${result.status}`);
 
+      // Validar campos obrigatórios
+      if (!result.id || !result.status) {
+        throw new Error('Resposta inválida do Mercado Pago: ID ou status ausente');
+      }
+
+      if (!result.point_of_interaction?.transaction_data?.qr_code) {
+        throw new Error('QR Code PIX não gerado pelo Mercado Pago');
+      }
+
+      // Validar e converter datas
+      let expirationDate: Date;
+      try {
+        expirationDate = result.date_of_expiration 
+          ? new Date(result.date_of_expiration)
+          : new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        if (isNaN(expirationDate.getTime())) {
+          throw new Error('Data de expiração inválida');
+        }
+      } catch (error) {
+        this.logger.error(`Erro ao processar data de expiração: ${error.message}`);
+        expirationDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      }
+
+      // Construir resposta com validações
       return {
-        id: result.id?.toString() || '',
-        status: this.convertMPStatusToPaymentStatus(result.status || 'pending'),
+        id: result.id.toString(),
+        status: this.convertMPStatusToPaymentStatus(result.status),
         externalReference: data.orderId,
-        paymentUrl: undefined,
         processorResponse: {
-          pixQrCode: result.point_of_interaction?.transaction_data?.qr_code_base64,
-          pixCode: result.point_of_interaction?.transaction_data?.qr_code,
-          pixExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 horas
-        },
+          pixQrCode: result.point_of_interaction.transaction_data.qr_code_base64,
+          pixCode: result.point_of_interaction.transaction_data.qr_code,
+          ticket_url: result.point_of_interaction.transaction_data.ticket_url,
+          pixExpiresAt: expirationDate,
+          createdAt: result.date_created ? new Date(result.date_created) : new Date(),
+          lastUpdatedAt: result.date_last_updated ? new Date(result.date_last_updated) : new Date(),
+          transactionAmount: Number(result.transaction_amount),
+          paymentMethodId: result.payment_method_id,
+          paymentTypeId: result.payment_type_id,
+          raw: result // Armazenar resposta completa para auditoria
+        }
       };
     } catch (error) {
+      this.logger.error(`Erro ao criar pagamento PIX: ${error.message}`, {
+        error,
+        paymentData: data
+      });
       throw new Error(`Erro ao criar pagamento PIX: ${error.message}`);
     }
   }
@@ -90,12 +129,13 @@ export class MercadoPagoProvider implements IPaymentProvider {
           },
           payment_methods: {
             installments: data.installments || 1,
-            excluded_payment_methods: data.paymentMethod === 'CREDIT_CARD' ? [{ id: 'pix' }] : []
+            excluded_payment_methods: []
           },
+          notification_url: this.configService.get('PAYMENT_WEBHOOK_URL'),
           back_urls: {
-            success: this.configService.get('PAYMENT_SUCCESS_URL') || '',
-            failure: this.configService.get('PAYMENT_FAILURE_URL') || '',
-            pending: this.configService.get('PAYMENT_PENDING_URL') || ''
+            success: this.configService.get('PAYMENT_SUCCESS_URL'),
+            failure: this.configService.get('PAYMENT_FAILURE_URL'),
+            pending: this.configService.get('PAYMENT_PENDING_URL')
           },
           auto_return: 'approved'
         }
@@ -107,21 +147,36 @@ export class MercadoPagoProvider implements IPaymentProvider {
         id: result.id || '',
         status: 'PENDING',
         externalReference: data.orderId,
-        paymentUrl: result.init_point || undefined,
+        paymentUrl: result.init_point,
         processorResponse: result
       };
     } catch (error) {
+      this.logger.error(`Erro ao criar preferência de pagamento: ${error.message}`);
       throw new Error(`Erro ao criar preferência de pagamento: ${error.message}`);
     }
   }
 
   async getPaymentStatus(paymentId: string): Promise<string> {
     try {
-      const payment = await this.payment.get({
-        id: paymentId
-      });
+      const payment = await this.payment.get({ id: paymentId });
+      
+      this.logger.debug(`Status do pagamento ${paymentId}: ${payment.status}`);
+      
+      // Verifica se o pagamento expirou
+      if (payment.date_of_expiration && new Date(payment.date_of_expiration) < new Date()) {
+        return 'EXPIRED';
+      }
+
+      // Tratamento especial para PIX
+      if (payment.payment_method_id === 'pix') {
+        if (payment.status === 'pending' && payment.point_of_interaction?.transaction_data?.qr_code) {
+          return 'WAITING_PAYMENT';
+        }
+      }
+
       return this.convertMPStatusToPaymentStatus(payment.status || 'pending');
     } catch (error) {
+      this.logger.error(`Erro ao obter status do pagamento: ${error.message}`);
       throw new Error(`Erro ao obter status do pagamento: ${error.message}`);
     }
   }
@@ -130,29 +185,63 @@ export class MercadoPagoProvider implements IPaymentProvider {
     try {
       const payment = await this.payment.get({ id: paymentId });
       if (payment.status === 'approved') {
-        await this.payment.cancel({ id: paymentId });
+        const refundResponse = await this.payment.cancel({ id: paymentId });
+        return refundResponse.status === 'cancelled';
       }
-      return true;
+      return false;
     } catch (error) {
+      this.logger.error(`Erro ao processar estorno: ${error.message}`);
       return false;
     }
   }
 
-  async validateWebhook(body: any, signature: string): Promise<boolean> {
-    // O Mercado Pago recomenda validar o IP de origem e o token
-    // https://www.mercadopago.com.br/developers/pt/guides/notifications/webhooks
-    const webhookSecret = this.configService.get<string>('MERCADOPAGO_WEBHOOK_SECRET');
-    if (!webhookSecret) {
-      throw new Error('MERCADOPAGO_WEBHOOK_SECRET não configurado');
+  async validateWebhook(payload: Buffer, signature?: string): Promise<boolean> {
+    try {
+      // Em ambiente de teste, aceitar todas as requisições
+      const isTestEnvironment = this.configService.get('NODE_ENV') !== 'production';
+      if (isTestEnvironment) {
+        this.logger.warn('Ambiente de teste: Ignorando validação de assinatura do webhook');
+        return true;
+      }
+
+      if (!signature) {
+        this.logger.warn('Assinatura do webhook ausente');
+        return false;
+      }
+
+      const webhookSecret = this.configService.get<string>('MERCADOPAGO_WEBHOOK_SECRET');
+      if (!webhookSecret) {
+        this.logger.error('MERCADOPAGO_WEBHOOK_SECRET não configurado');
+        return false;
+      }
+
+      // Validar assinatura usando HMAC SHA256
+      const hmac = createHmac('sha256', webhookSecret);
+      hmac.update(payload);
+      const calculatedSignature = hmac.digest('hex');
+
+      const isValid = signature === calculatedSignature;
+      if (!isValid) {
+        this.logger.warn('Assinatura do webhook inválida', {
+          receivedSignature: signature,
+          calculatedSignature,
+          payload: payload.toString()
+        });
+      }
+
+      return isValid;
+    } catch (error) {
+      this.logger.error(`Erro na validação do webhook: ${error.message}`, {
+        error,
+        payload: payload.toString()
+      });
+      return false;
     }
-    
-    // Na prática, você deve implementar a validação do IP e do token
-    return true;
   }
 
   private convertMPStatusToPaymentStatus(mpStatus: string): PaymentResponseDTO['status'] {
     const statusMap: Record<string, PaymentResponseDTO['status']> = {
-      'pending': 'PENDING',
+      'pending': 'WAITING_PAYMENT',
       'approved': 'COMPLETED',
       'authorized': 'PENDING',
       'in_process': 'PENDING',
@@ -164,6 +253,13 @@ export class MercadoPagoProvider implements IPaymentProvider {
       'expired': 'EXPIRED'
     };
 
-    return statusMap[mpStatus] || 'PENDING';
+    const status = statusMap[mpStatus];
+    if (!status) {
+      this.logger.warn(`Status desconhecido do Mercado Pago: ${mpStatus}`);
+      return 'PENDING';
+    }
+
+    this.logger.debug(`Status convertido: ${mpStatus} -> ${status}`);
+    return status;
   }
 }

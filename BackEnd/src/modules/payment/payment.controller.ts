@@ -26,10 +26,13 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../../decorators/get-user.decorator';
 import { User, Payment } from '@prisma/client';
 import { ApiErrorResponse } from '../../interfaces/api-error-response.interface';
+import { Logger } from '@nestjs/common';
 
 @ApiTags('Payments')
 @Controller('payments')
 export class PaymentController {
+  private readonly logger = new Logger(PaymentController.name);
+
   constructor(
     private readonly paymentService: PaymentService,
     private readonly configService: ConfigService,
@@ -111,23 +114,38 @@ export class PaymentController {
 
   @Post('webhook')
   @ApiOperation({
-    summary: 'Webhook de Pagamento',
-    description: 'Recebe notificações do provedor de pagamento (Mercado Pago ou Stripe).',
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Webhook processado com sucesso',
+    summary: 'Webhook do Mercado Pago',
+    description: 'Endpoint para receber notificações do Mercado Pago',
   })
   async webhook(
-    @Headers('stripe-signature') stripeSignature: string,
-    @Headers('x-mp-signature') mpSignature: string,
-    @Headers('x-mp-webhook-id') mpWebhookId: string,
-    @RawBody() body: Buffer,
-  ): Promise<any> {
-    const provider = this.configService.get('PAYMENT_PROVIDER');
-    const signature = provider === 'stripe' ? stripeSignature : mpSignature;
-    
-    return this.paymentService.webhook(signature, body);
+    @Headers('x-signature') signature: string,
+    @RawBody() rawBody: Buffer,
+    @Query('data.id') paymentId?: string,
+    @Query('type') type?: string,
+    @Body() body?: any,
+  ) {
+    try {
+      // Log para debug
+      this.logger.debug('Webhook recebido:', {
+        signature,
+        paymentId,
+        type,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+
+      // Notificação via query params (IPN)
+      if (paymentId && type === 'payment') {
+        await this.paymentService.processPaymentUpdate(paymentId);
+        return { received: true };
+      }
+
+      // Notificação via webhook
+      const webhookResult = await this.paymentService.webhook(signature, rawBody);
+      return webhookResult;
+    } catch (error) {
+      this.logger.error('Erro no webhook:', error);
+      return { received: false, error: error.message };
+    }
   }
 
   @Get(':id/pix-status')

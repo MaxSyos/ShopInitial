@@ -48,6 +48,9 @@ export interface PaymentResponseDTO {
     pixQrCode?: string;
     pixCode?: string;
     pixExpiresAt?: Date;
+    qr_code?: string;
+    qr_code_base64?: string;
+    ticket_url?: string;
     [key: string]: any;
   };
 }

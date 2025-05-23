@@ -16,6 +16,7 @@ export class NotificationService {
         title: createNotificationDto.title,
         message: createNotificationDto.message,
         link: createNotificationDto.link,
+        metadata: createNotificationDto.metadata ? JSON.stringify(createNotificationDto.metadata) : null,
       },
     });
   }
@@ -84,6 +85,9 @@ export class NotificationService {
       SHIPPED: 'foi enviado',
       DELIVERED: 'foi entregue',
       CANCELLED: 'foi cancelado',
+      PAID: 'teve o pagamento confirmado',
+      PAYMENT_FAILED: 'teve uma falha no pagamento',
+      PAYMENT_EXPIRED: 'teve o prazo de pagamento expirado'
     };
 
     return this.create({

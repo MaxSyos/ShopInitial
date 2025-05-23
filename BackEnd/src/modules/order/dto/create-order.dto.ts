@@ -10,6 +10,7 @@ import { IsNotEmpty, IsString, IsUUID, IsOptional, ValidateIf } from 'class-vali
 export class OrderAddressDto {
   @ApiProperty({
     description: 'ID do endereço existente do usuário (opcional)',
+    example: '550e8400-e29b-41d4-a716-446655440009',
     required: false
   })
   @IsUUID()
@@ -18,7 +19,7 @@ export class OrderAddressDto {
 
   @ApiProperty({
     description: 'Rua',
-    example: 'Av. Paulista, 1000'
+    example: 'Avenida Paulista, 1000'
   })
   @ValidateIf(o => !o.addressId)
   @IsString()
@@ -67,31 +68,36 @@ export class OrderAddressDto {
  */
 export class CreateOrderDto {
   @ApiProperty({
-    description: 'Rua do endereço de entrega'
+    description: 'Rua do endereço de entrega',
+    example: 'Avenida Paulista, 1000'
   })
   @IsString()
   street: string;
 
   @ApiProperty({
-    description: 'Cidade do endereço de entrega'
+    description: 'Cidade do endereço de entrega',
+    example: 'São Paulo'
   })
   @IsString()
   city: string;
 
   @ApiProperty({
-    description: 'Estado do endereço de entrega'
+    description: 'Estado do endereço de entrega',
+    example: 'SP'
   })
   @IsString()
   state: string;
 
   @ApiProperty({
-    description: 'País do endereço de entrega'
+    description: 'País do endereço de entrega',
+    example: 'Brasil'
   })
   @IsString()
   country: string;
 
   @ApiProperty({
-    description: 'CEP do endereço de entrega'
+    description: 'CEP do endereço de entrega',
+    example: '01310-100'
   })
   @IsString()
   postalCode: string;

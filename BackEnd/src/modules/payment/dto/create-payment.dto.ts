@@ -10,7 +10,7 @@ export enum PaymentMethod {
 export class CreatePaymentDto {
   @ApiProperty({
     description: 'ID do pedido associado ao pagamento',
-    example: 'order-123'
+    example: '550e8400-e29b-41d4-a716-446655440010'
   })
   @IsString()
   @IsNotEmpty()
@@ -18,7 +18,7 @@ export class CreatePaymentDto {
 
   @ApiProperty({
     description: 'Valor total do pagamento',
-    example: 100.50,
+    example: 9999.99,
     minimum: 0
   })
   @IsNumber()
@@ -38,7 +38,7 @@ export class CreatePaymentDto {
   @ApiProperty({
     description: 'Método de pagamento',
     enum: PaymentMethod,
-    example: PaymentMethod.CREDIT_CARD,
+    example: PaymentMethod.PIX,
     default: PaymentMethod.CREDIT_CARD
   })
   @IsEnum(PaymentMethod)

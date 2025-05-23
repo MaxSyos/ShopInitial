@@ -41,6 +41,14 @@ export class CreateNotificationDto {
   @IsString()
   @IsOptional()
   link?: string;
+
+  @ApiProperty({
+    description: 'Metadados adicionais da notificação (opcional)',
+    required: false,
+    example: { orderId: '123', paymentId: '456' },
+  })
+  @IsOptional()
+  metadata?: Record<string, any>;
 }
 
 export class NotificationResponseDto {
