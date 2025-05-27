@@ -154,22 +154,22 @@ ENCRYPTION_KEY=your-encryption-key
 
 ```bash
 # Instalação
-npm install
+yarn install
 
 # Desenvolvimento
-npm run start:dev
+yarn dev
 
 # Produção
-npm run build
-npm run start:prod
+yarn build
+yarn prod
 
 # Testes
-npm run test
-npm run test:e2e
+yarn test
+yarn test:e2e
 
 # Migrations
-npm run migration:generate
-npm run migration:run
+yarn generate
+yarn migrate
 ```
 
 ## CI/CD

@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger, BadRequestException } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
+import * as express from 'express';
 import type { Request, Response } from 'express';
 import { PrometheusService } from './modules/prometheus/prometheus.service';
 import { AppModule } from './app.module';
@@ -14,7 +15,9 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   
   try {
-    const app = await NestFactory.create(AppModule);
+    const app = await NestFactory.create(AppModule, {
+      rawBody: true // Habilitando raw body
+    });
 
     // Configuração do Helmet para segurança
     app.use(helmet());
@@ -24,6 +27,9 @@ async function bootstrap() {
 
     // Middleware de logging
     app.use(new LoggerMiddleware().use);
+
+    // Prefixo global para todas as rotas
+    app.setGlobalPrefix('api');
 
     // Configuração do CORS
     app.enableCors({

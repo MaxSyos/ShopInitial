@@ -17,6 +17,7 @@
     "migrate": "yarn prisma migrate deploy",
     "studio": "yarn prisma studio",
     "seed": "yarn ts-node prisma/seed.ts",
+    "seedtest": "yarn ts-node prisma/seed-test.ts",
     "clean": "rm -rf dist node_modules",
     "reinstall": "yarn clean && yarn"
   },

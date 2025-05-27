@@ -1,0 +1,88 @@
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../services/prisma.service';
+import { RedisService } from '../redis/redis.service';
+import { NotificationService } from '../notification/notification.service';
+import { CreatePaymentDto } from './dto/create-payment.dto';
+import { Payment, PaymentStatus, PaymentMethod, NotificationType, OrderStatus } from '@prisma/client';
+import { MercadoPagoProvider } from './providers/mercadopago.provider';
+import { StripeProvider } from './providers/stripe.provider';
+import { IPaymentProvider } from './interfaces/payment-provider.interface';
+
+@Injectable()
+export class PaymentService {
+  private provider: IPaymentProvider;
+  private readonly logger = new Logger(PaymentService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+    private readonly redisService: RedisService,
+    private readonly notificationService: NotificationService,
+    private readonly mercadoPagoProvider: MercadoPagoProvider,
+    private readonly stripeProvider: StripeProvider,
+  ) {
+    const paymentProvider = this.configService.get<string>('PAYMENT_PROVIDER');
+    this.provider = paymentProvider === 'stripe' ? stripeProvider : mercadoPagoProvider;
+  }
+
+  async webhook(signature: string, payload: Buffer): Promise<{ received: boolean; message?: string }> {
+    try {
+      this.logger.debug('Processando webhook do Mercado Pago', {
+        payload: payload.toString(),
+      });
+
+      // Validar assinatura em ambiente de produção
+      const isProduction = this.configService.get('NODE_ENV') === 'production';
+      if (isProduction) {
+        const isValid = await this.provider.validateWebhook(payload, signature);
+        if (!isValid) {
+          return { received: false, message: 'Assinatura do webhook inválida' };
+        }
+      }
+
+      // Parse do payload
+      const webhookData = JSON.parse(payload.toString());
+      
+      // Validar estrutura do webhook
+      if (!webhookData.type || !webhookData.data || !webhookData.data.id) {
+        return { received: false, message: 'Estrutura do webhook inválida' };
+      }
+
+      if (webhookData.type === 'payment' && webhookData.action === 'payment.updated') {
+        const paymentId = webhookData.data.id.toString();
+        await this.processPaymentUpdate(paymentId);
+      }
+
+      return { received: true };
+    } catch (error) {
+      this.logger.error(`Erro ao processar webhook: ${error.message}`, error);
+      return { received: false, message: error.message };
+    }
+  }
+
+  async processPaymentUpdate(paymentId: string): Promise<void> {
+    try {
+      this.logger.debug(`Processando atualização do pagamento: ${paymentId}`);
+      
+      // Buscar pagamento no banco de dados
+      const payment = await this.prisma.payment.findUnique({
+        where: { transactionId: paymentId },
+        include: { order: true }
+      });
+
+      if (!payment) {
+        throw new Error(`Pagamento não encontrado: ${paymentId}`);
+      }
+
+      // Obter status atual do pagamento no Mercado Pago
+      const newStatus = await this.provider.getPaymentStatus(paymentId);
+      if (newStatus !== payment.status) {
+        await this.updatePaymentStatus(payment.id, newStatus as PaymentStatus);
+      }
+    } catch (error) {
+      this.logger.error(`Erro ao processar atualização do pagamento: ${error.message}`, error);
+      throw error;
+    }
+  }
+}

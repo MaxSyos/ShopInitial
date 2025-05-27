@@ -117,34 +117,67 @@ export class PaymentController {
     summary: 'Webhook do Mercado Pago',
     description: 'Endpoint para receber notificações do Mercado Pago',
   })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Notificação processada com sucesso',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Payload inválido ou erro no processamento',
+  })
   async webhook(
     @Headers('x-signature') signature: string,
     @RawBody() rawBody: Buffer,
     @Query('data.id') paymentId?: string,
     @Query('type') type?: string,
-    @Body() body?: any,
   ) {
     try {
-      // Log para debug
-      this.logger.debug('Webhook recebido:', {
+      // Validar presença do body
+      if (!rawBody) {
+        this.logger.error('Raw body não encontrado na requisição');
+        return {
+          received: false,
+          message: 'Raw body não encontrado na requisição',
+        };
+      }
+
+      this.logger.debug('Webhook recebido', {
         signature,
         paymentId,
         type,
-        body: body ? JSON.stringify(body) : undefined,
+        rawBody: rawBody.toString(),
       });
 
-      // Notificação via query params (IPN)
+      // Notificação via query params (IPN antigo)
       if (paymentId && type === 'payment') {
-        await this.paymentService.processPaymentUpdate(paymentId);
-        return { received: true };
+        try {
+          await this.paymentService.processPaymentUpdate(paymentId);
+          return { received: true };
+        } catch (error: any) {
+          if (error.message.includes('Pagamento não encontrado')) {
+            // Retorna 200 mesmo se o pagamento não existir
+            return { 
+              received: true,
+              message: 'Pagamento ainda não existe no sistema'
+            };
+          }
+          throw error;
+        }
       }
 
-      // Notificação via webhook
-      const webhookResult = await this.paymentService.webhook(signature, rawBody);
-      return webhookResult;
+      // Notificação via webhook (novo formato)
+      const result = await this.paymentService.webhook(signature, rawBody);
+      
+      // Sempre retorna 200 para o Mercado Pago, mesmo em caso de erro
+      // apenas muda a flag received e adiciona mensagem de erro se necessário
+      return result;
     } catch (error) {
-      this.logger.error('Erro no webhook:', error);
-      return { received: false, error: error.message };
+      this.logger.error('Erro ao processar webhook', error);
+      // Retorna 200 mesmo em caso de erro, mas com received: false
+      return {
+        received: false,
+        message: error.message,
+      };
     }
   }
 

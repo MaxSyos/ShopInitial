@@ -65,7 +65,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=your-secret-key
       - JWT_EXPIRATION=3600
-      - CORS_ORIGIN=http://localhost:3001
+      - CORS_ORIGIN=http://localhost:3000
     volumes:
       - ./BackEnd:/app
       - /app/node_modules

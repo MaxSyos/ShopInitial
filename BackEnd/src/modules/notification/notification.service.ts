@@ -16,7 +16,7 @@ export class NotificationService {
         title: createNotificationDto.title,
         message: createNotificationDto.message,
         link: createNotificationDto.link,
-        metadata: createNotificationDto.metadata ? JSON.stringify(createNotificationDto.metadata) : null,
+        metadata: createNotificationDto.metadata ? createNotificationDto.metadata : { DbNull: true },
       },
     });
   }

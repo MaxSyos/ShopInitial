@@ -258,6 +258,7 @@ model Notification {
   title     String
   message   String
   link      String?
+  metadata  Json?
   read      Boolean          @default(false)
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
