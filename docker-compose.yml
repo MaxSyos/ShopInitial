@@ -86,11 +86,11 @@ services:
   #     #target: development # Permite hot-reload em desenvolvimento
   #   container_name: shop-frontend
   #   ports:
-  #     - "3001:3000"
+  #     - "4000:4000"
   #   environment:
   #     #- NODE_ENV=development
-  #     - NEXT_PUBLIC_API_URL=http://localhost:3000
-  #     - NEXT_PUBLIC_BACKEND_URL=http://backend:3000
+  #     - NEXT_PUBLIC_API_URL=http://localhost:4000
+  #     - NEXT_PUBLIC_BACKEND_URL=http://backend:4000
   #   volumes:
   #     - ./FrontEnd:/app
   #     - /app/node_modules

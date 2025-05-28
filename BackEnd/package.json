@@ -3,6 +3,7 @@
     "build": "yarn nest build",
     "format": "yarn prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "yarn nest start",
+    "test:order-flow": "yarn ts-node prisma/test-order-flow.ts",
     "dev": "yarn nest start --watch",
     "debug": "yarn nest start --debug --watch",
     "prod": "node dist/main",

@@ -37,4 +37,4 @@ COPY --from=builder /app/prisma ./prisma
 EXPOSE 3000
 
 # Comando para iniciar a aplicação
-CMD ["yarn", "start:prod"]
+CMD ["yarn", "start"]
