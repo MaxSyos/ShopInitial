@@ -59,5 +59,6 @@ export interface IPaymentProvider {
   createPayment(data: CreatePaymentDTO): Promise<PaymentResponseDTO>;
   getPaymentStatus(paymentId: string): Promise<string>;
   refundPayment(paymentId: string): Promise<boolean>;
-  validateWebhook(body: any, signature: string): Promise<boolean>;
+  validateWebhook(signature: string, payload: Buffer): Promise<boolean>;
+  processWebhook(payload: any): Promise<{ received: boolean; message?: string }>;
 }

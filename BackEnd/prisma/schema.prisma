@@ -215,7 +215,7 @@ model Payment {
   currency        String        @default("BRL")
   status          PaymentStatus
   paymentMethod   PaymentMethod @default(CREDIT_CARD)
-  provider        String        @default("MERCADOPAGO") // MERCADOPAGO ou STRIPE
+  provider        String        @default("MERCADOPAGO")
   installments    Int           @default(1)
   transactionId   String?      @unique
   refundId        String?      @unique

@@ -6,7 +6,6 @@ import { NotificationModule } from '../notification/notification.module';
 import { PrismaService } from '../../services/prisma.service';
 import { RedisModule } from '../redis/redis.module';
 import { MercadoPagoProvider } from './providers/mercadopago.provider';
-import { StripeProvider } from './providers/stripe.provider';
 
 @Module({
   imports: [
@@ -19,8 +18,7 @@ import { StripeProvider } from './providers/stripe.provider';
     PaymentService,
     PrismaService,
     MercadoPagoProvider,
-    StripeProvider,
   ],
-  exports: [PaymentService, MercadoPagoProvider, StripeProvider],
+  exports: [PaymentService],
 })
 export class PaymentModule {}

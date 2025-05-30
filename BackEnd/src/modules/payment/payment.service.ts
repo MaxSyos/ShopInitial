@@ -4,14 +4,11 @@ import { PrismaService } from '../../services/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { NotificationService } from '../notification/notification.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
-import { Payment, PaymentStatus, PaymentMethod, NotificationType, OrderStatus, Prisma } from '@prisma/client';
+import { Payment, PaymentStatus, PaymentMethod, NotificationType, OrderStatus, OrderItem } from '@prisma/client';
 import { MercadoPagoProvider } from './providers/mercadopago.provider';
-import { StripeProvider } from './providers/stripe.provider';
-import { IPaymentProvider } from './interfaces/payment-provider.interface';
 
 @Injectable()
 export class PaymentService {
-  private provider: IPaymentProvider;
   private readonly logger = new Logger(PaymentService.name);
 
   constructor(
@@ -20,11 +17,7 @@ export class PaymentService {
     private readonly redisService: RedisService,
     private readonly notificationService: NotificationService,
     private readonly mercadoPagoProvider: MercadoPagoProvider,
-    private readonly stripeProvider: StripeProvider,
-  ) {
-    const paymentProvider = this.configService.get<string>('PAYMENT_PROVIDER');
-    this.provider = paymentProvider === 'stripe' ? stripeProvider : mercadoPagoProvider;
-  }
+  ) {}
 
   async create(createPaymentDto: CreatePaymentDto): Promise<Payment> {
     const { orderId, amount, currency = 'BRL', paymentMethod = PaymentMethod.CREDIT_CARD } = createPaymentDto;
@@ -73,9 +66,8 @@ export class PaymentService {
         }
       };
 
-      const paymentResponse = await this.provider.createPayment(paymentData);
+      const paymentResponse = await this.mercadoPagoProvider.createPayment(paymentData);
 
-      // Criar o registro de pagamento
       const payment = await this.prisma.payment.create({
         data: {
           order: {
@@ -109,20 +101,18 @@ export class PaymentService {
         }
       });
 
-      // Cache da URL de pagamento
       if (paymentResponse.paymentUrl) {
         await this.redisService.set(
           `payment_url:${payment.id}`,
           paymentResponse.paymentUrl,
-          60 * 30 // 30 minutos
+          60 * 30
         );
       }
 
-      // Notificar usuário
       await this.notificationService.create({
         userId: order.userId,
         type: NotificationType.PAYMENT_PENDING,
-        title: 'Pagamento Iniciado',
+        title: paymentMethod === PaymentMethod.PIX ? 'Pagamento PIX Gerado' : 'Pagamento Iniciado',
         message: this.getPaymentMessage(payment),
         link: paymentResponse.paymentUrl || `/orders/${orderId}`,
       });
@@ -139,39 +129,16 @@ export class PaymentService {
         payload: payload.toString(),
       });
 
-      // Parse do payload
       const webhookData = JSON.parse(payload.toString());
       
-      // Validar estrutura do webhook
       if (!webhookData.type || !webhookData.data || !webhookData.data.id) {
         return { received: false, message: 'Estrutura do webhook inválida' };
       }
 
-      // Em ambiente de teste, simular resposta do Mercado Pago
       const isTestEnvironment = this.configService.get('NODE_ENV') !== 'production';
-      if (isTestEnvironment && webhookData.action === 'payment.updated') {
-        // Buscar pagamento no banco de dados
-        const payment = await this.prisma.payment.findUnique({
-          where: { transactionId: webhookData.data.id },
-          include: { order: true }
-        });
-
-        if (!payment) {
-          this.logger.warn(`Pagamento não encontrado: ${webhookData.data.id}`);
-          return { 
-            received: true, 
-            message: 'Pagamento ainda não existe no sistema' 
-          };
-        }
-
-        // Em ambiente de teste, atualizar diretamente para COMPLETED
-        await this.updatePaymentStatus(payment.id, PaymentStatus.COMPLETED);
-        return { received: true, message: 'Pagamento atualizado com sucesso (teste)' };
-      }
-
-      // Em produção, validar assinatura
+      
       if (!isTestEnvironment) {
-        const isValid = await this.provider.validateWebhook(payload, signature);
+        const isValid = await this.mercadoPagoProvider.validateWebhook(signature, payload);
         if (!isValid) {
           return { received: false, message: 'Assinatura do webhook inválida' };
         }
@@ -180,7 +147,6 @@ export class PaymentService {
       if (webhookData.type === 'payment') {
         const paymentId = webhookData.data.id.toString();
         
-        // Buscar pagamento no banco
         const payment = await this.prisma.payment.findUnique({
           where: { transactionId: paymentId },
           include: { order: true }
@@ -196,11 +162,9 @@ export class PaymentService {
 
         try {
           if (isTestEnvironment) {
-            // Em teste, simular status COMPLETED
             await this.updatePaymentStatus(payment.id, PaymentStatus.COMPLETED);
           } else {
-            // Em produção, obter status real do Mercado Pago
-            const newStatus = await this.provider.getPaymentStatus(paymentId);
+            const newStatus = await this.mercadoPagoProvider.getPaymentStatus(paymentId);
             if (newStatus !== payment.status) {
               await this.updatePaymentStatus(payment.id, newStatus as PaymentStatus);
             }
@@ -225,7 +189,6 @@ export class PaymentService {
     try {
       this.logger.debug(`Processando atualização do pagamento: ${paymentId}`);
       
-      // Buscar pagamento no banco de dados
       const payment = await this.prisma.payment.findUnique({
         where: { transactionId: paymentId },
         include: { order: true }
@@ -235,8 +198,7 @@ export class PaymentService {
         throw new Error(`Pagamento não encontrado: ${paymentId}`);
       }
 
-      // Obter status atual do pagamento no Mercado Pago
-      const newStatus = await this.provider.getPaymentStatus(paymentId);
+      const newStatus = await this.mercadoPagoProvider.getPaymentStatus(paymentId);
       const currentStatus = payment.status;
 
       if (newStatus !== currentStatus) {
@@ -274,7 +236,6 @@ export class PaymentService {
 
     const updates: any[] = [];
 
-    // Atualizar status do pagamento
     updates.push(
       this.prisma.payment.update({
         where: { id: paymentId },
@@ -282,7 +243,6 @@ export class PaymentService {
       })
     );
 
-    // Mapear status de pagamento para status de pedido
     let orderStatus: typeof OrderStatus[keyof typeof OrderStatus];
     switch (status) {
       case PaymentStatus.COMPLETED:
@@ -301,7 +261,6 @@ export class PaymentService {
         orderStatus = 'PENDING';
     }
 
-    // Atualizar status do pedido
     updates.push(
       this.prisma.order.update({
         where: { id: completePayment.order.id },
@@ -309,7 +268,6 @@ export class PaymentService {
       })
     );
 
-    // Criar notificação usando PrismaPromise
     updates.push(
       this.prisma.notification.create({
         data: {
@@ -322,7 +280,6 @@ export class PaymentService {
       })
     );
 
-    // Executar todas as atualizações em uma transação
     await this.prisma.$transaction(updates);
   }
 
@@ -349,9 +306,8 @@ export class PaymentService {
       throw new NotFoundException('Pagamento não encontrado');
     }
 
-    // Se for um pagamento PIX, verifica o status atual no provedor
     if (payment.paymentMethod === PaymentMethod.PIX && payment.transactionId) {
-      const status = await this.provider.getPaymentStatus(payment.transactionId);
+      const status = await this.mercadoPagoProvider.getPaymentStatus(payment.transactionId);
       if (status !== payment.status) {
         await this.updatePaymentStatus(payment.id, status as PaymentStatus);
         payment.status = status as PaymentStatus;
@@ -391,7 +347,7 @@ export class PaymentService {
         throw new Error('ID da transação não encontrado');
       }
 
-      const refunded = await this.provider.refundPayment(payment.transactionId);
+      const refunded = await this.mercadoPagoProvider.refundPayment(payment.transactionId);
       if (!refunded) {
         throw new Error('Falha ao processar reembolso no provedor de pagamento');
       }
@@ -401,7 +357,6 @@ export class PaymentService {
         data: { status: PaymentStatus.REFUNDED }
       });
 
-      // Notificar o usuário sobre o reembolso
       await this.notificationService.create({
         userId: payment.order.userId,
         type: NotificationType.PAYMENT_REFUNDED,
