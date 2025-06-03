@@ -39,11 +39,32 @@ export class PaymentService {
         throw new BadRequestException('Pedido não encontrado');
       }
 
+      // 1. Primeiro criar o registro do pagamento no banco com status inicial
+      const initialPayment = await this.prisma.payment.create({
+        data: {
+          order: {
+            connect: { id: orderId }
+          },
+          amount,
+          currency,
+          status: PaymentStatus.PENDING,
+          paymentMethod,
+          provider: 'MERCADOPAGO',
+        },
+        include: {
+          order: {
+            include: {
+              user: true
+            }
+          }
+        }
+      });
+
       const paymentData = {
         amount,
         currency,
         description: `Pedido #${orderId}`,
-        orderId,
+        orderId, // Usar o ID do pedido como referência externa
         customerId: order.userId,
         paymentMethod,
         items: order.items.map(item => ({
@@ -66,19 +87,24 @@ export class PaymentService {
         }
       };
 
+      // 2. Criar o pagamento no Mercado Pago
       const paymentResponse = await this.mercadoPagoProvider.createPayment(paymentData);
 
-      const payment = await this.prisma.payment.create({
+      // Verificar se o pagamento criado no MP corresponde ao nosso orderId
+      if (paymentResponse.externalReference !== orderId) {
+        this.logger.error('Inconsistência na criação do pagamento:', {
+          expectedOrderId: orderId,
+          receivedExternalReference: paymentResponse.externalReference
+        });
+        throw new Error('Erro de consistência na criação do pagamento');
+      }
+
+      // 3. Atualizar o registro com os dados do Mercado Pago
+      const updatedPayment = await this.prisma.payment.update({
+        where: { id: initialPayment.id },
         data: {
-          order: {
-            connect: { id: orderId }
-          },
-          amount,
-          currency,
           status: paymentMethod === PaymentMethod.PIX ? PaymentStatus.WAITING_PAYMENT : PaymentStatus.PENDING,
-          paymentMethod,
-          provider: 'MERCADOPAGO',
-          transactionId: paymentResponse.id,
+          transactionId: BigInt(paymentResponse.id),
           pixCode: paymentResponse.processorResponse?.pixCode,
           pixQrCode: paymentResponse.processorResponse?.pixQrCode,
           pixExpiresAt: paymentResponse.processorResponse?.pixExpiresAt,
@@ -103,7 +129,7 @@ export class PaymentService {
 
       if (paymentResponse.paymentUrl) {
         await this.redisService.set(
-          `payment_url:${payment.id}`,
+          `payment_url:${updatedPayment.id}`,
           paymentResponse.paymentUrl,
           60 * 30
         );
@@ -113,11 +139,11 @@ export class PaymentService {
         userId: order.userId,
         type: NotificationType.PAYMENT_PENDING,
         title: paymentMethod === PaymentMethod.PIX ? 'Pagamento PIX Gerado' : 'Pagamento Iniciado',
-        message: this.getPaymentMessage(payment),
+        message: this.getPaymentMessage(updatedPayment),
         link: paymentResponse.paymentUrl || `/orders/${orderId}`,
       });
 
-      return payment;
+      return updatedPayment;
     } catch (error: any) {
       throw new BadRequestException(`Erro ao processar pagamento: ${error.message}`);
     }
@@ -145,18 +171,42 @@ export class PaymentService {
       }
 
       if (webhookData.type === 'payment') {
-        const paymentId = webhookData.data.id.toString();
+        const mpPaymentId = BigInt(webhookData.data.id);
         
-        const payment = await this.prisma.payment.findUnique({
-          where: { transactionId: paymentId },
+        // Busca os detalhes do pagamento no Mercado Pago para obter o external_reference
+        const mpPaymentDetails = await this.mercadoPagoProvider.getPaymentDetails(mpPaymentId);
+        if (!mpPaymentDetails) {
+          return { 
+            received: true, 
+            message: 'Não foi possível obter detalhes do pagamento do Mercado Pago' 
+          };
+        }
+
+        // Busca o pagamento usando orderId (external_reference) e transactionId
+        const payment = await this.prisma.payment.findFirst({
+          where: {
+            OR: [
+              { orderId: mpPaymentDetails.external_reference },
+              { transactionId: mpPaymentId }
+            ]
+          },
           include: { order: true }
         });
 
         if (!payment) {
-          this.logger.warn(`Pagamento não encontrado: ${paymentId}`);
+          this.logger.warn(`Pagamento não encontrado. MP Payment ID: ${mpPaymentId}, External Reference: ${mpPaymentDetails.external_reference}`);
           return { 
             received: true, 
             message: 'Pagamento ainda não existe no sistema' 
+          };
+        }
+
+        // Verifica se o orderId corresponde ao external_reference
+        if (payment.orderId !== mpPaymentDetails.external_reference) {
+          this.logger.error(`Inconsistência encontrada - OrderId: ${payment.orderId}, External Reference: ${mpPaymentDetails.external_reference}`);
+          return {
+            received: false,
+            message: 'Inconsistência entre OrderId e External Reference'
           };
         }
 
@@ -164,7 +214,7 @@ export class PaymentService {
           if (isTestEnvironment) {
             await this.updatePaymentStatus(payment.id, PaymentStatus.COMPLETED);
           } else {
-            const newStatus = await this.mercadoPagoProvider.getPaymentStatus(paymentId);
+            const newStatus = await this.mercadoPagoProvider.getPaymentStatus(mpPaymentId);
             if (newStatus !== payment.status) {
               await this.updatePaymentStatus(payment.id, newStatus as PaymentStatus);
             }

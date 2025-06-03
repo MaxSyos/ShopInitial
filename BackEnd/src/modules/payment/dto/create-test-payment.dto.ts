@@ -4,10 +4,10 @@ import { ApiProperty } from '@nestjs/swagger';
 export class CreateTestPaymentDto {
   @ApiProperty({
     description: 'ID da transação no Mercado Pago',
-    example: '123456',
+    example: 123456,
   })
-  @IsString()
-  transactionId: string;
+  @IsNumber()
+  transactionId: number;
 
   @ApiProperty({
     description: 'Valor do pagamento',

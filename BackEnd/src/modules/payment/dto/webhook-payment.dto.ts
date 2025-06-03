@@ -3,8 +3,8 @@ import { ApiProperty } from '@nestjs/swagger';
 
 export class WebhookPaymentDataDto {
   @ApiProperty()
-  @IsString()
-  id: string;
+  @IsNumber()
+  id: number;
 }
 
 export class WebhookPaymentDto {

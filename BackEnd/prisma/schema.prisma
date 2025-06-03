@@ -217,7 +217,7 @@ model Payment {
   paymentMethod   PaymentMethod @default(CREDIT_CARD)
   provider        String        @default("MERCADOPAGO")
   installments    Int           @default(1)
-  transactionId   String?      @unique
+  transactionId   BigInt?      @unique
   refundId        String?      @unique
   processorFee    Decimal?     @db.Decimal(10, 2)
   pixCode         String?      @db.Text

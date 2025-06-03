@@ -1,10 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
-import { PaymentMethod, PaymentStatus } from '@prisma/client';
+import { PaymentMethod } from '@prisma/client';
 import { IPaymentProvider, CreatePaymentDTO, PaymentResponseDTO } from '../interfaces/payment-provider.interface';
 import axios from 'axios';
 import * as crypto from 'crypto';
+
+type ValidPaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'WAITING_PAYMENT' | 'EXPIRED';
 
 @Injectable()
 export class MercadoPagoProvider implements IPaymentProvider {
@@ -23,6 +25,21 @@ export class MercadoPagoProvider implements IPaymentProvider {
     this.client = new Payment(client);
   }
 
+  private convertMPStatusToPaymentStatus(mpStatus: string): ValidPaymentStatus {
+    const statusMap: { [key: string]: ValidPaymentStatus } = {
+      'pending': 'PENDING',
+      'approved': 'COMPLETED',
+      'authorized': 'PENDING',
+      'in_process': 'PENDING',
+      'in_mediation': 'PENDING',
+      'rejected': 'FAILED',
+      'cancelled': 'CANCELLED',
+      'refunded': 'COMPLETED', // Mapeando refunded para COMPLETED
+      'charged_back': 'FAILED'  // Mapeando charged_back para FAILED
+    };
+    return statusMap[mpStatus] || 'PENDING';
+  }
+
   async createPayment(data: CreatePaymentDTO): Promise<PaymentResponseDTO> {
     try {
       if (data.paymentMethod === PaymentMethod.PIX) {
@@ -39,62 +56,67 @@ export class MercadoPagoProvider implements IPaymentProvider {
   private async createPixPayment(data: CreatePaymentDTO): Promise<PaymentResponseDTO> {
     try {
       const sellerId = this.configService.get<string>('MERCADOPAGO_SELLER_ID');
-      const posId = this.configService.get<string>('MERCADOPAGO_POS_ID');
-      const sponsorId = this.configService.get<string>('MERCADOPAGO_SPONSOR_ID');
       const accessToken = this.configService.get<string>('MERCADOPAGO_ACCESS_TOKEN');
-
-      if (!sellerId || !posId || !sponsorId || !accessToken) {
-        throw new Error('Configurações do Mercado Pago incompletas');
+      
+      if (!sellerId || !accessToken) {
+        throw new Error('Configurações essenciais do Mercado Pago ausentes');
       }
 
-      const qrData = {
-        external_reference: data.orderId,
-        title: `Pedido #${data.orderId}`,
+      const webhookUrl = this.configService.get<string>('PAYMENT_WEBHOOK_URL') || '';
+      if (!webhookUrl || !webhookUrl.startsWith('https://')) {
+        throw new Error('Webhook URL deve usar HTTPS para o Mercado Pago');
+      }
+
+      const pixPaymentData = {
+        transaction_amount: data.amount,
         description: data.description,
-        notification_url: this.configService.get<string>('PAYMENT_WEBHOOK_URL'),
-        total_amount: Number(data.amount),
-        items: data.items.map(item => ({
-          sku_number: item.id,
-          category: "shop",
-          title: item.title,
-          description: item.title,
-          unit_price: Number(item.unitPrice),
-          quantity: item.quantity,
-          unit_measure: "unit",
-          total_amount: Number(item.unitPrice) * item.quantity
-        })),
-        sponsor: {
-          id: Number(sponsorId)
+        payment_method_id: 'pix',
+        payer: {
+          email: data.customer.email,
+          first_name: data.customer.firstName,
+          last_name: data.customer.lastName,
         },
-        cash_out: {
-          amount: 0
-        }
+        external_reference: data.orderId,
+        notification_url: webhookUrl,
+        metadata: {
+          order_id: data.orderId,
+          customer_id: data.customerId,
+          payment_type: 'pix'
+        },
+        date_of_expiration: new Date(Date.now() + (30 * 60 * 1000)).toISOString(), // 30 minutos
+        capture: true,
+        binary_mode: true
       };
 
       const response = await axios.post(
-        `${this.baseUrl}/instore/orders/qr/seller/collectors/${sellerId}/pos/${posId}/qrs`,
-        qrData,
+        `${this.baseUrl}/v1/payments`,
+        pixPaymentData,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
+            'X-Idempotency-Key': `pix_${data.orderId}_${Date.now()}`
           }
         }
       );
 
-      if (!response.data.qr_data) {
-        throw new Error('QR Code não gerado pelo Mercado Pago');
-      }
+      this.logger.debug('Resposta do Mercado Pago PIX:', response.data);
 
-      // Formatando a resposta conforme a interface PaymentResponseDTO
+      const status = this.convertMPStatusToPaymentStatus(response.data.status);
+
       return {
-        id: response.data.in_store_order_id,
-        status: PaymentStatus.WAITING_PAYMENT,
+        id: response.data.id,
+        status,
         externalReference: data.orderId,
+        paymentUrl: response.data.point_of_interaction?.transaction_data?.ticket_url || null,
         processorResponse: {
-          pixQrCode: response.data.qr_data,
-          pixCode: response.data.qr_data, // O mesmo QR code pode ser usado como código PIX
-          pixExpiresAt: new Date(Date.now() + (30 * 60 * 1000)), // 30 minutos de validade
+          pixQrCode: response.data.point_of_interaction?.transaction_data?.qr_code,
+          pixCode: response.data.point_of_interaction?.transaction_data?.qr_code_base64,
+          pixExpiresAt: new Date(response.data.date_of_expiration),
+          createdAt: new Date(response.data.date_created),
+          lastUpdatedAt: new Date(response.data.date_last_updated),
+          transactionAmount: response.data.transaction_amount,
+          paymentMethodId: response.data.payment_method_id,
+          paymentTypeId: response.data.payment_type_id,
           raw: response.data
         }
       };
@@ -119,13 +141,13 @@ export class MercadoPagoProvider implements IPaymentProvider {
       
       // Verifica se o pagamento expirou
       if (payment.date_of_expiration && new Date(payment.date_of_expiration) < new Date()) {
-        return PaymentStatus.EXPIRED;
+        return 'EXPIRED';
       }
 
       // Tratamento especial para PIX
       if (payment.payment_type_id === 'pix') {
         if (payment.status === 'pending' && payment.point_of_interaction?.transaction_data?.qr_code) {
-          return PaymentStatus.WAITING_PAYMENT;
+          return 'WAITING_PAYMENT';
         }
       }
 
@@ -199,16 +221,21 @@ export class MercadoPagoProvider implements IPaymentProvider {
     }
   }
 
-  private convertMPStatusToPaymentStatus(mpStatus: string): PaymentStatus {
-    const statusMap: { [key: string]: PaymentStatus } = {
-      approved: PaymentStatus.COMPLETED,
-      pending: PaymentStatus.PENDING,
-      in_process: PaymentStatus.PENDING,
-      rejected: PaymentStatus.FAILED,
-      cancelled: PaymentStatus.CANCELLED,
-      refunded: PaymentStatus.REFUNDED,
-    };
+  async getPaymentDetails(paymentId: string): Promise<any> {
+    try {
+      const response = await axios.get(
+        `${this.baseUrl}/v1/payments/${paymentId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.configService.get('MERCADOPAGO_ACCESS_TOKEN')}`,
+          }
+        }
+      );
 
-    return statusMap[mpStatus] || PaymentStatus.PENDING;
+      return response.data;
+    } catch (error) {
+      this.logger.error(`Erro ao obter detalhes do pagamento: ${error.message}`, error);
+      return null;
+    }
   }
 }

@@ -237,19 +237,21 @@ async function testOrderFlow() {
 
     console.log('✅ Registro inicial criado no banco com ID:', initialPayment.id);
 
-    // 4.3 Enviar para API do Mercado Pago
-    console.log('🌐 Enviando dados para Mercado Pago...');
+    // 4.3 Criar pagamento PIX via API
+    console.log('🌐 Criando pagamento PIX...');
     const paymentResponse = await axios.post(
-      `${API_URL}/api/payments/mercadopago/pix`,
+      `${API_URL}/api/payments`,
       {
-        dbPaymentId: initialPayment.id,
-        ...paymentData,
-        items: [{
-          id: product.id,
-          title: product.name,
-          quantity: cartItems.quantity,
-          unitPrice: Number(cartItems.product.price)
-        }]
+        orderId: orderId,
+        amount: cartTotal,
+        currency: 'BRL',
+        paymentMethod: PaymentMethod.PIX,
+        customer: {
+          email: user.email,
+          firstName: user.name.split(' ')[0],
+          lastName: user.name.split(' ').slice(1).join(' ')
+        },
+        description: `Pedido #${orderId}`
       },
       {
         headers: { Authorization: `Bearer ${token}` }
@@ -266,16 +268,22 @@ async function testOrderFlow() {
       throw new Error('Pagamento não encontrado no banco');
     }
 
-    // Verificar campos obrigatórios do PIX
-    const requiredFields = ['pixQrCode', 'pixCode', 'pixExpiresAt', 'transactionId'];
-    for (const field of requiredFields) {
-      if (!updatedPayment[field]) {
-        throw new Error(`Campo ${field} não foi atualizado com dados do Mercado Pago`);
-      }
+    // Verificar campos obrigatórios do PIX de forma segura
+    if (!updatedPayment.pixQrCode) {
+      throw new Error('QR Code do PIX não foi gerado');
+    }
+    if (!updatedPayment.pixCode) {
+      throw new Error('Código PIX não foi gerado');
+    }
+    if (!updatedPayment.pixExpiresAt) {
+      throw new Error('Data de expiração do PIX não foi definida');
+    }
+    if (!updatedPayment.transactionId) {
+      throw new Error('ID da transação não foi gerado');
     }
 
     console.log('✅ Dados do PIX atualizados no banco:', {
-      transactionId: updatedPayment.transactionId,
+      transactionId: String(updatedPayment.transactionId), // Converter BigInt para String para exibição
       status: updatedPayment.status,
       pixExpiresAt: updatedPayment.pixExpiresAt
     });
@@ -303,23 +311,65 @@ async function testOrderFlow() {
       action: 'payment.updated',
       api_version: '1.0',
       data: {
-        id: paymentId
+        id: Number(updatedPayment.transactionId) // Converter BigInt para Number para o JSON
       },
       type: 'payment',
       date_created: new Date().toISOString(),
-      live_mode: false
+      live_mode: false,
+      user_id: process.env.MERCADOPAGO_SELLER_ID || '123456'
     };
 
     const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET || 'test_webhook_secret';
-    const payloadBuffer = Buffer.from(JSON.stringify(webhookPayload));
-    const signature = generateWebhookSignature(payloadBuffer, webhookSecret);
+
+    // 6.1 Simula notificação de pagamento pendente
+    console.log('\n🔄 Simulando webhook de pagamento pendente (WAITING_PAYMENT)...');
+    const pendingPayloadBuffer = Buffer.from(JSON.stringify(webhookPayload));
+    const pendingSignature = generateWebhookSignature(pendingPayloadBuffer, webhookSecret);
 
     await axios.post(
       `${API_URL}/api/payments/webhook`,
       webhookPayload,
       {
         headers: {
-          'x-signature': signature,
+          'x-signature': pendingSignature,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    // Aguarda 2 segundos
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // 6.2 Simula notificação de pagamento confirmado
+    console.log('\n✅ Simulando webhook de pagamento confirmado (COMPLETED)...');
+    const completedPayloadBuffer = Buffer.from(JSON.stringify(webhookPayload));
+    const completedSignature = generateWebhookSignature(completedPayloadBuffer, webhookSecret);
+
+    await axios.post(
+      `${API_URL}/api/payments/webhook`,
+      webhookPayload,
+      {
+        headers: {
+          'x-signature': completedSignature,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    // Aguarda 2 segundos
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // 6.3 Simula notificação de pagamento expirado (opcional)
+    console.log('\n⏰ Simulando webhook de pagamento expirado (EXPIRED)...');
+    const expiredPayloadBuffer = Buffer.from(JSON.stringify(webhookPayload));
+    const expiredSignature = generateWebhookSignature(expiredPayloadBuffer, webhookSecret);
+
+    await axios.post(
+      `${API_URL}/api/payments/webhook`,
+      webhookPayload,
+      {
+        headers: {
+          'x-signature': expiredSignature,
           'Content-Type': 'application/json'
         }
       }

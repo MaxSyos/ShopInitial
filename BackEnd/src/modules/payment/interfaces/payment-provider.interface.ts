@@ -40,7 +40,7 @@ export interface CreatePaymentDTO {
 }
 
 export interface PaymentResponseDTO {
-  id: string;
+  id: number;
   status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'WAITING_PAYMENT' | 'EXPIRED';
   externalReference: string;
   paymentUrl?: string;
