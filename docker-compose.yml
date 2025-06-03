@@ -171,6 +171,21 @@ services:
     networks:
       - shop-network
 
+  # Ngrok para expor o Backend
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: shop-ngrok
+    ports:
+      - "4040:4040"
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    command: http backend:3000
+    networks:
+      - shop-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   postgres_data:
     name: shop-postgres-data

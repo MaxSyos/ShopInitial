@@ -19,6 +19,14 @@ export class PaymentService {
     private readonly mercadoPagoProvider: MercadoPagoProvider,
   ) {}
 
+  private serializePayment(payment: Payment): any {
+    return {
+      ...payment,
+      transactionId: payment.transactionId ? payment.transactionId.toString() : null,
+      amount: payment.amount ? Number(payment.amount) : null
+    };
+  }
+
   async create(createPaymentDto: CreatePaymentDto): Promise<Payment> {
     const { orderId, amount, currency = 'BRL', paymentMethod = PaymentMethod.CREDIT_CARD } = createPaymentDto;
 
@@ -42,14 +50,12 @@ export class PaymentService {
       // 1. Primeiro criar o registro do pagamento no banco com status inicial
       const initialPayment = await this.prisma.payment.create({
         data: {
-          order: {
-            connect: { id: orderId }
-          },
           amount,
           currency,
           status: PaymentStatus.PENDING,
           paymentMethod,
           provider: 'MERCADOPAGO',
+          orderId: orderId // Estabelece a relação diretamente usando orderId
         },
         include: {
           order: {
@@ -143,7 +149,7 @@ export class PaymentService {
         link: paymentResponse.paymentUrl || `/orders/${orderId}`,
       });
 
-      return updatedPayment;
+      return this.serializePayment(updatedPayment);
     } catch (error: any) {
       throw new BadRequestException(`Erro ao processar pagamento: ${error.message}`);
     }
@@ -171,7 +177,7 @@ export class PaymentService {
       }
 
       if (webhookData.type === 'payment') {
-        const mpPaymentId = BigInt(webhookData.data.id);
+        const mpPaymentId = webhookData.data.id;
         
         // Busca os detalhes do pagamento no Mercado Pago para obter o external_reference
         const mpPaymentDetails = await this.mercadoPagoProvider.getPaymentDetails(mpPaymentId);
@@ -187,7 +193,7 @@ export class PaymentService {
           where: {
             OR: [
               { orderId: mpPaymentDetails.external_reference },
-              { transactionId: mpPaymentId }
+              { transactionId: BigInt(mpPaymentId) }
             ]
           },
           include: { order: true }
@@ -240,7 +246,7 @@ export class PaymentService {
       this.logger.debug(`Processando atualização do pagamento: ${paymentId}`);
       
       const payment = await this.prisma.payment.findUnique({
-        where: { transactionId: paymentId },
+        where: { transactionId: BigInt(paymentId) },
         include: { order: true }
       });
 
@@ -334,7 +340,7 @@ export class PaymentService {
   }
 
   async findOne(id: string): Promise<Payment | null> {
-    return this.prisma.payment.findUnique({
+    const payment = await this.prisma.payment.findUnique({
       where: { id },
       include: {
         order: {
@@ -345,6 +351,8 @@ export class PaymentService {
         }
       }
     });
+
+    return payment ? this.serializePayment(payment) : null;
   }
 
   async checkPaymentStatus(id: string): Promise<{ status: PaymentStatus; pixCode?: string; pixQrCode?: string; pixExpiresAt?: Date }> {
@@ -357,7 +365,7 @@ export class PaymentService {
     }
 
     if (payment.paymentMethod === PaymentMethod.PIX && payment.transactionId) {
-      const status = await this.mercadoPagoProvider.getPaymentStatus(payment.transactionId);
+      const status = await this.mercadoPagoProvider.getPaymentStatus(payment.transactionId.toString());
       if (status !== payment.status) {
         await this.updatePaymentStatus(payment.id, status as PaymentStatus);
         payment.status = status as PaymentStatus;
@@ -397,7 +405,7 @@ export class PaymentService {
         throw new Error('ID da transação não encontrado');
       }
 
-      const refunded = await this.mercadoPagoProvider.refundPayment(payment.transactionId);
+      const refunded = await this.mercadoPagoProvider.refundPayment(payment.transactionId.toString());
       if (!refunded) {
         throw new Error('Falha ao processar reembolso no provedor de pagamento');
       }
@@ -407,15 +415,7 @@ export class PaymentService {
         data: { status: PaymentStatus.REFUNDED }
       });
 
-      await this.notificationService.create({
-        userId: payment.order.userId,
-        type: NotificationType.PAYMENT_REFUNDED,
-        title: 'Reembolso Processado',
-        message: `O reembolso do seu pedido #${payment.orderId} foi processado com sucesso.`,
-        link: `/orders/${payment.orderId}`,
-      });
-
-      return updatedPayment;
+      return this.serializePayment(updatedPayment);
     } catch (error: any) {
       throw new BadRequestException(`Erro ao processar reembolso: ${error.message}`);
     }

@@ -4,7 +4,7 @@ import axios from 'axios';
 import * as crypto from 'crypto';
 
 const prisma = new PrismaClient();
-const API_URL = 'https://solid-goggles-4jrjw6prwq4qfj7rg-3000.app.github.dev';  // URL local do backend
+const API_URL = 'https://sturdy-space-guide-6qp5wqg9v5qcxqq4-3000.app.github.dev';  // URL local do backend
 
 // Função para gerar assinatura do webhook
 function generateWebhookSignature(payload: Buffer, secret: string): string {
