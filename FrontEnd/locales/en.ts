@@ -25,6 +25,7 @@ const en: { [key: string]: string } = {
   language: "Language: ",
   fa: "فارسی - Fa",
   en: "English - En",
+  br: "Portuguese - Br",
   theme: "Theme: ",
   dark: "Dark",
   light: "Light",

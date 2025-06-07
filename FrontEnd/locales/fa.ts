@@ -19,6 +19,7 @@ const fa: { [key: string]: string } = {
   language: "انتخاب زبان:",
   fa: "فارسی - Fa",
   en: "En - English",
+  br: "Portuguese - Br",
   theme: "انتخاب تم: ",
   dark: "تیره",
   light: "روشن",

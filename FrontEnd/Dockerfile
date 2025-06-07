@@ -30,7 +30,7 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/next.config.js ./
 
 # Expõe a porta da aplicação
-EXPOSE 3000
+EXPOSE 3001
 
 # Comando para iniciar a aplicação
 CMD ["yarn", "start"]
