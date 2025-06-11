@@ -8,11 +8,12 @@ import { changeNumbersFormatEnToFa } from "../../utilities/changeNumbersFormatEn
 import { gbpCurrencyFormat } from "../../utilities/currencyFormat";
 import CartItem from "./CartItem";
 import { useExchangeRateGBPToIRR } from "../../hooks/useExchangeRateGBPToIRR";
-import { IUserInfoRootState } from "../../lib/types/user";
+import { useAuth } from "../../hooks/useAuth";
 
 const CartBox = () => {
   const { t, locale } = useLanguage();
   const dispatch = useDispatch();
+  const { user: userInfo, isAuthenticated } = useAuth();
 
   const cartItemQuantity = useSelector(
     (state: ICartRootState) => state.cart.totalQuantity
@@ -23,10 +24,6 @@ const CartBox = () => {
   );
 
   const cartItems = useSelector((state: ICartRootState) => state.cart.items);
-
-  const userInfo = useSelector(
-    (state: IUserInfoRootState) => state.userInfo.userInformation
-  );
 
   function onCloseCartBoxHandler() {
     dispatch(cartUiActions.toggleCartBox(false));
@@ -39,7 +36,7 @@ const CartBox = () => {
       <div className="relative">
         <header className="flex items-center justify-between sticky top-0 left-0 right-0 text-sm font-normal z-10 bg-palette-card p-2">
           <span>
-            {locale === "en"
+            {locale === "en" || "br"
               ? cartItemQuantity
               : changeNumbersFormatEnToFa(cartItemQuantity)}{" "}
             {t.product}
@@ -69,8 +66,8 @@ const CartBox = () => {
             <div className="flex flex-col flex-grow ltr:mr-2 rtl:ml-2">
               <p className="text-sm">{t.payableAmount}</p>
               <p className="self-end text-sm font-bold">
-                {locale === "en"
-                  ? `£ ${gbpCurrencyFormat(cartTotalAmount)}`
+                {locale === "en" || "br"
+                  ? `R$ ${gbpCurrencyFormat(cartTotalAmount)}`
                   : `تومان ${irPrice}`}
               </p>
             </div>

@@ -5,6 +5,6 @@ import br from "../locales/br";
 
 export const useLanguage = () => {
   const { locale } = useRouter();
-  const t = locale === "en" ? en : locale === "br" ? br : fa;
+  const t = locale === "br" ? br : locale === "en" ? en : fa;
   return { t, locale };
 };

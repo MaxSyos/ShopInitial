@@ -32,7 +32,7 @@ const ProductPrice: React.FC<Props> = ({
     ? "text-md md:text-xl"
     : "text-[12px] md:text-md";
   const justifyContent = isInSlider && locale === "fa" ? "flex-start" : "";
-  const flexDirection = isInSlider || locale === "en" ? "row" : "row-reverse";
+  const flexDirection = isInSlider || locale === "en" || "br" ? "row" : "row-reverse";
 
   return (
     <div>
@@ -46,20 +46,20 @@ const ProductPrice: React.FC<Props> = ({
               <del
                 className={`text-rose-800 dark:text-rose-200 md:text-sm ${textDiscountPriceSize}`}
               >
-                <sup className="mr-1">{locale === "en" ? "£" : ""}</sup>
+                <sup className="mr-1">{locale === "en" ? "$" : locale === "br" ? "R$" : "£"}</sup>
                 <sub className="ml-1 text-[10px]">
                   {locale === "fa" ? "تومان" : ""}
                 </sub>
-                {locale === "en" ? gbpCurrencyFormat(price) : irPrice}
+                {locale === "en" || "br" ? gbpCurrencyFormat(price) : irPrice}
               </del>
               <ins
                 className={`font-bold self-end no-underline mt-1 ${textMainPriceSize}`}
               >
-                <sup className="mr-1">{locale === "en" ? "£" : ""}</sup>
+                <sup className="mr-1">{locale === "en" ? "$" : locale === "br" ? "R$" : "£"}</sup>
                 <sub className="ml-1 text-[10px]">
                   {locale === "fa" ? "تومان" : ""}
                 </sub>
-                {locale === "en"
+                {locale === "en" || "br"
                   ? gbpCurrencyFormat(discountPrice)
                   : irDiscountPrice}
               </ins>
@@ -68,7 +68,7 @@ const ProductPrice: React.FC<Props> = ({
               className="text-green-800 dark:text-green-200 ml-1 text-[12px] inline-block"
               style={{ direction: "ltr" }}
             >{`(-%${
-              locale === "en" ? discount : changeNumbersFormatEnToFa(discount!)
+              locale === "en" || "br" ? discount : changeNumbersFormatEnToFa(discount!)
             })`}</span>
           </div>
         ) : (
@@ -79,9 +79,11 @@ const ProductPrice: React.FC<Props> = ({
               className={`flex items-center ${textMainPriceSize} font-bold no-underline`}
               style={{ flexDirection }}
             >
-              <sup className="mr-1 rtl:block">{locale === "en" ? "£" : ""}</sup>
+                <sup className="mr-1 rtl:block">
+                {locale === "en" ? "$" : locale === "br" ? "R$" : "£"}
+                </sup>
               <span>
-                {locale === "en" ? gbpCurrencyFormat(price) : irPrice}
+                {locale === "en" || "br" ? gbpCurrencyFormat(price) : irPrice}
               </span>
               <sub className="ml-1 text-[10px]">
                 {locale === "fa" ? "تومان" : ""}

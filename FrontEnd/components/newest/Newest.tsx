@@ -29,7 +29,6 @@ const Newest = () => {
               })
           : null}
       </div>
-      
 
       <div className="text-center">
         <Link href="/newestProducts">

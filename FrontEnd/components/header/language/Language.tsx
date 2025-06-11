@@ -11,7 +11,7 @@ const Language = () => {
   const [openLang, setOpenLang] = useState(false);
 
   useEffect(() => {
-    document.documentElement.dir = locale === "fa" ? "rtl" : "ltr";
+    document.documentElement.dir = locale === "en" || "br" ? "ltr" : "rtl";
   }, [locale]);
 
   function onCloseLangBox(isOpen: boolean) {
@@ -24,11 +24,11 @@ const Language = () => {
         <h3>{t.language}</h3>
         <div className={`ltr:ml-2 rtl:mr-2 mt-2 z-10`}>
           <LanguageItem
-            language="en"
+            language="br"
             onCloseBox={() => dispatch(settingBoxActions.closeSettingBox())}
           />
           <LanguageItem
-            language="br"
+            language="en"
             onCloseBox={() => dispatch(settingBoxActions.closeSettingBox())}
           />
           <LanguageItem
@@ -43,7 +43,7 @@ const Language = () => {
         onClick={() => setOpenLang((prevState) => !prevState)}
       >
         <p className="mx-[0.3rem] text-sm font-bold font-english">
-          {locale === "en" ? "En" : locale === "br" ? "Br" : "Fa"}
+          {locale === "br" ? "Br" : locale === "en" ? "En" : "Fa"}
         </p>
         <MdLanguage style={{ fontSize: "1.3rem" }} />
       </div>
@@ -56,8 +56,8 @@ const Language = () => {
           <div
             className={`absolute top-6 ltr:right-0 rtl:left-0 bg-palette-card py-3 px-6 shadow-md rounded-md z-10`}
           >
-            <LanguageItem language="en" onCloseBox={onCloseLangBox} />
             <LanguageItem language="br" onCloseBox={onCloseLangBox} />
+            <LanguageItem language="en" onCloseBox={onCloseLangBox} />
             <LanguageItem language="fa" onCloseBox={onCloseLangBox} />
           </div>
         </>

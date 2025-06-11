@@ -2,8 +2,12 @@
 User-agent: *
 Allow: /
 
+User-agent: Googlebot
+Disallow: /nogooglebot/
+
 # Host
-Host: undefined
+Host: https://zishop.vercel.app/
 
 # Sitemaps
-Sitemap: undefined/sitemap.xml
+Sitemap: https://zishop.vercel.app/sitemap.xml
+Sitemap: https://zishop.vercel.app/sitemap-0.xml

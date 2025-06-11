@@ -3,10 +3,12 @@ import { AiOutlineUser } from "react-icons/ai";
 import { HiChevronDown } from "react-icons/hi";
 import { Transition } from "react-transition-group";
 import UserAccountBox from "./UserAccountBox";
+import { useAuth } from "../../../hooks/useAuth";
 
 const UserAccountBtn = () => {
   const [isUserBoxOpen, setIsUserBoxOpen] = useState(false);
   const nodeRef = useRef<HTMLDivElement>(null);
+  const { user, isAuthenticated } = useAuth();
 
   function onClose() {
     setIsUserBoxOpen((prev) => prev && false);

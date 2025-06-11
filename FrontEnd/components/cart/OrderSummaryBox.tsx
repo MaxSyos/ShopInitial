@@ -26,7 +26,7 @@ const OrderSummaryBox = () => {
                 {t.totalQuantity}
               </p>
               <p className="rtl:ml-1 ltr:mr-1 font-bold">
-                {locale === "en"
+                {locale === "en" || "br"
                   ? totalQuantity
                   : changeNumbersFormatEnToFa(totalQuantity)}
               </p>

@@ -9,6 +9,7 @@ import { userInfoActions } from "../store/user-slice";
 import { getError } from "../utilities/error";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
+import { authService } from "../lib/authService";
 const Login: NextPage = () => {
   const dispatch = useDispatch();
   const router = useRouter();
@@ -21,16 +22,11 @@ const Login: NextPage = () => {
       router.push("/");
     }
   }, [userInfo, router]);
-  async function LoginHandler(user: IUser) {
-    const { email, password } = user;
+  async function LoginHandler(userData: IUser) {
     try {
-      const { data } = await axios.post("/api/users/login", {
-        email,
-        password,
-      });
-      dispatch(userInfoActions.userLogin(data));
-      jsCookie.set("userInfo", JSON.stringify(data));
-      router.push("/");
+      dispatch(userInfoActions.userLogin(userData));
+      jsCookie.set("userInfo", JSON.stringify(userData));
+      await router.push("/");
     } catch (err: any) {
       setErrorMessage(getError(err));
       console.log(getError(err));

@@ -33,8 +33,12 @@ async function bootstrap() {
 
     // Configuração do CORS
     app.enableCors({
-      origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
+      origin: true, // Permite todas as origens em desenvolvimento
       credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range'],
+      maxAge: 3600,
     });
 
     // Configuração de validação global

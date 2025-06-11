@@ -11,6 +11,8 @@ const DateTimeDisplay: React.FC<Props> = ({ value, type, isDanger }) => {
   const dateTime =
     locale === "en"
       ? new Intl.NumberFormat("en-EN").format(value)
+      : locale === "br"
+      ? new Intl.NumberFormat("pt-BR").format(value)
       : new Intl.NumberFormat("fa-IR").format(value);
   return (
     <div
