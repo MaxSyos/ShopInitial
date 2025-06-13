@@ -23,26 +23,28 @@ const SignUp: NextPage = () => {
     }
   }, [userInfo, redirect, router]);
   async function signUpHandler(user: IUser) {
-    const { name, email, password } = user;
-    try {
-      const { data } = await axios.post("/api/users/register", {
-        name,
-        email,
-        password,
-      });
-      dispatch(userInfoActions.userLogin(data));
-      jsCookie.set("userInfo", JSON.stringify(data));
-      router.push("/");
-    } catch (err: any) {
-      /* sanity.io is boycott for the people from Iran so I set cookies for whom don't use VPN in Iran*/
-      if (err.response.data.status == 500) {
-        dispatch(userInfoActions.userLogin(user));
-        jsCookie.set("userInfo", JSON.stringify(user));
-      }
-      setErrorMessage(getError(err));
-      console.log(getError(err));
-      // router.push("/");
-    }
+    // return null;
+    // const { name, email, password } = user;
+    // try {
+    //   const { data } = await axios.post("/api/users/register", {
+    //     name,
+    //     email,
+    //     password,
+    //   });
+    //   console.log("chegando aqui", data);
+    //   dispatch(userInfoActions.userLogin(data));
+    //   jsCookie.set("userInfo", JSON.stringify(data));
+    //   router.push("/");
+    // } catch (err: any) {
+    //   /* sanity.io is boycott for the people from Iran so I set cookies for whom don't use VPN in Iran*/
+    //   if (err.response.data.status == 500) {
+    //     dispatch(userInfoActions.userLogin(user));
+    //     jsCookie.set("userInfo", JSON.stringify(user));
+    //   }
+    //   setErrorMessage(getError(err));
+    //   console.log(getError(err));
+    //   // router.push("/");
+    // }
   }
   return (
     <EnteringBox

@@ -7,11 +7,14 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { ConfigService } from '@nestjs/config';
 import { UserModule } from '../user/user.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { TokenCleanupService } from './services/token-cleanup.service';
 
 @Module({
   imports: [
     PassportModule,
     PrismaModule,
+    ScheduleModule.forRoot(),
     JwtModule.registerAsync({
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
@@ -24,7 +27,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     UserModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
-  exports: [AuthService],
+  providers: [AuthService, JwtStrategy, TokenCleanupService],
+  exports: [AuthService, TokenCleanupService],
 })
 export class AuthModule {}

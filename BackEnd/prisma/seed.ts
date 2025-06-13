@@ -266,7 +266,7 @@ async function main() {
           amount: 6999.99,
           status: PaymentStatus.COMPLETED,
           paymentMethod: 'CREDIT_CARD',
-          transactionId: 'txn_123456',
+          transactionId: 123456n,
         },
       },
     },

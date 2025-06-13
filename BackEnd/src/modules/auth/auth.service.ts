@@ -8,8 +8,11 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../services/prisma.service';
 import { UserService } from '../user/user.service';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
-import { UserRole } from '../user/entities/user.entity';
+import { User, UserRole } from '@prisma/client';
+import { TokenCleanupService } from './services/token-cleanup.service';
 import * as bcrypt from 'bcrypt';
+import ms from 'ms';
+import { Tokens, JwtPayload, DurationString } from './types/auth.types';
 
 @Injectable()
 export class AuthService {
@@ -18,15 +21,14 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly userService: UserService,
+    private readonly tokenCleanupService: TokenCleanupService,
   ) {}
 
-  async validateUser(email: string, password: string) {
+  async validateUser(email: string, password: string): Promise<Omit<User, 'password'> | null> {
     try {
-      
       const user = await this.userService.findByEmail(email);
       if (!user) {
         throw new UnauthorizedException('Email ou senha inválidos');
-        
       }
       
       const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -36,7 +38,7 @@ export class AuthService {
 
       const { password: _, ...result } = user;
       return result;
-    } catch (error) {
+    } catch (error: any) {
       throw new UnauthorizedException('Email ou senha inválidos');
     }
   }
@@ -70,7 +72,10 @@ export class AuthService {
     const { email, password } = registerDto;
 
     // Verifica se o usuário já existe
-    const existingUser = await this.userService.findByEmail(email);
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
     if (existingUser) {
       throw new BadRequestException('Email já está em uso');
     }
@@ -85,19 +90,11 @@ export class AuthService {
         password: hashedPassword,
         role: UserRole.USER,
       },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-      },
     });
 
-    // Gera tokens
     const tokens = await this.generateTokens(user);
     await this.saveRefreshToken(user.id, tokens.refreshToken);
 
-    // Retorna o token JWT e dados do usuário
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
@@ -110,65 +107,19 @@ export class AuthService {
     };
   }
 
-  async refreshToken(refreshToken: string) {
-    try {
-      const payload = await this.jwtService.verifyAsync(refreshToken, {
-        secret: this.configService.get('REFRESH_TOKEN_SECRET'),
-      });
-
-      const savedToken = await this.prisma.refreshToken.findFirst({
-        where: {
-          token: refreshToken,
-          userId: payload.sub,
-        },
-      });
-
-      if (!savedToken) {
-        throw new UnauthorizedException('Token inválido');
-      }
-
-      const user = await this.userService.findOne(payload.sub);
-      const tokens = await this.generateTokens(user);
-
-      // Remove o token antigo e salva o novo
-      await this.prisma.refreshToken.delete({
-        where: { id: savedToken.id },
-      });
-      await this.saveRefreshToken(user.id, tokens.refreshToken);
-
-      return {
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        },
-      };
-    } catch (error) {
-      throw new UnauthorizedException('Token inválido ou expirado');
-    }
-  }
-
-  async logout(userId: string) {
-    await this.prisma.refreshToken.deleteMany({
-      where: { userId },
-    });
-    return { message: 'Logout realizado com sucesso' };
-  }
-
-  private async generateTokens(user: any) {
-    const payload = { email: user.email, sub: user.id, role: user.role };
+  async generateTokens(user: { id: string; email: string; role: UserRole }): Promise<Tokens> {
+    const jwtPayload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
 
     const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(payload, {
-        secret: this.configService.get('JWT_SECRET'),
-        expiresIn: this.configService.get('JWT_EXPIRATION'),
+      this.jwtService.signAsync(jwtPayload, {
+        expiresIn: this.configService.get<string>('JWT_EXPIRATION', '15m'),
       }),
-      this.jwtService.signAsync(payload, {
-        secret: this.configService.get('REFRESH_TOKEN_SECRET'),
-        expiresIn: this.configService.get('REFRESH_TOKEN_EXPIRATION'),
+      this.jwtService.signAsync(jwtPayload, {
+        expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION', '7d'),
       }),
     ]);
 
@@ -178,37 +129,102 @@ export class AuthService {
     };
   }
 
-  private async saveRefreshToken(userId: string, token: string) {
-    const expiresIn = this.configService.get('REFRESH_TOKEN_EXPIRATION');
-    const expiresAt = new Date();
-    expiresAt.setTime(
-      expiresAt.getTime() + this.parseDuration(expiresIn) * 1000,
-    );
+  async saveRefreshToken(userId: string, refreshToken: string): Promise<void> {
+    const defaultExpiration = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+    const configExpiration = this.configService.get<DurationString>('JWT_REFRESH_EXPIRATION', '7d');
+    let expiration: number;
+    
+    try {
+      // Valida se é uma string de duração válida usando o tipo personalizado
+      if (configExpiration && typeof configExpiration === 'string') {
+        const parsed = ms(configExpiration as DurationString);
+        expiration = (typeof parsed === 'number' && parsed > 0) ? parsed : defaultExpiration;
+      } else {
+        expiration = defaultExpiration;
+      }
+    } catch {
+      expiration = defaultExpiration;
+    }
+    const expiresAt = new Date(Date.now() + expiration);
 
-    await this.prisma.refreshToken.create({
+    const token = await this.prisma.refreshToken.create({
       data: {
-        token,
         userId,
+        token: refreshToken,
         expiresAt,
+      },
+    });
+
+    await this.tokenCleanupService.updateTokenLastUsed(token.id);
+  }
+
+  async refreshTokens(refreshToken: string): Promise<Tokens> {
+    try {
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(refreshToken);
+      
+      const tokenRecord = await this.prisma.refreshToken.findFirst({
+        where: {
+          token: refreshToken,
+          userId: payload.sub,
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      if (!tokenRecord) {
+        throw new UnauthorizedException('Token de atualização inválido');
+      }
+
+      if (tokenRecord.expiresAt < new Date()) {
+        await this.prisma.refreshToken.delete({
+          where: { id: tokenRecord.id },
+        });
+        throw new UnauthorizedException('Token de atualização expirado');
+      }
+
+      if (!tokenRecord.user || !tokenRecord.user.isActive) {
+        throw new UnauthorizedException('Usuário inválido ou inativo');
+      }
+
+      // Gera novos tokens
+      const newTokens = await this.generateTokens({
+        id: tokenRecord.user.id,
+        email: tokenRecord.user.email,
+        role: tokenRecord.user.role,
+      });
+
+      // Atualiza o registro do refresh token
+      await this.prisma.refreshToken.delete({
+        where: { id: tokenRecord.id },
+      });
+
+      await this.saveRefreshToken(tokenRecord.user.id, newTokens.refreshToken);
+      await this.tokenCleanupService.updateTokenLastUsed(tokenRecord.id);
+
+      return newTokens;
+    } catch (error) {
+      throw new UnauthorizedException('Falha ao atualizar tokens');
+    }
+  }
+
+  async logout(userId: string): Promise<void> {
+    await this.revokeAllUserTokens(userId);
+  }
+
+  async revokeRefreshToken(refreshToken: string): Promise<void> {
+    await this.prisma.refreshToken.deleteMany({
+      where: {
+        token: refreshToken,
       },
     });
   }
 
-  private parseDuration(duration: string): number {
-    const unit = duration.slice(-1);
-    const value = parseInt(duration.slice(0, -1));
-
-    switch (unit) {
-      case 'd':
-        return value * 24 * 60 * 60;
-      case 'h':
-        return value * 60 * 60;
-      case 'm':
-        return value * 60;
-      case 's':
-        return value;
-      default:
-        return 0;
-    }
+  async revokeAllUserTokens(userId: string): Promise<void> {
+    await this.prisma.refreshToken.deleteMany({
+      where: {
+        userId,
+      },
+    });
   }
 }

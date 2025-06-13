@@ -98,8 +98,8 @@ export class AuthController {
     description: 'Token de atualização inválido ou expirado',
     type: ApiErrorResponse 
   })
-  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
-    return this.authService.refreshToken(refreshTokenDto.refreshToken);
+  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto): Promise<{ accessToken: string; refreshToken: string }> {
+    return this.authService.refreshTokens(refreshTokenDto.refreshToken);
   }
 
   @Get('profile')
@@ -148,6 +148,6 @@ export class AuthController {
     type: ApiErrorResponse 
   })
   async logout(@Req() req: Request & { user: any }) {
-    return this.authService.logout(req.user.id);
+    return this.authService.revokeAllUserTokens(req.user.id);
   }
 }
