@@ -14,6 +14,49 @@ import * as bcrypt from 'bcrypt';
 import ms from 'ms';
 import { Tokens, JwtPayload, DurationString } from './types/auth.types';
 
+interface PasswordValidationResult {
+  isValid: boolean;
+  message: string;
+}
+
+function validatePassword(password: string): PasswordValidationResult {
+  if (password.length < 6) {
+    return {
+      isValid: false,
+      message: 'A senha deve ter no mínimo 6 caracteres',
+    };
+  }
+
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  if (!hasSpecialChar) {
+    return {
+      isValid: false,
+      message: 'A senha deve conter pelo menos um caractere especial',
+    };
+  }
+
+  const hasNumber = /\d/.test(password);
+  if (!hasNumber) {
+    return {
+      isValid: false,
+      message: 'A senha deve conter pelo menos um número',
+    };
+  }
+
+  const hasLetter = /[a-zA-Z]/.test(password);
+  if (!hasLetter) {
+    return {
+      isValid: false,
+      message: 'A senha deve conter pelo menos uma letra',
+    };
+  }
+
+  return {
+    isValid: true,
+    message: 'Senha válida',
+  };
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -24,13 +67,16 @@ export class AuthService {
     private readonly tokenCleanupService: TokenCleanupService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<Omit<User, 'password'> | null> {
+  async validateUser(
+    email: string,
+    password: string,
+  ): Promise<Omit<User, 'password'> | null> {
     try {
       const user = await this.userService.findByEmail(email);
       if (!user) {
         throw new UnauthorizedException('Email ou senha inválidos');
       }
-      
+
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
         throw new UnauthorizedException('Email ou senha inválidos');
@@ -80,6 +126,12 @@ export class AuthService {
       throw new BadRequestException('Email já está em uso');
     }
 
+    // Valida a senha
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      throw new BadRequestException(passwordValidation.message);
+    }
+
     // Hash da senha
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -107,7 +159,9 @@ export class AuthService {
     };
   }
 
-  async generateTokens(user: { id: string; email: string; role: UserRole }): Promise<Tokens> {
+  async generateTokens(
+    user: { id: string; email: string; role: UserRole },
+  ): Promise<Tokens> {
     const jwtPayload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -133,7 +187,7 @@ export class AuthService {
     const defaultExpiration = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
     const configExpiration = this.configService.get<DurationString>('JWT_REFRESH_EXPIRATION', '7d');
     let expiration: number;
-    
+
     try {
       // Valida se é uma string de duração válida usando o tipo personalizado
       if (configExpiration && typeof configExpiration === 'string') {
@@ -161,7 +215,7 @@ export class AuthService {
   async refreshTokens(refreshToken: string): Promise<Tokens> {
     try {
       const payload = await this.jwtService.verifyAsync<JwtPayload>(refreshToken);
-      
+
       const tokenRecord = await this.prisma.refreshToken.findFirst({
         where: {
           token: refreshToken,

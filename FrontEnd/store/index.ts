@@ -11,6 +11,7 @@ import megaMenuReducer from "./megaMenu-slice";
 import activeMenuItemReducer from "./activeMenuItem-slice";
 import settingBoxReducer from "./settingBox-slice";
 import favoriteReducer from "./favorite-slice";
+import orderReducer from "./order-slice";
 
 const store = configureStore({
   reducer: {
@@ -25,11 +26,15 @@ const store = configureStore({
     activeMenuItem: activeMenuItemReducer,
     settingBox: settingBoxReducer,
     favorite: favoriteReducer,
+    order: orderReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: false,
     }),
 });
+
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
 
 export default store;

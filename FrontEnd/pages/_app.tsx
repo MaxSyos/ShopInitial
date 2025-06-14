@@ -3,6 +3,7 @@ import { Provider } from 'react-redux';
 import Layout from "../components/layout/Layout";
 import store from '../store';
 import AuthProvider from '../providers/AuthProvider';
+import { ToastContainer } from 'react-toastify';
 
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
@@ -15,6 +16,7 @@ function MyApp({ Component, pageProps }: AppProps) {
       <AuthProvider>
         <Layout>
           <Component {...pageProps} />
+          <ToastContainer />
         </Layout>
       </AuthProvider>
     </Provider>

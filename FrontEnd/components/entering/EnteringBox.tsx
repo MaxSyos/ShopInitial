@@ -5,6 +5,9 @@ import Input from "../UI/Input";
 import { useLanguage } from "../../hooks/useLanguage";
 import { IUser } from "../../lib/types/user";
 import { authService } from "../../lib/authService";
+import { toast } from 'react-toastify';
+import { validatePassword } from './validators';
+import PasswordRequirements from './PasswordRequirements';
 
 interface Props {
   title: string;
@@ -23,6 +26,7 @@ const EnteringBox: React.FC<Props> = ({
   const errorMessageRef = useRef<HTMLSpanElement | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [password, setPassword] = useState("");
   const { t } = useLanguage();
   const router = useRouter();
 
@@ -51,8 +55,11 @@ const EnteringBox: React.FC<Props> = ({
         throw new Error(t.EmailAndPasswordRequired || 'Email e senha são obrigatórios');
       }
 
-      if (password.length < 6) {
-        throw new Error(t.PasswordMinLength || 'A senha deve ter no mínimo 6 caracteres');
+      if (title === "signUp") {
+        const passwordValidation = validatePassword(password);
+        if (!passwordValidation.isValid) {
+          throw new Error(t[passwordValidation.message] || passwordValidation.message);
+        }
       }
 
       let userData: IUser;
@@ -93,10 +100,44 @@ const EnteringBox: React.FC<Props> = ({
 
       // Chama o submitHandler apenas uma vez com os dados completos
       submitHandler(userData);
+
+      if (title === "signUp") {
+        // Mostra mensagem de sucesso ao criar conta
+        toast.success(t.AccountCreatedSuccessfully || 'Conta criada com sucesso', {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
+
+        // Aguarda um momento antes de redirecionar
+        setTimeout(() => {
+          router.push('/login');
+        }, 1000);
+      } else {
+        // Mostra mensagem de sucesso ao fazer login
+        toast.success(t.LoginSuccessful || 'Login realizado com sucesso', {
+          position: "top-right",
+          autoClose: 3000,
+        });
+      }
       
     } catch (err: any) {
       console.error('Erro na autenticação:', err);
-      setError(err.message || t.Invalid_email_or_password);
+      const errorMessage = err.message || err.toString() || t.Invalid_email_or_password;
+      setError(errorMessage);
+      
+      // Mostra mensagem de erro usando toast
+      toast.error(errorMessage, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
     } finally {
       setLoading(false);
     }
@@ -113,9 +154,9 @@ const EnteringBox: React.FC<Props> = ({
           {title === "login" && (
             <>
               <br />
-              <span className="inline-block text-palette-mute dark:text-palette-base/80 text-[12px] mt-2 bg-palette-fill p-2">
+              {/* <span className="inline-block text-palette-mute dark:text-palette-base/80 text-[12px] mt-2 bg-palette-fill p-2">
                 {t.loginExplanation}
-              </span>
+              </span> */}
             </>
           )}
         </p>
@@ -145,15 +186,17 @@ const EnteringBox: React.FC<Props> = ({
               id="password"
               placeholder="enterYourPassword"
               required={true}
+              onChange={(e) => setPassword(e.target.value)}
             />
+            {title === "signUp" && <PasswordRequirements password={password} />}
           </div>
           
           {error && (
             <span
               ref={errorMessageRef}
-              className="text-rose-600 block -mt-4 mb-4"
+              className="text-rose-600 block -mt-35 mb-4"
             >
-              {t[error] ? t[error] : error}
+              {t[error] ? t[error] : typeof error === 'string' ? error : 'Erro no registro'}
             </span>
           )}
 

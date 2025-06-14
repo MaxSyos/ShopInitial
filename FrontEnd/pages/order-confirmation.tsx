@@ -1,0 +1,252 @@
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { useSelector, useDispatch } from 'react-redux';
+import { useLanguage } from '../hooks/useLanguage';
+import OrderTracking from '../components/cart/OrderTracking';
+import { IUserInfoRootState } from '../lib/types/user';
+import { ICartRootState } from '../lib/types/cart';
+import { ShippingAddress } from '../store/order-slice';
+import { toast } from 'react-toastify';
+import Benefits from '../components/Benefits';
+import Input from '../components/UI/Input';
+import { fetchUserAddresses, addShippingAddress, createOrder } from '../store/order-slice';
+import { RootState, AppDispatch } from '../store';
+
+const OrderConfirmation: React.FC = () => {
+  const { t } = useLanguage();
+  const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
+  const [step, setStep] = useState(1);
+  const [newAddress, setNewAddress] = useState<ShippingAddress>({
+    street: '',
+    city: '',
+    state: '',
+    country: '',
+    postalCode: ''
+  });
+
+  const userInfo = useSelector(
+    (state: IUserInfoRootState) => state.userInfo.userInformation
+  );
+  const cartItems = useSelector((state: ICartRootState) => state.cart.items);
+  const totalAmount = useSelector((state: ICartRootState) => state.cart.totalAmount);
+  const { shippingAddresses = [], loading, error } = useSelector((state: RootState) => state.order);
+  const [selectedAddress, setSelectedAddress] = useState<number>(-1);
+
+  useEffect(() => {
+    if (!userInfo) {
+      router.push('/login?redirect=/order-confirmation');
+      return;
+    }
+    
+    if (cartItems.length === 0) {
+      router.push('/cart');
+      return;
+    }
+
+    dispatch(fetchUserAddresses());
+  }, [userInfo, cartItems, dispatch, router]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
+  const handleAddressSelect = (index: number) => {
+    setSelectedAddress(index);
+    setStep(2);
+  };
+
+  const handleAddNewAddress = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      await dispatch(addShippingAddress(newAddress)).unwrap();
+      toast.success(t.addressAddedSuccess);
+      setStep(2);
+    } catch (error: any) {
+      toast.error(error.message || t.addressAddError);
+    }
+  };
+
+  const handleConfirmOrder = async () => {
+    const selectedShippingAddress = selectedAddress >= 0 
+      ? shippingAddresses[selectedAddress] 
+      : newAddress;
+
+    try {
+      const orderData = {
+        shippingAddress: selectedShippingAddress,
+        items: cartItems.map(item => ({
+          productId: item.id,
+          quantity: item.quantity,
+          price: item.price,
+          discount: item.discount
+        }))
+      };
+
+      const result = await dispatch(createOrder(orderData)).unwrap();
+      toast.success(t.orderCreatedSuccess);
+      router.push(`/order/${result.id}`);
+    } catch (error: any) {
+      toast.error(error.message || t.orderCreateError);
+    }
+  };
+
+  const handleInputChange = (field: keyof ShippingAddress, value: string) => {
+    setNewAddress(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-palette-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <OrderTracking currentStep={step} />
+      
+      <div className="mt-8">
+        {step === 1 && (
+          <>
+            <h2 className="text-2xl font-bold mb-6">{t.shippingAddress}</h2>
+            
+            {/* Lista de endereços salvos */}
+            {Array.isArray(shippingAddresses) && shippingAddresses.length > 0 && (
+              <div className="grid gap-4 mb-8">
+                {shippingAddresses.map((address, index) => (
+                  <div
+                    key={index}
+                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                      selectedAddress === index
+                        ? 'border-palette-primary bg-palette-fill'
+                        : 'border-gray-200 hover:border-palette-primary'
+                    }`}
+                    onClick={() => handleAddressSelect(index)}
+                  >
+                    <p className="font-medium">{address.street}</p>
+                    <p className="text-sm text-gray-600">
+                      {address.city}, {address.state} - {address.postalCode}
+                    </p>
+                    <p className="text-sm text-gray-600">{address.country}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Formulário de novo endereço */}
+            <form onSubmit={handleAddNewAddress} className="w-full max-w-xl mx-auto bg-palette-card p-6 rounded-lg shadow-md">
+              <h3 className="text-xl font-semibold mb-6">{t.addNewAddress}</h3>
+              
+              <Input
+                id="street"
+                type="text"
+                required
+                value={newAddress.street}
+                placeholder={t.street}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  handleInputChange('street', e.target.value)
+                }
+              />
+
+              <Input
+                id="city"
+                type="text"
+                required
+                value={newAddress.city}
+                placeholder={t.city}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  handleInputChange('city', e.target.value)
+                }
+              />
+
+              <Input
+                id="state"
+                type="text"
+                required
+                value={newAddress.state}
+                placeholder={t.state}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  handleInputChange('state', e.target.value)
+                }
+              />
+
+              <Input
+                id="postalCode"
+                type="text"
+                required
+                value={newAddress.postalCode}
+                placeholder={t.postalCode}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  handleInputChange('postalCode', e.target.value)
+                }
+              />
+
+              <Input
+                id="country"
+                type="text"
+                required
+                value={newAddress.country}
+                placeholder={t.country}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  handleInputChange('country', e.target.value)
+                }
+              />
+
+              <button 
+                type="submit" 
+                className="w-full bg-palette-primary text-palette-side py-3 px-4 rounded-lg mt-6 hover:bg-palette-primary/90 transition-colors"
+                disabled={loading}
+              >
+                {loading ? t.processing : t.saveAddress}
+              </button>
+            </form>
+          </>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-bold">{t.orderSummary}</h2>
+            
+            {/* Resumo do pedido */}
+            <div className="bg-palette-fill rounded-lg p-6">
+              <div className="space-y-4">
+                {cartItems.map((item) => (
+                  <div key={item.id} className="flex justify-between">
+                    <span>{item.title} x {item.quantity}</span>
+                    <span>{item.totalPrice}</span>
+                  </div>
+                ))}
+                <div className="border-t pt-4 font-bold">
+                  <div className="flex justify-between">
+                    <span>{t.total}</span>
+                    <span>{totalAmount}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleConfirmOrder}
+              className="btn-primary w-full"
+              disabled={loading}
+            >
+              {loading ? t.processing : t.confirmOrder}
+            </button>
+          </div>
+        )}
+      </div>
+
+      <Benefits />
+    </div>
+  );
+};
+
+export default OrderConfirmation;
