@@ -19,6 +19,7 @@ import { PrometheusModule } from './modules/prometheus/prometheus.module';
 import { HealthModule } from './modules/health/health.module';
 import { CategoryModule } from './modules/category/category.module';
 import { BrandModule } from './modules/brand/brand.module';
+import { AddressModule } from './modules/address/address.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { BrandModule } from './modules/brand/brand.module';
     HealthModule,
     CategoryModule, // Adicionado módulo de categorias
     BrandModule, // Adicionado módulo de marcas
+    AddressModule, // Adicionado módulo de endereços
   ],
   providers: [
     {
