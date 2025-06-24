@@ -87,14 +87,29 @@ async function main() {
     },
   });
 
-  // Criar categorias com hierarquia
+  // Criar categorias principais
   const eletronicos = await prisma.category.create({
     data: {
       name: 'Eletrônicos',
-      description: 'Todos os tipos de eletrônicos',
+      description: 'Todos os tipos de eletrônicos e gadgets',
     },
   });
 
+  const modaCasa = await prisma.category.create({
+    data: {
+      name: 'Moda Casa',
+      description: 'Produtos para sua casa',
+    },
+  });
+
+  const esporteLazer = await prisma.category.create({
+    data: {
+      name: 'Esporte e Lazer',
+      description: 'Produtos para esporte e lazer',
+    },
+  });
+
+  // Criar subcategorias de Eletrônicos
   const smartphones = await prisma.category.create({
     data: {
       name: 'Smartphones',
@@ -119,7 +134,65 @@ async function main() {
     },
   });
 
-  // Criar marcas
+  const tablets = await prisma.category.create({
+    data: {
+      name: 'Tablets',
+      description: 'Tablets e iPads',
+      parentId: eletronicos.id,
+    },
+  });
+
+  // Criar subcategorias de Moda Casa
+  const decoracao = await prisma.category.create({
+    data: {
+      name: 'Decoração',
+      description: 'Itens decorativos para sua casa',
+      parentId: modaCasa.id,
+    },
+  });
+
+  const moveis = await prisma.category.create({
+    data: {
+      name: 'Móveis',
+      description: 'Móveis para todos os ambientes',
+      parentId: modaCasa.id,
+    },
+  });
+
+  const camaMesaBanho = await prisma.category.create({
+    data: {
+      name: 'Cama, Mesa e Banho',
+      description: 'Produtos para cama, mesa e banho',
+      parentId: modaCasa.id,
+    },
+  });
+
+  // Criar subcategorias de Esporte e Lazer
+  const fitness = await prisma.category.create({
+    data: {
+      name: 'Fitness e Musculação',
+      description: 'Equipamentos para exercícios',
+      parentId: esporteLazer.id,
+    },
+  });
+
+  const ciclismo = await prisma.category.create({
+    data: {
+      name: 'Ciclismo',
+      description: 'Bicicletas e acessórios',
+      parentId: esporteLazer.id,
+    },
+  });
+
+  const esportesColetivosCat = await prisma.category.create({
+    data: {
+      name: 'Esportes Coletivos',
+      description: 'Equipamentos para esportes em equipe',
+      parentId: esporteLazer.id,
+    },
+  });
+
+  // Criar marcas de Eletrônicos
   const samsung = await prisma.brand.create({
     data: {
       name: 'Samsung',
@@ -148,7 +221,58 @@ async function main() {
     },
   });
 
-  // Criar produtos
+  // Criar marcas de Moda Casa
+  const artex = await prisma.brand.create({
+    data: {
+      name: 'Artex',
+      logo: 'https://storage.googleapis.com/shopinitial/brands/artex.png',
+    },
+  });
+
+  const tok = await prisma.brand.create({
+    data: {
+      name: 'Tok&Stok',
+      logo: 'https://storage.googleapis.com/shopinitial/brands/tokstok.png',
+    },
+  });
+
+  const buddemeyer = await prisma.brand.create({
+    data: {
+      name: 'Buddemeyer',
+      logo: 'https://storage.googleapis.com/shopinitial/brands/buddemeyer.png',
+    },
+  });
+
+  // Criar marcas de Esporte e Lazer
+  const nike = await prisma.brand.create({
+    data: {
+      name: 'Nike',
+      logo: 'https://storage.googleapis.com/shopinitial/brands/nike.png',
+    },
+  });
+
+  const adidas = await prisma.brand.create({
+    data: {
+      name: 'Adidas',
+      logo: 'https://storage.googleapis.com/shopinitial/brands/adidas.png',
+    },
+  });
+
+  const caloi = await prisma.brand.create({
+    data: {
+      name: 'Caloi',
+      logo: 'https://storage.googleapis.com/shopinitial/brands/caloi.png',
+    },
+  });
+
+  const speedo = await prisma.brand.create({
+    data: {
+      name: 'Speedo',
+      logo: 'https://storage.googleapis.com/shopinitial/brands/speedo.png',
+    },
+  });
+
+  // Criar produtos de Eletrônicos
   const galaxyS23 = await prisma.product.create({
     data: {
       name: 'Samsung Galaxy S23 Ultra',
@@ -213,9 +337,108 @@ async function main() {
     },
   });
 
+  const ipadPro = await prisma.product.create({
+    data: {
+      name: 'iPad Pro 12.9" M2',
+      description: 'iPad Pro com chip M2 e tela Liquid Retina XDR',
+      price: 14999.99,
+      stock: 25,
+      sku: 'APP-IPADPM2-256',
+      images: [
+        'https://storage.googleapis.com/shopinitial/products/ipad-pro-m2-1.jpg',
+        'https://storage.googleapis.com/shopinitial/products/ipad-pro-m2-2.jpg',
+      ],
+      categoryId: tablets.id,
+      brandId: apple.id,
+    },
+  });
+
+  // Criar produtos de Moda Casa
+  const jogoCama = await prisma.product.create({
+    data: {
+      name: 'Jogo de Cama King Size 400 Fios',
+      description: 'Jogo de cama completo em algodão egípcio',
+      price: 899.99,
+      stock: 30,
+      sku: 'BUD-JC400-KING',
+      images: [
+        'https://storage.googleapis.com/shopinitial/products/jogo-cama-1.jpg',
+        'https://storage.googleapis.com/shopinitial/products/jogo-cama-2.jpg',
+      ],
+      categoryId: camaMesaBanho.id,
+      brandId: buddemeyer.id,
+    },
+  });
+
+  const sofaRetratil = await prisma.product.create({
+    data: {
+      name: 'Sofá Retrátil 3 Lugares',
+      description: 'Sofá retrátil e reclinável em suede',
+      price: 2499.99,
+      stock: 10,
+      sku: 'TOK-SOF3-RET',
+      images: [
+        'https://storage.googleapis.com/shopinitial/products/sofa-retratil-1.jpg',
+        'https://storage.googleapis.com/shopinitial/products/sofa-retratil-2.jpg',
+      ],
+      categoryId: moveis.id,
+      brandId: tok.id,
+    },
+  });
+
+  // Criar produtos de Esporte e Lazer
+  const bikeCaloi = await prisma.product.create({
+    data: {
+      name: 'Bicicleta Caloi Elite Carbon',
+      description: 'Bicicleta de carbono para ciclismo profissional',
+      price: 15999.99,
+      stock: 8,
+      sku: 'CAL-ELITE-CAR',
+      images: [
+        'https://storage.googleapis.com/shopinitial/products/bike-caloi-1.jpg',
+        'https://storage.googleapis.com/shopinitial/products/bike-caloi-2.jpg',
+      ],
+      categoryId: ciclismo.id,
+      brandId: caloi.id,
+    },
+  });
+
+  const kitHalteres = await prisma.product.create({
+    data: {
+      name: 'Kit Halter Emborrachado 1-10kg',
+      description: 'Kit completo de halteres emborrachados',
+      price: 799.99,
+      stock: 20,
+      sku: 'ADI-HALT-KIT',
+      images: [
+        'https://storage.googleapis.com/shopinitial/products/kit-halteres-1.jpg',
+        'https://storage.googleapis.com/shopinitial/products/kit-halteres-2.jpg',
+      ],
+      categoryId: fitness.id,
+      brandId: adidas.id,
+    },
+  });
+
+  const bolaFutebol = await prisma.product.create({
+    data: {
+      name: 'Bola Nike Flight Premier League',
+      description: 'Bola oficial da Premier League',
+      price: 899.99,
+      stock: 50,
+      sku: 'NIK-BOLA-PL',
+      images: [
+        'https://storage.googleapis.com/shopinitial/products/bola-nike-1.jpg',
+        'https://storage.googleapis.com/shopinitial/products/bola-nike-2.jpg',
+      ],
+      categoryId: esportesColetivosCat.id,
+      brandId: nike.id,
+    },
+  });
+
   // Criar reviews
   await prisma.review.createMany({
     data: [
+      // Reviews de Eletrônicos
       {
         productId: galaxyS23.id,
         userId: user1.id,
@@ -240,15 +463,60 @@ async function main() {
         rating: 5,
         comment: 'Notebook perfeito para trabalho e entretenimento.',
       },
+      {
+        productId: headphones.id,
+        userId: user1.id,
+        rating: 5,
+        comment: 'Melhor cancelamento de ruído do mercado!',
+      },
+      {
+        productId: ipadPro.id,
+        userId: user2.id,
+        rating: 5,
+        comment: 'Perfeito para trabalhos criativos, o M2 é muito rápido.',
+      },
+      // Reviews de Moda Casa
+      {
+        productId: jogoCama.id,
+        userId: user1.id,
+        rating: 5,
+        comment: 'Qualidade excepcional, muito macio e confortável.',
+      },
+      {
+        productId: sofaRetratil.id,
+        userId: user2.id,
+        rating: 4,
+        comment: 'Ótimo custo-benefício, confortável e bonito.',
+      },
+      // Reviews de Esporte e Lazer
+      {
+        productId: bikeCaloi.id,
+        userId: user1.id,
+        rating: 5,
+        comment: 'Bike profissional de altíssima qualidade!',
+      },
+      {
+        productId: kitHalteres.id,
+        userId: user2.id,
+        rating: 5,
+        comment: 'Kit completo e com ótimo acabamento.',
+      },
+      {
+        productId: bolaFutebol.id,
+        userId: user1.id,
+        rating: 4,
+        comment: 'Bola oficial com ótima durabilidade.',
+      },
     ],
   });
 
   // Criar pedidos com diferentes status
+  // Pedido 1 - Eletrônicos (Entregue)
   const order1 = await prisma.order.create({
     data: {
       userId: user1.id,
       status: OrderStatus.DELIVERED,
-      total: 6999.99,
+      total: 9499.98,
       street: address1.street,
       city: address1.city,
       state: address1.state,
@@ -259,11 +527,16 @@ async function main() {
           productId: galaxyS23.id,
           quantity: 1,
           price: 6999.99,
+        },
+        {
+          productId: headphones.id,
+          quantity: 1,
+          price: 2499.99,
         }],
       },
       payment: {
         create: {
-          amount: 6999.99,
+          amount: 9499.98,
           status: PaymentStatus.COMPLETED,
           paymentMethod: 'CREDIT_CARD',
           transactionId: 123456n,
@@ -272,11 +545,12 @@ async function main() {
     },
   });
 
+  // Pedido 2 - Mix de Categorias (Processando)
   const order2 = await prisma.order.create({
     data: {
       userId: user2.id,
       status: OrderStatus.PROCESSING,
-      total: 14999.98,
+      total: 14699.97,
       street: address2.street,
       city: address2.city,
       state: address2.state,
@@ -285,22 +559,62 @@ async function main() {
       items: {
         create: [
           {
+            productId: jogoCama.id,
+            quantity: 1,
+            price: 899.99,
+          },
+          {
+            productId: kitHalteres.id,
+            quantity: 1,
+            price: 799.99,
+          },
+          {
             productId: xps13.id,
             quantity: 1,
             price: 12999.99,
-          },
-          {
-            productId: headphones.id,
-            quantity: 1,
-            price: 1999.99,
           },
         ],
       },
       payment: {
         create: {
-          amount: 14999.98,
+          amount: 14699.97,
           status: PaymentStatus.PENDING,
           paymentMethod: 'PIX',
+        },
+      },
+    },
+  });
+
+  // Pedido 3 - Esporte e Lazer (Aguardando Pagamento)
+  const order3 = await prisma.order.create({
+    data: {
+      userId: user1.id,
+      status: OrderStatus.PENDING,
+      total: 16899.98,
+      street: address1.street,
+      city: address1.city,
+      state: address1.state,
+      country: address1.country,
+      postalCode: address1.postalCode,
+      items: {
+        create: [
+          {
+            productId: bikeCaloi.id,
+            quantity: 1,
+            price: 15999.99,
+          },
+          {
+            productId: bolaFutebol.id,
+            quantity: 1,
+            price: 899.99,
+          },
+        ],
+      },
+      payment: {
+        create: {
+          amount: 16899.98,
+          status: PaymentStatus.PENDING,
+          paymentMethod: 'BOLETO',
         },
       },
     },
@@ -309,6 +623,7 @@ async function main() {
   // Criar notificações
   await prisma.notification.createMany({
     data: [
+      // Notificações do Usuário 1
       {
         userId: user1.id,
         type: NotificationType.ORDER_CREATED,
@@ -323,8 +638,17 @@ async function main() {
         title: 'Pedido Entregue',
         message: `Seu pedido #${order1.id} foi entregue!`,
         link: `/orders/${order1.id}`,
+        read: true,
+      },
+      {
+        userId: user1.id,
+        type: NotificationType.ORDER_CREATED,
+        title: 'Novo Pedido',
+        message: `Seu pedido #${order3.id} foi realizado com sucesso!`,
+        link: `/orders/${order3.id}`,
         read: false,
       },
+      // Notificações do Usuário 2
       {
         userId: user2.id,
         type: NotificationType.ORDER_CREATED,
@@ -334,6 +658,15 @@ async function main() {
         read: true,
       },
       {
+        userId: user2.id,
+        type: NotificationType.PAYMENT_PENDING,
+        title: 'Pagamento Pendente',
+        message: `Aguardando pagamento do pedido #${order2.id}`,
+        link: `/orders/${order2.id}/payment`,
+        read: false,
+      },
+      // Notificações do Admin
+      {
         userId: admin.id,
         type: NotificationType.LOW_STOCK,
         title: 'Estoque Baixo',
@@ -342,11 +675,28 @@ async function main() {
         read: false,
       },
       {
+        userId: admin.id,
+        type: NotificationType.LOW_STOCK,
+        title: 'Estoque Baixo',
+        message: 'Bicicleta Caloi Elite Carbon está com estoque baixo (8 unidades)',
+        link: `/admin/products/${bikeCaloi.id}`,
+        read: false,
+      },
+      // Notificações do Gerente
+      {
         userId: manager.id,
         type: NotificationType.PAYMENT_COMPLETED,
         title: 'Pagamento Recebido',
         message: `Pagamento do pedido #${order1.id} foi confirmado`,
         link: `/admin/orders/${order1.id}`,
+        read: false,
+      },
+      {
+        userId: manager.id,
+        type: NotificationType.ORDER_STATUS_UPDATED,
+        title: 'Pedido em Processamento',
+        message: `O pedido #${order2.id} está em processamento`,
+        link: `/admin/orders/${order2.id}`,
         read: false,
       },
     ],
@@ -357,10 +707,34 @@ async function main() {
     data: {
       userId: user1.id,
       items: {
-        create: [{
-          productId: iphone14.id,
-          quantity: 1,
-        }],
+        create: [
+          {
+            productId: iphone14.id,
+            quantity: 1,
+          },
+          {
+            productId: ipadPro.id,
+            quantity: 1,
+          }
+        ],
+      },
+    },
+  });
+
+  const cart2 = await prisma.cart.create({
+    data: {
+      userId: user2.id,
+      items: {
+        create: [
+          {
+            productId: sofaRetratil.id,
+            quantity: 1,
+          },
+          {
+            productId: jogoCama.id,
+            quantity: 2,
+          }
+        ],
       },
     },
   });
