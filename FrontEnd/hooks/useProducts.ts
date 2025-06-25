@@ -45,7 +45,7 @@ export const useProducts = () => {
   };
 
   return {
-    products: items,
+    products: { items },
     total,
     page,
     limit,

@@ -8,7 +8,7 @@ const nextConfig = {
     localeDetection: false,
   },
   images: {
-    domains: ["cdn.sanity.io"],
+    domains: ["cdn.sanity.io", "storage.googleapis.com", "ibb.co", "i.ibb.co"],
   },
   env: {
     NEXT_PUBLIC_URL_BACKEND: process.env.NEXT_PUBLIC_URL_BACKEND,

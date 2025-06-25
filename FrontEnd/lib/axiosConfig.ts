@@ -1,8 +1,8 @@
 import axios from 'axios';
-import { store } from '../store';
+import store from '../store';
 import { userInfoActions } from '../store/user-slice';
 
-const baseURL = process.env.NEXT_PUBLIC_URL_BACKEND || 'http://localhost:3001';
+const baseURL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 
 console.log('URL do backend configurada:', baseURL);
 
@@ -87,5 +87,7 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export const axiosInstance = api;
 
 export default api;

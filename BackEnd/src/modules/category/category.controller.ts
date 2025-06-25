@@ -169,4 +169,25 @@ export class CategoryController {
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.categoryService.remove(id);
   }
+
+  @Get(':id/products')
+  @Public()
+  @ApiOperation({
+    summary: 'Listar produtos por categoria',
+    description: 'Retorna todos os produtos de uma categoria.'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'ID da categoria',
+    type: String,
+    required: true
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Produtos da categoria retornados com sucesso',
+    type: [Object] // Ajuste para o DTO correto se necessário
+  })
+  async getProductsByCategory(@Param('id', ParseUUIDPipe) id: string): Promise<any> {
+    return this.categoryService.getProductsByCategory(id);
+  }
 }

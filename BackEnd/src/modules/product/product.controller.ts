@@ -106,6 +106,36 @@ export class ProductController {
     return this.productService.findAll(query);
   }
 
+  @Get('newest')
+  @Public()
+  @ApiOperation({
+    summary: 'Listar produtos mais novos',
+    description: 'Retorna os produtos mais recentes.'
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Produtos mais novos retornados com sucesso',
+    type: ProductListResponseDto
+  })
+  async getNewest(@Query('limit') limit = 10): Promise<ProductListResponseDto> {
+    return this.productService.findNewest(Number(limit));
+  }
+
+  @Get('popular')
+  @Public()
+  @ApiOperation({
+    summary: 'Listar produtos populares',
+    description: 'Retorna os produtos mais populares (exemplo: mais vendidos ou mais visualizados).'
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Produtos populares retornados com sucesso',
+    type: ProductListResponseDto
+  })
+  async getPopular(@Query('limit') limit = 10): Promise<ProductListResponseDto> {
+    return this.productService.findPopular(Number(limit));
+  }
+
   @Get(':id')
   @Public()
   @ApiOperation({ 

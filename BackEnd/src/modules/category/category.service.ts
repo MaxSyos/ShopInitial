@@ -139,6 +139,31 @@ export class CategoryService {
     });
   }
 
+  async getProductsByCategory(id: string): Promise<any[]> {
+    const category = await this.prisma.category.findUnique({
+      where: { id },
+      include: {
+        products: {
+          include: {
+            category: { select: { id: true, name: true } },
+            brand: { select: { id: true, name: true, logo: true } },
+          },
+        },
+      },
+    });
+    if (!category) {
+      throw new NotFoundException('Categoria não encontrada');
+    }
+    return category.products.map(product => ({
+      ...product,
+      price: Number(product.price),
+      brand: {
+        ...product.brand,
+        logo: product.brand.logo || undefined
+      }
+    }));
+  }
+
   private mapToResponseDto(category: Category & {
     children?: Category[];
     parent?: Category | null;

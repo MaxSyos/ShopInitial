@@ -11,6 +11,9 @@ interface Props {
   products: IProduct[];
 }
 const ProductDetails: React.FC<Props> = ({ product, products }) => {
+  if (!product) {
+    return <div className="text-center py-12">Carregando produto...</div>;
+  }
   const similarProductsList = products
     .filter(
       (similarProduct) => similarProduct.slug.current !== product.slug.current

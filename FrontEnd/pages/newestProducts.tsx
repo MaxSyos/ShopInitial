@@ -1,36 +1,27 @@
-import type { NextPage } from "next";
-import { useState, useEffect } from "react";
-import { GetStaticProps } from "next";
-import { client } from "../lib/client";
-import { IProduct } from "../lib/types/products";
+import { useEffect } from "react";
+import { useProducts } from "../hooks/useProducts";
 import ProductList from "../components/productList/ProductList";
-import { newestProductsFn } from "../utilities/sortByTimeStamp";
+import { mapBackendProductsToIProducts } from '../utilities/mapBackendProduct';
 
-const NewestProduct: NextPage<{
-  products: IProduct[];
-}> = ({ products }) => {
-  const [productsList, setProductsList] = useState<IProduct[] | []>([]);
+const NewestProduct = () => {
+  const { newestProducts, loadNewestProducts, loading } = useProducts();
+
+  const mappedProducts = mapBackendProductsToIProducts(newestProducts as any);
 
   useEffect(() => {
-    setProductsList(newestProductsFn(products));
-  }, [products]);
+    loadNewestProducts(20); // ou o limite desejado
+    // eslint-disable-next-line
+  }, []);
 
   return (
     <div className="flex flex-wrap">
-      {productsList.length ? <ProductList productList={productsList} /> : null}
+      {loading ? (
+        <div>Carregando...</div>
+      ) : (
+        <ProductList productList={mappedProducts} />
+      )}
     </div>
   );
 };
 
 export default NewestProduct;
-
-export const getStaticProps: GetStaticProps = async () => {
-  const productQuery = `*[_type=='product' && slug.current != "asus-zenbook-14-intel-core-i7-16gb-ram-512gb-ssd-14-ips-laptop"]`;
-  const products = await client.fetch(productQuery);
-
-  return {
-    props: {
-      products: products,
-    },
-  };
-};

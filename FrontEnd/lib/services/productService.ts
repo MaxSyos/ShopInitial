@@ -32,7 +32,7 @@ export interface Product {
 }
 
 interface ProductsResponse {
-  products: Product[];
+  items: Product[];
   total: number;
   page: number;
   limit: number;
@@ -51,7 +51,7 @@ export interface ProductFilters {
 }
 
 class ProductService {
-  async getProducts(filters: ProductFilters = {}): Promise<ProductsResponse> {
+  async getProducts(filters: ProductFilters = {}): Promise<{ items: Product[] }> {
     const params = new URLSearchParams();
     
     Object.entries(filters).forEach(([key, value]) => {
@@ -61,8 +61,8 @@ class ProductService {
     });
 
     const response = await axiosInstance.get(`/products?${params.toString()}`);
+    // O backend retorna { items: [...] }
     return response.data;
-    console.log("aqui tem que ter", response.data);
   }
 
   async getProductById(id: string): Promise<Product> {

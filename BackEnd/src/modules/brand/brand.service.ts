@@ -123,6 +123,31 @@ export class BrandService {
     });
   }
 
+  async getProductsByBrand(id: string): Promise<any[]> {
+    const brand = await this.prisma.brand.findUnique({
+      where: { id },
+      include: {
+        products: {
+          include: {
+            category: { select: { id: true, name: true } },
+            brand: { select: { id: true, name: true, logo: true } },
+          },
+        },
+      },
+    });
+    if (!brand) {
+      throw new NotFoundException('Marca não encontrada');
+    }
+    return brand.products.map(product => ({
+      ...product,
+      price: Number(product.price),
+      brand: {
+        ...product.brand,
+        logo: product.brand.logo || undefined
+      }
+    }));
+  }
+
   private mapToResponseDto(brand: Brand & {
     products?: {
       id: string;

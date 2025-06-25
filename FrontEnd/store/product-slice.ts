@@ -82,7 +82,7 @@ const productsSlice = createSlice({
       })
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading = false;
-        state.items = action.payload.products;
+        state.items = action.payload.items;
         state.total = action.payload.total;
         state.page = action.payload.page;
         state.limit = action.payload.limit;
@@ -113,7 +113,7 @@ const productsSlice = createSlice({
       })
       .addCase(fetchProductsByCategory.fulfilled, (state, action) => {
         state.loading = false;
-        state.items = action.payload.products;
+        state.items = action.payload.items;
         state.total = action.payload.total;
         state.page = action.payload.page;
         state.limit = action.payload.limit;

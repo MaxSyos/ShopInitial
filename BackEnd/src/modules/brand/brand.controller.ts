@@ -169,4 +169,25 @@ export class BrandController {
   async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.brandService.remove(id);
   }
+
+  @Get(':id/products')
+  @Public()
+  @ApiOperation({
+    summary: 'Listar produtos por marca',
+    description: 'Retorna todos os produtos de uma marca.'
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'ID da marca',
+    type: String,
+    required: true
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Produtos da marca retornados com sucesso',
+    type: [Object] // Ajuste para o DTO correto se necessário
+  })
+  async getProductsByBrand(@Param('id', ParseUUIDPipe) id: string): Promise<any> {
+    return this.brandService.getProductsByBrand(id);
+  }
 }

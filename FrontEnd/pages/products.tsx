@@ -3,10 +3,11 @@ import { useProducts } from '../hooks/useProducts';
 import { useLanguage } from '../hooks/useLanguage';
 import { toast } from 'react-toastify';
 import Breadcrumb from '../components/UI/Breadcrumb';
-import ProductCard from '../components/UI/ProductCard';
+import ProductCard from '../components/UI/card/Card';
+import { mapBackendProductsToIProducts } from '../utilities/mapBackendProduct';
 import Pagination from '../components/UI/Pagination';
-import SortSelect from '../components/UI/SortSelect';
-import FilterSidebar from '../components/UI/FilterSidebar';
+/* import SortSelect from '../components/UI/SortSelect'; */
+/* import FilterSidebar from '../components/UI/FilterSidebar'; */
 
 const ProductsPage: React.FC = () => {
   const { t } = useLanguage();
@@ -31,14 +32,9 @@ const ProductsPage: React.FC = () => {
   });
 
   useEffect(() => {
-    loadProducts({
-      page: currentPage,
-      limit,
-      sortBy,
-      sortOrder,
-      ...filters
-    });
-  }, [currentPage, sortBy, sortOrder, filters]);
+    // Chama o backend SEM filtros, paginação ou ordenação, pois o backend não suporta
+    loadProducts();
+  }, []);
 
   useEffect(() => {
     if (error) {
@@ -62,7 +58,12 @@ const ProductsPage: React.FC = () => {
     setCurrentPage(1);
   };
 
-  if (loading && products.length === 0) {
+  // Mapeia os produtos do backend para o formato do frontend
+  const mappedProducts = Array.isArray(products?.items) ? mapBackendProductsToIProducts(products.items) : [];
+
+  console.log('Produtos recebidos no componente:', products);
+
+  if (loading && (!products?.items || products.items.length === 0)) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-palette-primary"></div>
@@ -73,60 +74,40 @@ const ProductsPage: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <Breadcrumb />
-      
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Filtros */}
-        <div className="lg:col-span-1">
-          <FilterSidebar 
-            filters={filters}
-            onFilterChange={handleFilterChange}
-          />
+      <div className="mb-6 flex justify-between items-center">
+        <h1 className="text-2xl font-bold">
+          {t.products}
+        </h1>
+      </div>
+      {/* Filtros podem ser colocados aqui, acima do grid, se necessário */}
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 animate-pulse">
+          {[...Array(6)].map((_, index) => (
+            <div key={index} className="bg-gray-200 h-80 rounded-lg"></div>
+          ))}
         </div>
-
-        {/* Lista de Produtos */}
-        <div className="lg:col-span-3">
-          <div className="mb-6 flex justify-between items-center">
-            <h1 className="text-2xl font-bold">
-              {t.products} ({total})
-            </h1>
-            
-            <SortSelect 
-              value={`${sortBy}-${sortOrder}`}
-              onChange={handleSortChange}
+      ) : Array.isArray(mappedProducts) && mappedProducts.length > 0 ? (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {mappedProducts.map((product) => (
+              <ProductCard key={product.slug.current} product={product} />
+            ))}
+          </div>
+          <div className="mt-8">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(total / limit)}
+              onPageChange={handlePageChange}
             />
           </div>
-
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-pulse">
-              {[...Array(6)].map((_, index) => (
-                <div key={index} className="bg-gray-200 h-80 rounded-lg"></div>
-              ))}
-            </div>
-          ) : products.length > 0 ? (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-
-              <div className="mt-8">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={Math.ceil(total / limit)}
-                  onPageChange={handlePageChange}
-                />
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-12">
-              <h2 className="text-xl text-gray-600">
-                {t.noProductsFound}
-              </h2>
-            </div>
-          )}
+        </>
+      ) : (
+        <div className="text-center py-12">
+          <h2 className="text-xl text-gray-600">
+            {t.noProductsFound}
+          </h2>
         </div>
-      </div>
+      )}
     </div>
   );
 };

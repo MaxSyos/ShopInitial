@@ -12,9 +12,11 @@ import activeMenuItemReducer from "./activeMenuItem-slice";
 import settingBoxReducer from "./settingBox-slice";
 import favoriteReducer from "./favorite-slice";
 import orderReducer from "./order-slice";
+import productsReducer from "./product-slice";
 
 const store = configureStore({
   reducer: {
+    products: productsReducer,
     specialOfferProductsList: specialOfferProductsReducer,
     newestProductsList: newestProductReducer,
     sortedProductsList: SortedProductsListReducer,

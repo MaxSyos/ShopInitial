@@ -391,6 +391,68 @@ export class ProductService {
     return response;
   }
 
+  async findNewest(limit: number = 10): Promise<ProductListResponse> {
+    const products = await this.prisma.product.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: {
+        category: { select: { id: true, name: true } },
+        brand: { select: { id: true, name: true, logo: true } },
+      },
+    });
+    const items: ProductResponse[] = products.map(product => ({
+      ...product,
+      price: Number(product.price),
+      brand: {
+        ...product.brand,
+        logo: product.brand.logo || undefined
+      }
+    }));
+    return {
+      items,
+      total: items.length,
+      page: 1,
+      limit,
+      totalPages: 1,
+    };
+  }
+
+  async findPopular(limit: number = 10): Promise<ProductListResponse> {
+    // Corrigido: ordena por createdAt como fallback
+    const products = await this.prisma.product.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: {
+        category: { select: { id: true, name: true } },
+        brand: { select: { id: true, name: true, logo: true } },
+      },
+    });
+    const items: ProductResponse[] = products.map(product => ({
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: Number(product.price),
+      stock: product.stock,
+      sku: product.sku,
+      images: product.images,
+      category: product.category,
+      brand: {
+        id: product.brand?.id,
+        name: product.brand?.name,
+        logo: product.brand?.logo || undefined
+      },
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt
+    }));
+    return {
+      items,
+      total: items.length,
+      page: 1,
+      limit,
+      totalPages: 1,
+    };
+  }
+
   private async invalidateProductCache(id: string): Promise<void> {
     const cacheKey = `${this.CACHE_PREFIX}${id}`;
     await this.redisService.del(cacheKey);
