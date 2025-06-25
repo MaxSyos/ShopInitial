@@ -10,14 +10,20 @@ interface Props {
 }
 
 const CarouselBoxCard: React.FC<Props> = ({ product }) => {
+  // Ajusta para usar categoria e subcategoria no path
+  const category = product.category?.[0] || "";
+  const subCategory = product.subCategory || "";
+  const slug = product.slug.current || product.id;
+  const linkHref = subCategory
+    ? `/categories/${category}/${subCategory}/${slug}`
+    : `/categories/${category}/${slug}`;
+
   return (
     <div className="w-full h-full px-2 my-2">
-      <Link
-        href={`/${product.category[0]}/${product.category[1]}/${product.category[2]}/${product.slug.current}`}
-      >
+      <Link href={linkHref}>
         <a className="flex flex-col w-full p-3 shadow-lg backdrop-filter backdrop-blur-[10px] bg-palette-card/80 rounded-md">
           <div className="text-center flex-grow">
-            {product?.image[0] && (
+            {/* {product?.image[0] && (
               <Image
                 src={urlFor(product?.image[0]).url()}
                 alt="laptop image"
@@ -25,7 +31,7 @@ const CarouselBoxCard: React.FC<Props> = ({ product }) => {
                 height={185}
                 className="object-contain hover:scale-105 transition-transform !p-2"
               />
-            )}
+            )} */}
             {product.isOffer ? (
               <span className="block absolute -top-2 -right-2">
                 <Image

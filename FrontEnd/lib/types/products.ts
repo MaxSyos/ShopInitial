@@ -36,6 +36,7 @@ export type TImage = {
 };
 
 export interface IProduct {
+  id: string; // Adicionado para garantir acesso ao ID do produto
   image: any;
   name: string;
   slug: TSlug;
@@ -44,8 +45,10 @@ export interface IProduct {
   details?: IProductDetails[];
   brand: string;
   category: string[];
+  subCategory?: string; // Adicionado para refletir subcategoria
   isOffer?: boolean;
   registerDate?: string;
   timeStamp?: number;
   starRating: number;
+  description?: string; // Adicionado para exibir descrição do banco
 }

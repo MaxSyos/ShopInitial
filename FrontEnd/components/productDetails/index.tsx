@@ -14,15 +14,20 @@ const ProductDetails: React.FC<Props> = ({ product, products }) => {
   if (!product) {
     return <div className="text-center py-12">Carregando produto...</div>;
   }
-  const similarProductsList = products
-    .filter(
-      (similarProduct) => similarProduct.slug.current !== product.slug.current
-    )
-    .slice(0, 10);
+  const similarProductsList = Array.isArray(products)
+    ? products.filter(
+        (similarProduct) =>
+          similarProduct &&
+          similarProduct.slug &&
+          product &&
+          product.slug &&
+          similarProduct.slug.current !== product.slug.current
+      ).slice(0, 10)
+    : [];
 
   return (
     <div className="flex flex-col">
-      <Breadcrumb />
+      <Breadcrumb productName={product.name} />
       <div className="w-full xl:max-w-[2100px] mx-auto">
         <div className="flex flex-col md:flex-row flex-wrap md:flex-nowrap items-center md:items-start mt-8 relative">
           <ImageSection imgArray={product.image} product={product} />

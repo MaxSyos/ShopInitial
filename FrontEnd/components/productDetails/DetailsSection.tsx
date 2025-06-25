@@ -25,35 +25,44 @@ const DetailsSection: React.FC<Props> = ({ product }) => {
               value={product.starRating}
             />
             <p className="text-sm text-palette-mute rtl:mr-2 ltr:ml-2">
-              {product.starRating} {t.stars}
+              {/* {product.starRating} {t.stars} */}
             </p>
           </div>
           <h3 className="text-lg mt-2">{t.details}</h3>
           <div className="mt-4">
-            {Object.keys(product.details!).map((key) => {
-              const detailsValue = Array.isArray(product.details![key])
-                ? [...product.details![key]].join(" - ")
-                : product.details![key] === true
-                ? t.true
-                : product.details![key] === false
-                ? t.false
-                : product.details![key];
-
-              return (
-                <div className="flex flex-wrap items-center" key={key}>
-                  <h5 className="text-palette-mute text-sm py-1 my-1">
-                    {t[key]}
-                  </h5>
-                  :
-                  <p
-                    className="rtl:text-left rtl:mr-1 ltr:ml-1"
-                    style={{ direction: "ltr" }}
-                  >
-                    {detailsValue}
-                  </p>
-                </div>
-              );
-            })}
+            {/* Marca primeiro */}
+            <div className="flex flex-wrap items-center">
+              <h5 className="text-palette-mute text-sm py-1 my-1">Marca:</h5>
+              <p className="rtl:text-left rtl:mr-1 ltr:ml-1" style={{ direction: "ltr" }}>{product.brand}</p>
+            </div>
+            {/* Descrição do banco de dados */}
+            {product.description && (
+              <div className="flex flex-wrap items-center">
+                <h5 className="text-palette-mute text-sm py-1 my-1">{t.description || "Descrição"}</h5>:
+                <p className="rtl:text-left rtl:mr-1 ltr:ml-1" style={{ direction: "ltr" }}>{product.description}</p>
+              </div>
+            )}
+            {/* Detalhes técnicos, se existirem */}
+            {product.details && product.details.length > 0 && (
+              product.details.map((detail, idx) => (
+                Object.keys(detail).map((key) => {
+                  const typedKey = key as keyof typeof detail;
+                  const detailsValue = Array.isArray(detail[typedKey])
+                    ? [...(detail[typedKey] as any[])].join(" - ")
+                    : detail[typedKey] === true
+                    ? t.true
+                    : detail[typedKey] === false
+                    ? t.false
+                    : detail[typedKey];
+                  return (
+                    <div className="flex flex-wrap items-center" key={key + idx}>
+                      <h5 className="text-palette-mute text-sm py-1 my-1">{t[key]}</h5>:
+                      <p className="rtl:text-left rtl:mr-1 ltr:ml-1" style={{ direction: "ltr" }}>{detailsValue}</p>
+                    </div>
+                  );
+                })
+              ))
+            )}
           </div>
         </div>
         <CallToAction product={product} />

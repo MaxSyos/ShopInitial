@@ -77,6 +77,7 @@ export class ProductService {
           select: {
             id: true,
             name: true,
+            parent: { select: { id: true, name: true } },
           },
         },
         brand: {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { IBreadcrumb } from "../../lib/types/breadcrumb";
@@ -13,55 +13,46 @@ const convertBreadcrumb = (str: string) => {
     .replace(/ue/g, "ü");
 };
 
-const Breadcrumb = () => {
+interface BreadcrumbProps {
+  categoryName?: string;
+  subCategoryName?: string;
+  productName?: string;
+}
+
+const Breadcrumb: React.FC<BreadcrumbProps> = ({ categoryName, subCategoryName, productName }) => {
   const { t } = useLanguage();
   const router = useRouter();
-  const [breadcrumbs, setBreadcrumbs] = useState<IBreadcrumb[] | []>([]);
-  useEffect(() => {
-    if (router) {
-      const paths = router.asPath.split("/");
-      paths.shift();
-
-      const pathsArray = paths.map((path, i) => {
-        return {
-          breadcrumb: path,
-          href: "/" + paths.slice(0, i + 1).join("/"),
-        };
-      });
-
-      setBreadcrumbs(pathsArray);
-    }
-  }, [router]);
-
-  if (!breadcrumbs) {
-    return null;
+  const breadcrumbs: IBreadcrumb[] = [
+    { breadcrumb: t.mainPage, href: "/" },
+  ];
+  if (categoryName) {
+    breadcrumbs.push({ breadcrumb: categoryName, href: router.asPath.split("/").slice(0, 3).join("/") });
+  }
+  if (subCategoryName) {
+    breadcrumbs.push({ breadcrumb: subCategoryName, href: router.asPath.split("/").slice(0, 4).join("/") });
+  }
+  if (productName) {
+    breadcrumbs.push({ breadcrumb: productName, href: router.asPath });
   }
 
   return (
     <div className="flex text-[11px] sm:text-sm text-palette-mute dark:text-slate-300 mt-4 md:-mt-4 mb-3 md:my-none overflow-auto whitespace-nowrap">
       <nav className="flex py-3 px-2 sm:px-5 leading-6">
         <ul className="flex items-center space-x-1 md:space-x-3">
-          <li className="cursor-pointer">
-            <Link href="/">
-              <a className="flex ltr:pr-2 rtl:pl-2">
-                <span>
-                  <BsShop style={{ fontSize: "1.2rem" }} />
-                </span>
-                <span className="ltr:ml-1 rtl:mr-1">{t.mainPage}</span>
-              </a>
-            </Link>
-          </li>
           {breadcrumbs.map((breadcrumb, i) => {
+            const isLast = i === breadcrumbs.length - 1;
             return (
               <li className="flex items-center" key={breadcrumb.href}>
-                <span>/</span>
-                <Link href={breadcrumb.href}>
-                  <a className="inline-block px-2">
-                    {t[convertBreadcrumb(breadcrumb.breadcrumb)]
-                      ? t[convertBreadcrumb(breadcrumb.breadcrumb)]
-                      : convertBreadcrumb(breadcrumb.breadcrumb)}
-                  </a>
-                </Link>
+                {i !== 0 && <span>/</span>}
+                {isLast ? (
+                  <span className="inline-block px-2 font-semibold">{breadcrumb.breadcrumb}</span>
+                ) : (
+                  <Link href={breadcrumb.href}>
+                    <a className="inline-block px-2">
+                      {breadcrumb.breadcrumb}
+                    </a>
+                  </Link>
+                )}
               </li>
             );
           })}

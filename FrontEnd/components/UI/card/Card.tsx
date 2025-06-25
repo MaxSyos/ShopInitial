@@ -10,11 +10,11 @@ interface Props {
 }
 
 const Card: React.FC<Props> = ({ product }) => {
-  // Monta a URL amigável baseada nas categorias e slug
+  // Monta a URL amigável baseada nas categorias e id
   const categories = product.category.length >= 3
     ? product.category
     : [...product.category, ...Array(3 - product.category.length).fill('categoria')];
-  const productUrl = `/${categories[0]}/${categories[1]}/${categories[2]}/${product.slug.current}`;
+  const productUrl = `/${categories[0]}/${categories[1]}/${categories[2]}/${product.id}`;
 
   // Seleciona a primeira imagem da lista ou usa uma imagem padrão
   const imageUrl = Array.isArray(product.image) && product.image.length > 0

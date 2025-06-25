@@ -2,20 +2,36 @@ import { Product } from '../lib/services/productService';
 import { IProduct } from '../lib/types/products';
 
 export function mapBackendProductToIProduct(product: Product): IProduct {
-  // Garante que o campo id está presente e único
+  // Ajusta categoria e subcategoria conforme relacionamento
+  let category = '';
+  let subCategory: string | undefined = undefined;
+  // Suporte para parent aninhado (caso venha populado)
+  if (product.category) {
+    const cat: any = product.category;
+    if (cat.parent && cat.parent.name) {
+      category = cat.parent.name;
+      subCategory = cat.name;
+    } else {
+      category = cat.name;
+      subCategory = undefined;
+    }
+  }
   return {
+    id: product.id,
     image: product.images || [],
     name: product.name,
     slug: { _type: 'slug', current: product.id || product.name.replace(/\s+/g, '-').toLowerCase() },
     price: product.price,
     discount: undefined, // ajuste se o backend fornecer
-    details: [], // ajuste se o backend fornecer
+    details: [], // Garante que seja sempre um array
     brand: product.brand?.name || '',
-    category: product.category ? [product.category.name] : [],
+    category: [category],
+    subCategory,
     isOffer: false, // ajuste se o backend fornecer
     registerDate: product.createdAt,
     timeStamp: new Date(product.createdAt).getTime(),
     starRating: 0, // ajuste se o backend fornecer
+    description: product.description, // Adicionado para exibir descrição do banco
   };
 }
 
@@ -26,3 +42,5 @@ export function mapBackendProductsToIProducts(products: Product[]): IProduct[] {
   console.log('Produtos mapeados para o frontend:', mapped);
   return mapped;
 }
+
+export default mapBackendProductToIProduct;
