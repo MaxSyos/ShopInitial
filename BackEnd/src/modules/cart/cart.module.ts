@@ -3,6 +3,7 @@ import { CartController } from './cart.controller';
 import { CartService } from './cart.service';
 import { PrismaService } from '../../services/prisma.service';
 import { ProductModule } from '../product/product.module';
+import { RedisModule } from '../redis/redis.module';
 
 /**
  * Módulo responsável por gerenciar as operações do carrinho de compras
@@ -15,7 +16,7 @@ import { ProductModule } from '../product/product.module';
  * - Módulo de produtos para validações de estoque
  */
 @Module({
-  imports: [ProductModule], // Importa o módulo de produtos para acesso aos serviços de produto
+  imports: [ProductModule, RedisModule], // Importa o módulo de produtos e o RedisModule
   controllers: [CartController], // Registra o controlador do carrinho
   providers: [CartService, PrismaService], // Registra os serviços necessários
   exports: [CartService], // Exporta o serviço do carrinho para uso em outros módulos

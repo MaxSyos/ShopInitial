@@ -277,7 +277,7 @@ async function main() {
     data: {
       name: 'Samsung Galaxy S23 Ultra',
       description: 'O smartphone mais avançado da Samsung com câmera de 200MP',
-      price: 6999.99,
+      price: 0.99,
       stock: 50,
       sku: 'SAM-S23U-256',
       images: [
@@ -293,7 +293,7 @@ async function main() {
     data: {
       name: 'iPhone 14 Pro Max',
       description: 'iPhone com Dynamic Island e câmera de 48MP',
-      price: 9499.99,
+      price: 1.99,
       stock: 30,
       sku: 'APP-IP14PM-256',
       images: [
@@ -309,7 +309,7 @@ async function main() {
     data: {
       name: 'Dell XPS 13 Plus',
       description: 'Notebook premium com Intel Core i7 de 12ª geração',
-      price: 12999.99,
+      price: 0.39,
       stock: 15,
       sku: 'DELL-XPS13P-512',
       images: [
@@ -325,7 +325,7 @@ async function main() {
     data: {
       name: 'Sony WH-1000XM5',
       description: 'Fone de ouvido com cancelamento de ruído líder do mercado',
-      price: 2499.99,
+      price: 0.29,
       stock: 40,
       sku: 'SONY-WH1000XM5',
       images: [
@@ -341,7 +341,7 @@ async function main() {
     data: {
       name: 'iPad Pro 12.9" M2',
       description: 'iPad Pro com chip M2 e tela Liquid Retina XDR',
-      price: 14999.99,
+      price: 0.59,
       stock: 25,
       sku: 'APP-IPADPM2-256',
       images: [
@@ -358,7 +358,7 @@ async function main() {
     data: {
       name: 'Jogo de Cama King Size 400 Fios',
       description: 'Jogo de cama completo em algodão egípcio',
-      price: 899.99,
+      price: 0.19,
       stock: 30,
       sku: 'BUD-JC400-KING',
       images: [
@@ -374,7 +374,7 @@ async function main() {
     data: {
       name: 'Sofá Retrátil 3 Lugares',
       description: 'Sofá retrátil e reclinável em suede',
-      price: 2499.99,
+      price: 0.09,
       stock: 10,
       sku: 'TOK-SOF3-RET',
       images: [
@@ -391,7 +391,7 @@ async function main() {
     data: {
       name: 'Bicicleta Caloi Elite Carbon',
       description: 'Bicicleta de carbono para ciclismo profissional',
-      price: 15999.99,
+      price: 0.89,
       stock: 8,
       sku: 'CAL-ELITE-CAR',
       images: [
@@ -407,7 +407,7 @@ async function main() {
     data: {
       name: 'Kit Halter Emborrachado 1-10kg',
       description: 'Kit completo de halteres emborrachados',
-      price: 799.99,
+      price: 0.99,
       stock: 20,
       sku: 'ADI-HALT-KIT',
       images: [
@@ -423,7 +423,7 @@ async function main() {
     data: {
       name: 'Bola Nike Flight Premier League',
       description: 'Bola oficial da Premier League',
-      price: 899.99,
+      price: 0.69,
       stock: 50,
       sku: 'NIK-BOLA-PL',
       images: [

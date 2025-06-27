@@ -22,7 +22,9 @@ const OrderConfirmation: React.FC = () => {
     city: '',
     state: '',
     country: '',
-    postalCode: ''
+    postalCode: '',
+    number: '',
+    complement: '',
   });
 
   const userInfo = useSelector(
@@ -66,6 +68,7 @@ const OrderConfirmation: React.FC = () => {
       toast.success(t.addressAddedSuccess);
       setStep(2);
     } catch (error: any) {
+      console.error('Erro ao adicionar endereço:', error);
       toast.error(error.message || t.addressAddError);
     }
   };
@@ -94,12 +97,22 @@ const OrderConfirmation: React.FC = () => {
     }
   };
 
-  const handleInputChange = (field: keyof ShippingAddress, value: string) => {
+  const handleInputChange = (field: keyof ShippingAddress, value: any) => {
     setNewAddress(prev => ({
       ...prev,
       [field]: value
     }));
   };
+
+  // Validação dos campos obrigatórios
+  const isAddressValid =
+    newAddress.street.length >= 3 &&
+    newAddress.city.length >= 3 &&
+    newAddress.state.length === 2 &&
+    newAddress.country.length >= 2 &&
+    newAddress.postalCode.length === 8 &&
+    newAddress.number.length >= 1 && newAddress.number.length <= 20 &&
+    newAddress.complement.length >= 1 && newAddress.complement.length <= 100;
 
   if (loading) {
     return (
@@ -173,8 +186,10 @@ const OrderConfirmation: React.FC = () => {
                 required
                 value={newAddress.state}
                 placeholder={t.state}
+                minLength={2}
+                maxLength={2}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                  handleInputChange('state', e.target.value)
+                  handleInputChange('state', e.target.value.toUpperCase().slice(0,2))
                 }
               />
 
@@ -184,8 +199,36 @@ const OrderConfirmation: React.FC = () => {
                 required
                 value={newAddress.postalCode}
                 placeholder={t.postalCode}
+                minLength={8}
+                maxLength={8}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                  handleInputChange('postalCode', e.target.value)
+                  handleInputChange('postalCode', e.target.value.replace(/\D/g, '').slice(0,8))
+                }
+              />
+
+              <Input
+                id="number"
+                type="text"
+                required
+                value={newAddress.number}
+                placeholder={t.number || 'Número'}
+                minLength={1}
+                maxLength={20}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  handleInputChange('number', e.target.value)
+                }
+              />
+
+              <Input
+                id="complement"
+                type="text"
+                required
+                value={newAddress.complement}
+                placeholder={t.complement || 'Complemento'}
+                minLength={1}
+                maxLength={100}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  handleInputChange('complement', e.target.value)
                 }
               />
 
@@ -200,10 +243,23 @@ const OrderConfirmation: React.FC = () => {
                 }
               />
 
+              <div className="flex items-center mb-4">
+                <input
+                  id="isDefault"
+                  type="checkbox"
+                  checked={!!newAddress.isDefault}
+                  onChange={(e) => handleInputChange('isDefault', e.target.checked)}
+                  className="mr-2"
+                />
+                <label htmlFor="isDefault" className="text-sm">
+                  {t.setAsDefault || 'Definir como endereço padrão'}
+                </label>
+              </div>
+
               <button 
                 type="submit" 
                 className="w-full bg-palette-primary text-palette-side py-3 px-4 rounded-lg mt-6 hover:bg-palette-primary/90 transition-colors"
-                disabled={loading}
+                disabled={loading || !isAddressValid}
               >
                 {loading ? t.processing : t.saveAddress}
               </button>

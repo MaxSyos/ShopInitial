@@ -1,13 +1,14 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
-import { mockAddresses } from '../mock/addresses';
+import api from '../lib/axiosConfig';
 
 export interface ShippingAddress {
   street: string;
   city: string;
-  state: string;
-  postalCode: string;
+  state: string; // deve ter 2 caracteres
+  postalCode: string; // deve ter 8 caracteres
   country: string;
+  number: string; // novo campo obrigatório
+  complement: string; // novo campo obrigatório
   isDefault?: boolean;
 }
 
@@ -19,7 +20,7 @@ interface OrderState {
 }
 
 const initialState: OrderState = {
-  shippingAddresses: mockAddresses, // Usando os dados mock inicialmente
+  shippingAddresses: [], // Inicializa vazio, sem mock
   currentOrder: null,
   loading: false,
   error: null,
@@ -30,7 +31,7 @@ export const fetchUserAddresses = createAsyncThunk(
   'order/fetchUserAddresses',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get('/api/addresses');
+      const response = await api.get('/addresses');
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Erro ao buscar endereços');
@@ -43,7 +44,7 @@ export const addShippingAddress = createAsyncThunk(
   'order/addShippingAddress',
   async (address: ShippingAddress, { rejectWithValue }) => {
     try {
-      const response = await axios.post('/api/addresses', address);
+      const response = await api.post('/addresses', address);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Erro ao adicionar endereço');
@@ -56,7 +57,7 @@ export const createOrder = createAsyncThunk(
   'order/createOrder',
   async (orderData: { shippingAddress: ShippingAddress, items: any[] }, { rejectWithValue }) => {
     try {
-      const response = await axios.post('/api/orders', orderData);
+      const response = await api.post('/orders', orderData);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Erro ao criar pedido');

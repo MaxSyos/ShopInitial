@@ -1,13 +1,24 @@
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
 import { ICart } from "../lib/types/cart";
 import { IProduct } from "../lib/types/products";
 import { calculateDiscountPercentage } from "../utilities/calculateDiscountPercentage";
+import * as cartApi from './cart-api';
 
 const initialState: ICart = {
   items: [],
   totalQuantity: 0,
   totalAmount: 0,
 };
+
+// Thunk para buscar o carrinho do backend
+export const fetchCart = createAsyncThunk('cart/fetchCart', async (_, { rejectWithValue }) => {
+  try {
+    const response = await cartApi.fetchCart();
+    return response.data;
+  } catch (error: any) {
+    return rejectWithValue(error.response?.data?.message || 'Erro ao buscar carrinho');
+  }
+});
 
 const cartSlice = createSlice({
   name: "cart",
@@ -101,6 +112,14 @@ const cartSlice = createSlice({
     clearCart(state) {
       state = initialState;
     },
+  },
+  extraReducers: (builder) => {
+    builder.addCase(fetchCart.fulfilled, (state, action) => {
+      // Atualiza o estado do carrinho com o que veio do backend
+      state.items = action.payload.items || [];
+      state.totalQuantity = action.payload.totalQuantity || 0;
+      state.totalAmount = action.payload.totalAmount || 0;
+    });
   },
 });
 

@@ -7,10 +7,14 @@ import Benefits from "../Benefits";
 import SimilarProducts from "./SimilarProducts";
 
 interface Props {
-  product: IProduct;
-  products: IProduct[];
+  product: IProduct | null | undefined;
+  products: IProduct[] | null | undefined;
 }
 const ProductDetails: React.FC<Props> = ({ product, products }) => {
+  // Log para depuração
+  console.log('ProductDetails - product:', product);
+  console.log('ProductDetails - products:', products);
+
   if (!product) {
     return <div className="text-center py-12">Carregando produto...</div>;
   }

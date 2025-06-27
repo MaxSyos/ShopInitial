@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../../services/prisma.service';
 import { AddToCartDto, UpdateCartItemDto } from './dto/cart.dto';
 import { ProductService } from '../product/product.service';
+import { RedisService } from '../redis/redis.service';
 
 /**
  * Serviço responsável pela lógica de negócios do carrinho de compras
@@ -26,6 +27,7 @@ export class CartService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly productService: ProductService,
+    private readonly redisService: RedisService, // injeta RedisService
   ) {}
 
   async findByUserId(userId: string) {
@@ -59,6 +61,13 @@ export class CartService {
   }
 
   async getOrCreateCart(userId: string) {
+    // Primeiro tenta buscar no Redis
+    const redisKey = `cart:${userId}`;
+    const cached = await this.redisService.get(redisKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+    // Se não encontrar, busca no Postgres
     let cart = await this.prisma.cart.findUnique({
       where: { userId },
       include: {
@@ -77,7 +86,6 @@ export class CartService {
         },
       },
     });
-
     if (!cart) {
       cart = await this.prisma.cart.create({
         data: { userId },
@@ -98,11 +106,10 @@ export class CartService {
         },
       });
     }
-
-    return {
-      ...cart,
-      total: this.calculateTotal(cart.items),
-    };
+    const result = { ...cart, total: this.calculateTotal(cart.items) };
+    // Salva no Redis para próximas consultas
+    await this.redisService.set(redisKey, JSON.stringify(result), 3600);
+    return result;
   }
 
   async addItem(userId: string, addToCartDto: AddToCartDto) {
@@ -147,7 +154,8 @@ export class CartService {
         },
       });
     }
-
+    // Após atualizar o Postgres, remove cache do Redis
+    await this.redisService.del(`cart:${userId}`);
     return this.getOrCreateCart(userId);
   }
 
@@ -179,7 +187,7 @@ export class CartService {
       where: { id: itemId },
       data: { quantity: updateCartItemDto.quantity },
     });
-
+    await this.redisService.del(`cart:${userId}`);
     return this.getOrCreateCart(userId);
   }
 
@@ -201,7 +209,7 @@ export class CartService {
     await this.prisma.cartItem.delete({
       where: { id: itemId },
     });
-
+    await this.redisService.del(`cart:${userId}`);
     return this.getOrCreateCart(userId);
   }
 
@@ -217,7 +225,7 @@ export class CartService {
     await this.prisma.cartItem.deleteMany({
       where: { cartId: cart.id },
     });
-
+    await this.redisService.del(`cart:${userId}`);
     return this.getOrCreateCart(userId);
   }
 

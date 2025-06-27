@@ -42,12 +42,10 @@ const userInfoSlice = createSlice({
       state.accessToken = null;
       state.refreshToken = null;
       state.error = null;
-
-      // Remover tokens do localStorage
+      // Limpa endereços ao deslogar
       if (typeof window !== "undefined") {
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
-        localStorage.removeItem("userInfo");
       }
     },
 

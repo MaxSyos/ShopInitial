@@ -8,9 +8,9 @@ import { mapBackendProductsToIProducts } from "../../utilities/mapBackendProduct
 const CategoryPage: NextPage = () => {
   const router = useRouter();
   const { category } = router.query;
-  const { products, loadProductsByCategory, loading } = useProducts();
+  const { products: { items }, loadProductsByCategory, loading } = useProducts();
 
-  const mappedProducts = mapBackendProductsToIProducts(products as any);
+  const mappedProducts = items ? mapBackendProductsToIProducts(items) : [];
 
   useEffect(() => {
     if (category && typeof category === "string") {
