@@ -30,7 +30,7 @@ export const fetchUserAddresses = createAsyncThunk(
   'order/fetchUserAddresses',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get('/api/user/addresses');
+      const response = await axios.get('/api/addresses');
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Erro ao buscar endereços');
@@ -43,7 +43,7 @@ export const addShippingAddress = createAsyncThunk(
   'order/addShippingAddress',
   async (address: ShippingAddress, { rejectWithValue }) => {
     try {
-      const response = await axios.post('/api/user/addresses', address);
+      const response = await axios.post('/api/addresses', address);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Erro ao adicionar endereço');

@@ -29,8 +29,8 @@ export function mapBackendProductToIProduct(product: Product): IProduct {
     subCategory,
     isOffer: false, // ajuste se o backend fornecer
     registerDate: product.createdAt,
-    timeStamp: new Date(product.createdAt).getTime(),
-    starRating: 0, // ajuste se o backend fornecer
+    timeStamp: product.createdAt ? new Date(product.createdAt).getTime() : undefined,
+    starRating: product.rating || 0, // Usa a avaliação do backend, ou 0 se não houver
     description: product.description, // Adicionado para exibir descrição do banco
   };
 }

@@ -5,7 +5,6 @@ import { HiMinusSm, HiOutlinePlusSm, HiOutlineTrash } from "react-icons/hi";
 import { useSelector } from "react-redux";
 import { useDispatch } from "react-redux";
 import { useLanguage } from "../../hooks/useLanguage";
-import { urlFor } from "../../lib/client";
 import { ICartRootState } from "../../lib/types/cart";
 import { IProduct } from "../../lib/types/products";
 import { cartActions } from "../../store/cart-slice";
@@ -24,6 +23,13 @@ const CartItem: React.FC<Props> = ({ product }) => {
   const [counter, setCounter] = useState(productQuantity);
   const dispatch = useDispatch();
   const { t } = useLanguage();
+
+  // Define a URL da imagem de forma segura, com um fallback.
+  // Isso evita o erro se 'product.image' não existir ou não for um array.
+  const imageUrl =
+    product && Array.isArray(product.image) && product.image.length > 0
+      ? product.image[0]
+      : "/images/default-product.jpg";
 
   function increment(product: IProduct) {
     setCounter((prev) => ++prev!);
@@ -49,7 +55,7 @@ const CartItem: React.FC<Props> = ({ product }) => {
           <a className="flex flex-wrap sm:flex-nowrap justify-center items-center flex-grow">
             <div className="sm:min-w-[100px] md:min-w-[130px]">
               <Image
-                src={urlFor(product?.image[0]).url()}
+                src={imageUrl}
                 width={200}
                 height={200}
                 alt={product.name}

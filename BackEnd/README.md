@@ -62,13 +62,8 @@ Sistema de e-commerce monolítico desenvolvido em NestJS com foco em segurança,
    - Logs de auditoria
    - Permissões
 
-2. **MongoDB**
-   - Catálogo de produtos
-   - Inventário
-   - Avaliações
-   - Logs não-críticos
 
-3. **Redis**
+2. **Redis**
    - Cache de consultas
    - Sessões
    - Rate limiting
