@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, MinLength, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, MinLength, MaxLength, IsBoolean, IsOptional } from 'class-validator';
 
 export class CreateAddressDto {
   @IsString()
@@ -40,4 +40,8 @@ export class CreateAddressDto {
   @IsNotEmpty()
   @MaxLength(20)
   number: string;
+
+  @IsBoolean()
+  @IsOptional()
+  isDefault?: boolean;
 }

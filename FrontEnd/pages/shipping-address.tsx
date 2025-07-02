@@ -20,7 +20,7 @@ const ShippingAddressPage: React.FC = () => {
   
   const [selectedAddressIndex, setSelectedAddressIndex] = useState<number>(-1);
   const [showNewAddressForm, setShowNewAddressForm] = useState<boolean>(false);
-  const [newAddress, setNewAddress] = useState<ShippingAddress & { number: string; complement: string }>({
+  const [newAddress, setNewAddress] = useState<ShippingAddress & { number: string; complement: string; isDefault: boolean }>({
     street: '',
     number: '',
     complement: '',
@@ -28,6 +28,7 @@ const ShippingAddressPage: React.FC = () => {
     state: '',
     country: 'Brasil',
     postalCode: '',
+    isDefault: false,
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -68,7 +69,7 @@ const ShippingAddressPage: React.FC = () => {
     setSelectedAddressIndex(-1);
   };
 
-  const handleInputChange = (field: keyof typeof newAddress, value: string) => {
+  const handleInputChange = (field: keyof typeof newAddress, value: string | boolean) => {
     setNewAddress(prev => ({
       ...prev,
       [field]: value,
@@ -132,6 +133,7 @@ const ShippingAddressPage: React.FC = () => {
         state: String(newAddress.state),
         country: String(newAddress.country),
         postalCode: String(newAddress.postalCode),
+        isDefault: Boolean(newAddress.isDefault),
       })).unwrap();
       toast.success('Endereço adicionado com sucesso!');
       setShowNewAddressForm(false);
@@ -310,6 +312,15 @@ const ShippingAddressPage: React.FC = () => {
                       onChange={(e) => handleInputChange('country', e.target.value)}
                       classes={errors.country ? 'border-red-500' : ''}
                     />
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="isDefault"
+                        type="checkbox"
+                        checked={newAddress.isDefault}
+                        onChange={(e) => handleInputChange('isDefault', e.target.checked)}
+                      />
+                      <label htmlFor="isDefault">Definir como endereço padrão</label>
+                    </div>
                     <button
                       type="submit"
                       className="w-full bg-palette-primary text-palette-side py-3 px-4 rounded-lg mt-6 hover:bg-palette-primary/90 transition-colors"

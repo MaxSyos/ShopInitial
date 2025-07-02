@@ -10,6 +10,7 @@ export class AddressService {
     return this.prisma.address.create({
       data: {
         ...createAddressDto,
+        isDefault: createAddressDto.isDefault ?? false,
         userId,
       },
     });
