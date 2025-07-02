@@ -52,6 +52,8 @@ model RefreshToken {
 model Address {
   id         String  @id @default(uuid())
   street     String
+  number     String // Número do endereço
+  complement String?
   city       String
   state      String
   country    String

@@ -14,6 +14,7 @@ interface Props {
   autocomplete?: string;
   title?: string;
   required?: boolean;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void; // Adicionado onChange customizado
 }
 
 interface IImperativeHandler {
@@ -24,8 +25,11 @@ const Input = React.forwardRef<IImperativeHandler, Props>((props, ref) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [value, setValue] = useState(props.value || "");
 
-  function inputChangeHandler(e: React.FormEvent<HTMLInputElement>) {
+  function inputChangeHandler(e: React.ChangeEvent<HTMLInputElement>) {
     setValue(e.currentTarget.value);
+    if (props.onChange) {
+      props.onChange(e); // Chama o handler customizado se fornecido
+    }
   }
 
   function inputFocused() {

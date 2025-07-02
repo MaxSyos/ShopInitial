@@ -20,13 +20,16 @@ const ShippingAddressPage: React.FC = () => {
   
   const [selectedAddressIndex, setSelectedAddressIndex] = useState<number>(-1);
   const [showNewAddressForm, setShowNewAddressForm] = useState<boolean>(false);
-  const [newAddress, setNewAddress] = useState<ShippingAddress>({
+  const [newAddress, setNewAddress] = useState<ShippingAddress & { number: string; complement: string }>({
     street: '',
+    number: '',
+    complement: '',
     city: '',
     state: '',
     country: 'Brasil',
-    postalCode: ''
+    postalCode: '',
   });
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const userInfo = useSelector(
     (state: IUserInfoRootState) => state.userInfo.userInformation
@@ -65,11 +68,12 @@ const ShippingAddressPage: React.FC = () => {
     setSelectedAddressIndex(-1);
   };
 
-  const handleInputChange = (field: keyof ShippingAddress, value: string) => {
+  const handleInputChange = (field: keyof typeof newAddress, value: string) => {
     setNewAddress(prev => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
+    setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
   const handleCepChange = async (cep: string) => {
@@ -98,14 +102,40 @@ const ShippingAddressPage: React.FC = () => {
     }
   };
 
+  const validateAddress = () => {
+    const newErrors: { [key: string]: string } = {};
+    if (!newAddress.street || typeof newAddress.street !== 'string') newErrors.street = 'Rua obrigatória';
+    if (!newAddress.number || typeof newAddress.number !== 'string') newErrors.number = 'Número obrigatório';
+    if (!newAddress.city || typeof newAddress.city !== 'string') newErrors.city = 'Cidade obrigatória';
+    if (!newAddress.state || typeof newAddress.state !== 'string') newErrors.state = 'Estado obrigatório';
+    if (!newAddress.country || typeof newAddress.country !== 'string') newErrors.country = 'País obrigatório';
+    if (!newAddress.postalCode || typeof newAddress.postalCode !== 'string') newErrors.postalCode = 'CEP obrigatório';
+    // complement pode ser opcional
+    return newErrors;
+  };
+
   const handleSaveNewAddress = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    const validationErrors = validateAddress();
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      toast.error('Preencha todos os campos obrigatórios corretamente.');
+      return;
+    }
     try {
-      await dispatch(addShippingAddress(newAddress)).unwrap();
+      await dispatch(addShippingAddress({
+        ...newAddress,
+        street: String(newAddress.street),
+        number: String(newAddress.number),
+        complement: String(newAddress.complement || ''),
+        city: String(newAddress.city),
+        state: String(newAddress.state),
+        country: String(newAddress.country),
+        postalCode: String(newAddress.postalCode),
+      })).unwrap();
       toast.success('Endereço adicionado com sucesso!');
       setShowNewAddressForm(false);
-      setSelectedAddressIndex(shippingAddresses.length); // Seleciona o novo endereço
+      setSelectedAddressIndex(shippingAddresses.length);
     } catch (error: any) {
       toast.error(error.message || 'Erro ao adicionar endereço');
     }
@@ -217,22 +247,39 @@ const ShippingAddressPage: React.FC = () => {
                       required
                       value={newAddress.postalCode}
                       placeholder="CEP"
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                        handleCepChange(e.target.value)
-                      }
+                      onChange={(e) => handleInputChange('postalCode', e.target.value)}
+                      classes={errors.postalCode ? 'border-red-500' : ''}
                     />
-
+                    {errors.postalCode && <span className="text-red-500 text-xs">{errors.postalCode}</span>}
                     <Input
                       id="street"
                       type="text"
                       required
                       value={newAddress.street}
-                      placeholder="Rua, número e complemento"
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                        handleInputChange('street', e.target.value)
-                      }
+                      placeholder="Rua"
+                      onChange={(e) => handleInputChange('street', e.target.value)}
+                      classes={errors.street ? 'border-red-500' : ''}
                     />
-
+                    {errors.street && <span className="text-red-500 text-xs">{errors.street}</span>}
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <Input
+                        id="number"
+                        type="text"
+                        required
+                        value={newAddress.number}
+                        placeholder="Número"
+                        onChange={(e) => handleInputChange('number', e.target.value)}
+                        classes={errors.number ? 'border-red-500' : ''}
+                      />
+                      {errors.number && <span className="text-red-500 text-xs block md:col-span-2">{errors.number}</span>}
+                      <Input
+                        id="complement"
+                        type="text"
+                        value={newAddress.complement}
+                        placeholder="Complemento (opcional)"
+                        onChange={(e) => handleInputChange('complement', e.target.value)}
+                      />
+                    </div>
                     <div className="grid md:grid-cols-2 gap-4">
                       <Input
                         id="city"
@@ -240,23 +287,19 @@ const ShippingAddressPage: React.FC = () => {
                         required
                         value={newAddress.city}
                         placeholder="Cidade"
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                          handleInputChange('city', e.target.value)
-                        }
+                        onChange={(e) => handleInputChange('city', e.target.value)}
+                        classes={errors.city ? 'border-red-500' : ''}
                       />
-
                       <Input
                         id="state"
                         type="text"
                         required
                         value={newAddress.state}
                         placeholder="Estado"
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                          handleInputChange('state', e.target.value)
-                        }
+                        onChange={(e) => handleInputChange('state', e.target.value)}
+                        classes={errors.state ? 'border-red-500' : ''}
                       />
                     </div>
-
                     <Input
                       id="country"
                       type="text"
@@ -264,13 +307,11 @@ const ShippingAddressPage: React.FC = () => {
                       value={newAddress.country}
                       placeholder="País"
                       readonly
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                        handleInputChange('country', e.target.value)
-                      }
+                      onChange={(e) => handleInputChange('country', e.target.value)}
+                      classes={errors.country ? 'border-red-500' : ''}
                     />
-
-                    <button 
-                      type="submit" 
+                    <button
+                      type="submit"
                       className="w-full bg-palette-primary text-palette-side py-3 px-4 rounded-lg mt-6 hover:bg-palette-primary/90 transition-colors"
                       disabled={loading}
                     >

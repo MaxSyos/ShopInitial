@@ -62,9 +62,36 @@ const OrderConfirmation: React.FC = () => {
 
   const handleAddNewAddress = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // Garante que todos os campos obrigatórios são strings e válidos
+    const addressToSend = {
+      street: String(newAddress.street || '').trim(),
+      city: String(newAddress.city || '').trim(),
+      state: String(newAddress.state || '').trim(),
+      country: String(newAddress.country || '').trim(),
+      postalCode: String(newAddress.postalCode || '').trim(),
+      number: String(newAddress.number || '').trim(),
+      complement: String(newAddress.complement || '').trim(),
+      isDefault: !!newAddress.isDefault,
+    };
+
+    // Validação extra antes de enviar
+    const isValid =
+      addressToSend.street.length >= 3 && addressToSend.street.length <= 100 &&
+      addressToSend.city.length >= 3 && addressToSend.city.length <= 100 &&
+      addressToSend.state.length === 2 &&
+      addressToSend.country.length >= 2 && addressToSend.country.length <= 100 &&
+      addressToSend.postalCode.length === 8 &&
+      addressToSend.number.length >= 1 && addressToSend.number.length <= 20 &&
+      addressToSend.complement.length >= 1 && addressToSend.complement.length <= 100;
+
+    if (!isValid) {
+      toast.error('Preencha todos os campos obrigatórios corretamente.');
+      return;
+    }
+
     try {
-      await dispatch(addShippingAddress(newAddress)).unwrap();
+      await dispatch(addShippingAddress(addressToSend)).unwrap();
       toast.success(t.addressAddedSuccess);
       setStep(2);
     } catch (error: any) {
@@ -164,10 +191,14 @@ const OrderConfirmation: React.FC = () => {
                 required
                 value={newAddress.street}
                 placeholder={t.street}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                  handleInputChange('street', e.target.value)
+                classes={newAddress.street.length < 3 ? 'border-red-500' : ''}
+                onInput={(e: React.FormEvent<HTMLInputElement>) => 
+                  handleInputChange('street', (e.target as HTMLInputElement).value)
                 }
               />
+              {newAddress.street.length < 3 && (
+                <p className="text-red-500 text-xs mt-1">{t.street} deve ter pelo menos 3 caracteres</p>
+              )}
 
               <Input
                 id="city"
@@ -175,10 +206,14 @@ const OrderConfirmation: React.FC = () => {
                 required
                 value={newAddress.city}
                 placeholder={t.city}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                  handleInputChange('city', e.target.value)
+                classes={newAddress.city.length < 3 ? 'border-red-500' : ''}
+                onInput={(e: React.FormEvent<HTMLInputElement>) => 
+                  handleInputChange('city', (e.target as HTMLInputElement).value)
                 }
               />
+              {newAddress.city.length < 3 && (
+                <p className="text-red-500 text-xs mt-1">{t.city} deve ter pelo menos 3 caracteres</p>
+              )}
 
               <Input
                 id="state"
@@ -188,10 +223,14 @@ const OrderConfirmation: React.FC = () => {
                 placeholder={t.state}
                 minLength={2}
                 maxLength={2}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                  handleInputChange('state', e.target.value.toUpperCase().slice(0,2))
+                classes={newAddress.state.length !== 2 ? 'border-red-500' : ''}
+                onInput={(e: React.FormEvent<HTMLInputElement>) => 
+                  handleInputChange('state', (e.target as HTMLInputElement).value.toUpperCase().slice(0,2))
                 }
               />
+              {newAddress.state.length !== 2 && (
+                <p className="text-red-500 text-xs mt-1">{t.state} deve ter 2 caracteres</p>
+              )}
 
               <Input
                 id="postalCode"
@@ -201,10 +240,14 @@ const OrderConfirmation: React.FC = () => {
                 placeholder={t.postalCode}
                 minLength={8}
                 maxLength={8}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                  handleInputChange('postalCode', e.target.value.replace(/\D/g, '').slice(0,8))
+                classes={newAddress.postalCode.length !== 8 ? 'border-red-500' : ''}
+                onInput={(e: React.FormEvent<HTMLInputElement>) => 
+                  handleInputChange('postalCode', (e.target as HTMLInputElement).value.replace(/\D/g, '').slice(0,8))
                 }
               />
+              {newAddress.postalCode.length !== 8 && (
+                <p className="text-red-500 text-xs mt-1">{t.postalCode} deve ter 8 caracteres</p>
+              )}
 
               <Input
                 id="number"
@@ -214,10 +257,14 @@ const OrderConfirmation: React.FC = () => {
                 placeholder={t.number || 'Número'}
                 minLength={1}
                 maxLength={20}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                  handleInputChange('number', e.target.value)
+                classes={newAddress.number.length < 1 || newAddress.number.length > 20 ? 'border-red-500' : ''}
+                onInput={(e: React.FormEvent<HTMLInputElement>) => 
+                  handleInputChange('number', (e.target as HTMLInputElement).value)
                 }
               />
+              {(newAddress.number.length < 1 || newAddress.number.length > 20) && (
+                <p className="text-red-500 text-xs mt-1">{t.number || 'Número'} deve ter entre 1 e 20 caracteres</p>
+              )}
 
               <Input
                 id="complement"
@@ -227,10 +274,14 @@ const OrderConfirmation: React.FC = () => {
                 placeholder={t.complement || 'Complemento'}
                 minLength={1}
                 maxLength={100}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                  handleInputChange('complement', e.target.value)
+                classes={newAddress.complement.length < 1 || newAddress.complement.length > 100 ? 'border-red-500' : ''}
+                onInput={(e: React.FormEvent<HTMLInputElement>) => 
+                  handleInputChange('complement', (e.target as HTMLInputElement).value)
                 }
               />
+              {(newAddress.complement.length < 1 || newAddress.complement.length > 100) && (
+                <p className="text-red-500 text-xs mt-1">{t.complement || 'Complemento'} deve ter entre 1 e 100 caracteres</p>
+              )}
 
               <Input
                 id="country"
@@ -238,10 +289,14 @@ const OrderConfirmation: React.FC = () => {
                 required
                 value={newAddress.country}
                 placeholder={t.country}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                  handleInputChange('country', e.target.value)
+                classes={newAddress.country.length < 2 ? 'border-red-500' : ''}
+                onInput={(e: React.FormEvent<HTMLInputElement>) => 
+                  handleInputChange('country', (e.target as HTMLInputElement).value)
                 }
               />
+              {newAddress.country.length < 2 && (
+                <p className="text-red-500 text-xs mt-1">{t.country} deve ter pelo menos 2 caracteres</p>
+              )}
 
               <div className="flex items-center mb-4">
                 <input
@@ -275,8 +330,8 @@ const OrderConfirmation: React.FC = () => {
             <div className="bg-palette-fill rounded-lg p-6">
               <div className="space-y-4">
                 {cartItems.map((item) => (
-                  <div key={item.id} className="flex justify-between">
-                    <span>{item.title} x {item.quantity}</span>
+                  <div key={item.name + item.price} className="flex justify-between">
+                    <span>{item.name} x {item.quantity}</span>
                     <span>{item.totalPrice}</span>
                   </div>
                 ))}
