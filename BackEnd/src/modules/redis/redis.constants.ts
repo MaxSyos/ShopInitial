@@ -1,2 +1,0 @@
-export const REDIS_OPTIONS = 'REDIS_OPTIONS';
-export const REDIS_CLIENT = 'REDIS_CLIENT';

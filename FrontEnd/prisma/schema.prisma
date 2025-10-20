@@ -1,0 +1,27 @@
+// Prisma schema para MongoDB
+// Provider: mongodb
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String @id @map("_id") @default(auto()) @db.ObjectId
+  email     String @unique
+  name      String
+  password  String
+  role      String @default("USER")
+  createdAt DateTime @default(now())
+}
+
+model RefreshToken {
+  id        String @id @map("_id") @default(auto()) @db.ObjectId
+  token     String
+  userId    String @db.ObjectId
+  createdAt DateTime @default(now())
+}
