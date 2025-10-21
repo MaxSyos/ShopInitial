@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+  "prisma:seed": "node --loader ts-node/esm prisma/seed.ts",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "build": "next build",
@@ -52,7 +53,8 @@
   },
   "devDependencies": {
     "prisma": "4.15.0",
-    "@types/node": "17.0.31",
+  "ts-node": "10.9.1",
+  "@types/node": "20.4.2",
     "@types/react": "18.0.8",
     "@types/react-dom": "18.0.3",
     "autoprefixer": "^10.4.7",
