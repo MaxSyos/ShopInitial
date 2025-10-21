@@ -25,3 +25,60 @@ model RefreshToken {
   userId    String @db.ObjectId
   createdAt DateTime @default(now())
 }
+
+// --- Product-related models ---
+
+model Brand {
+  id        String    @id @map("_id") @default(auto()) @db.ObjectId
+  name      String
+  logo      String?
+  createdAt DateTime  @default(now())
+  products  Product[]
+}
+
+model Category {
+  id        String     @id @map("_id") @default(auto()) @db.ObjectId
+  name      String
+  description String?
+  parentId  String?    @db.ObjectId
+  parent    Category?  @relation("CategoryParent", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children  Category[] @relation("CategoryParent")
+  products  Product[]
+}
+
+model Product {
+  id          String    @id @map("_id") @default(auto()) @db.ObjectId
+  name        String
+  description String?
+  price       Float
+  stock       Int       @default(0)
+  sku         String?   @unique
+  images      Image[]
+  brandId     String?   @db.ObjectId
+  brand       Brand?    @relation(fields: [brandId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  categoryId  String?   @db.ObjectId
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rating      Float     @default(0)
+  isOffer     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  reviews     Review[]
+}
+
+model Image {
+  id        String  @id @map("_id") @default(auto()) @db.ObjectId
+  url       String
+  alt       String?
+  productId String  @db.ObjectId
+  product   Product @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model Review {
+  id        String   @id @map("_id") @default(auto()) @db.ObjectId
+  rating    Int
+  comment   String?
+  userId    String?  @db.ObjectId
+  productId String   @db.ObjectId
+  product   Product  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt DateTime @default(now())
+}
