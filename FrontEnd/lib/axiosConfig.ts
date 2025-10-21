@@ -1,8 +1,9 @@
 import axios from 'axios';
 
-const baseURL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+// Use internal Next.js API by default when running in monolito
+const baseURL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
-console.log('URL do backend configurada:', baseURL);
+console.log('URL do backend configurada (axios):', baseURL);
 
 const api = axios.create({
   baseURL,
