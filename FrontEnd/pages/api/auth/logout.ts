@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
 import { verifyToken } from '../_utils/auth';
+import cookie from 'cookie';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -8,9 +9,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
-  const { refreshToken } = req.body || {};
+  // Read refresh token from HttpOnly cookie
+  const cookies = req.headers.cookie ? cookie.parse(req.headers.cookie) : {};
+  const refreshToken = cookies.refreshToken;
   if (!refreshToken) {
-    // Accept logout without token (client can just clear local storage)
+    // Clear cookie anyway
+    res.setHeader('Set-Cookie', cookie.serialize('refreshToken', '', { httpOnly: true, path: '/', maxAge: 0 }));
     return res.status(200).json({ message: 'Desconectado' });
   }
 
@@ -22,9 +26,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ message: 'Desconectado' });
     }
 
-    // Remove refresh token(s) para o usuário
-    await prisma.refreshToken.deleteMany({ where: { userId: decoded.id } });
-    return res.status(200).json({ message: 'Desconectado' });
+  // Remove refresh token(s) para o usuário
+  await prisma.refreshToken.deleteMany({ where: { userId: decoded.id } });
+
+  // Clear refresh token cookie
+  res.setHeader('Set-Cookie', cookie.serialize('refreshToken', '', { httpOnly: true, path: '/', maxAge: 0 }));
+
+  return res.status(200).json({ message: 'Desconectado' });
   } catch (error) {
     console.error('Logout error:', error);
     return res.status(500).json({ message: 'Erro interno' });

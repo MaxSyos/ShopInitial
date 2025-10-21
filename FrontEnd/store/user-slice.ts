@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { IUser, IUserInfo } from "../lib/types/user";
+import tokenStore from "../lib/tokenStore";
 
 const initialState: IUserInfo = {
   userInformation: null,
@@ -7,7 +8,7 @@ const initialState: IUserInfo = {
   loading: false,
   error: null,
   accessToken: null,
-  refreshToken: null,
+  refreshToken: null, // kept for type compatibility but not persisted
 };
 
 const userInfoSlice = createSlice({
@@ -16,24 +17,26 @@ const userInfoSlice = createSlice({
   reducers: {
     userLogin(
       state,
-      action: PayloadAction<IUser & { accessToken: string; refreshToken: string }>
+      action: PayloadAction<IUser & { accessToken: string }>
     ) {
+      // populate required IUser fields; fill missing fields with sensible defaults
       state.userInformation = {
         _id: action.payload._id,
         name: action.payload.name,
         email: action.payload.email,
         isAdmin: action.payload.isAdmin,
-      };
+        password: undefined,
+        token: action.payload.accessToken || '',
+        accessToken: action.payload.accessToken,
+        refreshToken: '',
+        role: (action.payload as any).role || 'USER',
+      } as IUser;
       state.isAuthenticated = true;
       state.accessToken = action.payload.accessToken;
-      state.refreshToken = action.payload.refreshToken;
       state.error = null;
 
-      // Salvar tokens no localStorage
-      if (typeof window !== "undefined") {
-        localStorage.setItem("accessToken", action.payload.accessToken);
-        localStorage.setItem("refreshToken", action.payload.refreshToken);
-      }
+      // Save access token in memory only
+      tokenStore.setToken(action.payload.accessToken);
     },
 
     userLogout(state) {
@@ -44,9 +47,9 @@ const userInfoSlice = createSlice({
       state.error = null;
       // Limpa endereços ao deslogar
       if (typeof window !== "undefined") {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("userInfo");
       }
+      tokenStore.clear();
     },
 
     setLoading(state, action: PayloadAction<boolean>) {
@@ -57,16 +60,13 @@ const userInfoSlice = createSlice({
       state.error = action.payload;
     },
 
-    updateTokens(
-      state,
-      action: PayloadAction<{ accessToken: string; refreshToken: string }>
-    ) {
+    updateTokens(state, action: PayloadAction<{ accessToken: string }>) {
       state.accessToken = action.payload.accessToken;
-      state.refreshToken = action.payload.refreshToken;
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem("accessToken", action.payload.accessToken);
-        localStorage.setItem("refreshToken", action.payload.refreshToken);
+      tokenStore.setToken(action.payload.accessToken);
+      if (typeof window !== 'undefined') {
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        userInfo.accessToken = action.payload.accessToken;
+        localStorage.setItem('userInfo', JSON.stringify(userInfo));
       }
     },
   },

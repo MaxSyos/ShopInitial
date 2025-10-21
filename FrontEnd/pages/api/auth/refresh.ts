@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
 import { verifyToken, signToken } from '../_utils/auth';
+import cookie from 'cookie';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -8,7 +9,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
-  const { refreshToken } = req.body || {};
+  // Read refresh token from HttpOnly cookie (Option A)
+  const cookies = req.headers.cookie ? cookie.parse(req.headers.cookie) : {};
+  const refreshToken = cookies.refreshToken;
   if (!refreshToken) {
     return res.status(400).json({ message: 'Refresh token é obrigatório' });
   }
@@ -34,7 +37,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     await prisma.refreshToken.create({ data: { token: newRefreshToken, userId: user.id } });
 
-    return res.status(200).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role }, accessToken: newAccessToken, refreshToken: newRefreshToken });
+    // Set new refresh token as HttpOnly cookie
+    res.setHeader('Set-Cookie', cookie.serialize('refreshToken', newRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60,
+    }));
+
+    return res.status(200).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role }, accessToken: newAccessToken });
   } catch (error) {
     console.error('Refresh error:', error);
     return res.status(500).json({ message: 'Erro interno' });

@@ -1,4 +1,5 @@
 import { IUser } from './types/user';
+import tokenStore from './tokenStore';
 
 const API_BASE = '/api/auth';
 
@@ -21,14 +22,14 @@ export const authService = {
         isAdmin: data.user.role === 'ADMIN',
         role: data.user.role,
         accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
       };
+      // Save accessToken in memory and userInfo in localStorage
+      tokenStore.setToken(data.accessToken);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('userInfo', JSON.stringify(userData));
+      }
 
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      localStorage.setItem('userInfo', JSON.stringify(userData));
-
-      return { user: userData, accessToken: data.accessToken, refreshToken: data.refreshToken };
+      return { user: userData, accessToken: data.accessToken };
     } catch (err: any) {
       console.error('Erro no login:', err);
       throw err.message || 'Credenciais inválidas';
@@ -46,8 +47,11 @@ export const authService = {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || 'Erro no registro');
 
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
+      // Save accessToken in memory and userInfo in localStorage
+      tokenStore.setToken(data.accessToken);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('userInfo', JSON.stringify({ _id: data.user.id, name: data.user.name, email: data.user.email, isAdmin: data.user.role === 'ADMIN', role: data.user.role, accessToken: data.accessToken }));
+      }
       return data;
     } catch (err: any) {
       console.error('Erro no registro:', err);
@@ -57,24 +61,24 @@ export const authService = {
 
   async refreshToken(token?: string) {
     try {
-      const refreshToken = token || (typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null);
-      if (!refreshToken) throw new Error('Refresh token ausente');
-
+      // For Option A the refresh token is stored in an HttpOnly cookie and will
+      // be sent automatically when calling the refresh endpoint with credentials.
       const res = await fetch(`${API_BASE}/refresh`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || 'Erro ao atualizar token');
 
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
-      userInfo.accessToken = data.accessToken;
-      userInfo.refreshToken = data.refreshToken;
-      localStorage.setItem('userInfo', JSON.stringify(userInfo));
+      // update in-memory access token and cached userInfo
+      tokenStore.setToken(data.accessToken);
+      if (typeof window !== 'undefined') {
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        userInfo.accessToken = data.accessToken;
+        localStorage.setItem('userInfo', JSON.stringify(userInfo));
+      }
 
       return data;
     } catch (err: any) {
@@ -85,16 +89,17 @@ export const authService = {
 
   async logout() {
     try {
-      const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+      // Call logout which will clear refresh token cookie server-side and in DB
       await fetch(`${API_BASE}/logout`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
       });
 
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('userInfo');
+      tokenStore.clear();
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('userInfo');
+      }
     } catch (err: any) {
       console.error('Erro ao fazer logout:', err);
     }

@@ -18,7 +18,8 @@ export function mapBackendProductToIProduct(product: Product): IProduct {
   }
   return {
     id: product.id,
-    image: product.images || [],
+    // map images (objects) to array of url strings expected by the UI
+    image: Array.isArray(product.images) ? product.images.map((img: any) => img.url || img) : [],
     name: product.name,
     slug: { _type: 'slug', current: product.id || product.name.replace(/\s+/g, '-').toLowerCase() },
     price: product.price,

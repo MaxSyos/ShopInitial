@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import bcrypt from 'bcrypt';
 import prisma from '../../../lib/prisma';
 import { signToken } from '../_utils/auth';
+import cookie from 'cookie';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -30,7 +31,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     await prisma.refreshToken.create({ data: { token: refreshToken, userId: user.id } });
 
-    return res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role }, accessToken, refreshToken });
+    // Set refresh token as HttpOnly cookie
+    res.setHeader('Set-Cookie', cookie.serialize('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60,
+    }));
+
+    return res.status(201).json({ user: { id: user.id, name: user.name, email: user.email, role: user.role }, accessToken });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Erro interno' });
