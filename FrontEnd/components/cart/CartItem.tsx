@@ -48,29 +48,39 @@ const CartItem: React.FC<Props> = ({ product }) => {
   }
   return (
     <div className="flex items-center flex-wrap sm:my-4 sm:py-4 px-2 border-b-2">
-      <div className="lg:w-1/2 sm:min-w-[290px]">
-        <Link
-          href={`/${product.category[0]}/${product.category[1]}/${product.category[2]}/${product.slug.current}`}
-        >
-          <a className="flex flex-wrap sm:flex-nowrap justify-center items-center flex-grow">
-            <div className="sm:min-w-[100px] md:min-w-[130px]">
-              <Image
-                src={imageUrl}
-                width={200}
-                height={200}
-                alt={product.name}
-                className="object-contain"
-              />
-            </div>
-            <div
-              className="flex-grow text-sm font-normal mb-2 sm:mb-0 mx-2 w-full"
-              style={{ direction: "ltr" }}
-            >
-              {product.name}
-            </div>
-          </a>
-        </Link>
-      </div>
+      {/* Monta URL consistente com a rota de detalhe */}
+      {(() => {
+        const category = product.category && product.category.length > 0 ? product.category[0] : 'categoria';
+        const subCategory = product.subCategory ? product.subCategory : 'all';
+        const titleSlug = product.name ? product.name.replace(/\s+/g, '-').toLowerCase() : (product.slug?.current || product.id);
+        const slug = product.slug?.current || product.id;
+        const productUrl = `/${category}/${subCategory}/${titleSlug}/${slug}`;
+
+        return (
+          <div className="lg:w-1/2 sm:min-w-[290px]">
+            <Link href={productUrl}>
+              <a className="flex flex-wrap sm:flex-nowrap justify-center items-center flex-grow">
+                <div className="sm:min-w-[100px] md:min-w-[130px]">
+                  <Image
+                    src={imageUrl}
+                    width={200}
+                    height={200}
+                    alt={product.name}
+                    className="object-contain"
+                  />
+                </div>
+                <div
+                  className="flex-grow text-sm font-normal mb-2 sm:mb-0 mx-2 w-full"
+                  style={{ direction: "ltr" }}
+                >
+                  {product.name}
+                </div>
+              </a>
+            </Link>
+          </div>
+        );
+      })()}
+      
       <div className="flex flex-wrap flex-grow md:items-center mb-4 sm:mb-0">
         <div className="flex-grow my-2 sm:my-0">
           <div className="flex items-center justify-start lg:justify-center cursor-pointer">

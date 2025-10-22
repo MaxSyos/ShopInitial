@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
 import { verifyToken, signToken } from '../_utils/auth';
-import cookie from 'cookie';
+import { parse, serialize } from 'cookie';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -10,7 +10,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Read refresh token from HttpOnly cookie (Option A)
-  const cookies = req.headers.cookie ? cookie.parse(req.headers.cookie) : {};
+  const cookies = req.headers.cookie ? parse(req.headers.cookie) : {};
   const refreshToken = cookies.refreshToken;
   if (!refreshToken) {
     return res.status(400).json({ message: 'Refresh token é obrigatório' });
@@ -38,7 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await prisma.refreshToken.create({ data: { token: newRefreshToken, userId: user.id } });
 
     // Set new refresh token as HttpOnly cookie
-    res.setHeader('Set-Cookie', cookie.serialize('refreshToken', newRefreshToken, {
+    res.setHeader('Set-Cookie', serialize('refreshToken', newRefreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

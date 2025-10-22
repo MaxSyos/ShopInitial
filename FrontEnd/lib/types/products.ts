@@ -41,14 +41,15 @@ export interface IProduct {
   name: string;
   slug: TSlug;
   price: number;
-  discount?: number;
-  details?: IProductDetails[];
+  // Fields that may be returned from server-side props should be serializable (no undefined)
+  discount: number | null;
+  details: IProductDetails[];
   brand: string;
   category: string[];
-  subCategory?: string; // Adicionado para refletir subcategoria
-  isOffer?: boolean;
-  registerDate?: string;
-  timeStamp?: number;
+  subCategory: string | null; // Adicionado para refletir subcategoria
+  isOffer: boolean;
+  registerDate: string | null;
+  timeStamp: number | null;
   starRating: number;
-  description?: string; // Adicionado para exibir descrição do banco
+  description: string | null; // Adicionado para exibir descrição do banco
 }

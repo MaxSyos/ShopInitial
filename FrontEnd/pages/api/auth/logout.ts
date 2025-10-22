@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
 import { verifyToken } from '../_utils/auth';
-import cookie from 'cookie';
+import { parse, serialize } from 'cookie';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -10,11 +10,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Read refresh token from HttpOnly cookie
-  const cookies = req.headers.cookie ? cookie.parse(req.headers.cookie) : {};
+  const cookies = req.headers.cookie ? parse(req.headers.cookie) : {};
   const refreshToken = cookies.refreshToken;
   if (!refreshToken) {
     // Clear cookie anyway
-    res.setHeader('Set-Cookie', cookie.serialize('refreshToken', '', { httpOnly: true, path: '/', maxAge: 0 }));
+  res.setHeader('Set-Cookie', serialize('refreshToken', '', { httpOnly: true, path: '/', maxAge: 0 }));
     return res.status(200).json({ message: 'Desconectado' });
   }
 
@@ -30,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   await prisma.refreshToken.deleteMany({ where: { userId: decoded.id } });
 
   // Clear refresh token cookie
-  res.setHeader('Set-Cookie', cookie.serialize('refreshToken', '', { httpOnly: true, path: '/', maxAge: 0 }));
+  res.setHeader('Set-Cookie', serialize('refreshToken', '', { httpOnly: true, path: '/', maxAge: 0 }));
 
   return res.status(200).json({ message: 'Desconectado' });
   } catch (error) {

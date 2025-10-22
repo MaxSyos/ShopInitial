@@ -31,11 +31,16 @@ const FavoriteItem: React.FC<Props> = ({ product }) => {
       theme: theme === "dark" ? "dark" : "light",
     });
   }
+  // Monta URL consistente com a rota de detalhe
+  const category = product.category && product.category.length > 0 ? product.category[0] : 'categoria';
+  const subCategory = product.subCategory ? product.subCategory : 'all';
+  const titleSlug = product.name ? product.name.replace(/\s+/g, '-').toLowerCase() : (product.slug?.current || product.id);
+  const slug = product.slug?.current || product.id;
+  const productUrl = `/${category}/${subCategory}/${titleSlug}/${slug}`;
+
   return (
     <div className="col-span-6 sm:col-span-3 lg:col-span-4 xl:col-span-3 flex flex-col w-full h-full px-2 my-2 shadow-lg rounded-md bg-palette-card relative">
-      <Link
-        href={`/${product.category[0]}/${product.category[1]}/${product.category[2]}/${product.slug.current}`}
-      >
+      <Link href={productUrl}>
         <a className="flex flex-col w-full p-3 flex-grow">
           <div className="text-center">
             {product?.image[0] && (

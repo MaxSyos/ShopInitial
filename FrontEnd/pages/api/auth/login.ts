@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import bcrypt from 'bcrypt';
 import prisma from '../../../lib/prisma';
 import { signToken } from '../_utils/auth';
-import cookie from 'cookie';
+import { serialize } from 'cookie';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -28,7 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await prisma.refreshToken.create({ data: { token: refreshToken, userId: user.id } });
 
     // Set refresh token as HttpOnly cookie (Option A)
-    res.setHeader('Set-Cookie', cookie.serialize('refreshToken', refreshToken, {
+    res.setHeader('Set-Cookie', serialize('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

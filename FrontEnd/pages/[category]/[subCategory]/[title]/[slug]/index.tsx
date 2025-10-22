@@ -3,31 +3,41 @@ import { useRouter } from "next/router";
 import ProductDetails from "../../../../../components/productDetails";
 import mapBackendProduct from "../../../../../utilities/mapBackendProduct";
 import { IProduct } from "../../../../../lib/types/products";
-import axios from "axios";
+import { axiosInstance } from "../../../../../lib/axiosConfig";
+import prisma from "../../../../../lib/prisma";
+import { GetServerSideProps } from "next";
 
-const ProductDetailsPage = () => {
+interface Props {
+  initialProduct?: IProduct | null;
+}
+
+const ProductDetailsPage: React.FC<Props> = ({ initialProduct = null }) => {
   const router = useRouter();
   const { slug } = router.query;
-  const [product, setProduct] = useState<IProduct | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [product, setProduct] = useState<IProduct | null>(initialProduct || null);
+  const [loading, setLoading] = useState<boolean>(initialProduct ? false : true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProduct = async () => {
       if (!slug || typeof slug !== "string") return;
+      if (initialProduct) return; // already have product from server
       setLoading(true);
       setError(null);
+      console.log('ProductDetailsPage: fetching product for slug=', slug);
       try {
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_BACKEND_URL}/products/${slug}`
-        );
+        const res = await axiosInstance.get(`/products/${slug}`);
+        console.log('ProductDetailsPage: fetch response', res && res.data);
         if (res.data) {
           setProduct(mapBackendProduct(res.data));
         } else {
           setProduct(null);
+          console.warn('ProductDetailsPage: produto nao encontrado, response had no data', res);
           setError("Produto não encontrado.");
         }
       } catch (err) {
+        // Log detalhado do erro para depuração no console do navegador
+        console.error('ProductDetailsPage: error fetching product', err, (err as any)?.response?.status, (err as any)?.response?.data);
         setProduct(null);
         setError("Produto não encontrado.");
       } finally {
@@ -62,3 +72,27 @@ const ProductDetailsPage = () => {
 };
 
 export default ProductDetailsPage;
+
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const { slug } = context.query;
+  if (!slug || Array.isArray(slug)) {
+    return { props: { initialProduct: null } };
+  }
+
+  try {
+    const product = await prisma.product.findUnique({
+      where: { id: String(slug) },
+      include: { images: true, brand: true, category: true, reviews: true },
+    });
+
+    if (!product) {
+      return { props: { initialProduct: null } };
+    }
+
+    const mapped = mapBackendProduct(product as any);
+    return { props: { initialProduct: mapped } };
+  } catch (error) {
+    console.error("getServerSideProps product fetch error:", error);
+    return { props: { initialProduct: null } };
+  }
+};
