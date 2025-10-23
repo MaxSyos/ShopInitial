@@ -109,8 +109,11 @@ const ShippingAddressPage: React.FC = () => {
     if (!newAddress.number || typeof newAddress.number !== 'string') newErrors.number = 'Número obrigatório';
     if (!newAddress.city || typeof newAddress.city !== 'string') newErrors.city = 'Cidade obrigatória';
     if (!newAddress.state || typeof newAddress.state !== 'string') newErrors.state = 'Estado obrigatório';
+    else if ((newAddress.state || '').length !== 2) newErrors.state = 'Estado deve ter 2 caracteres (ex: SP)';
     if (!newAddress.country || typeof newAddress.country !== 'string') newErrors.country = 'País obrigatório';
-    if (!newAddress.postalCode || typeof newAddress.postalCode !== 'string') newErrors.postalCode = 'CEP obrigatório';
+    // postalCode deve ter 8 dígitos (CEP sem máscara)
+    const cleanCep = String(newAddress.postalCode || '').replace(/\D/g, '');
+    if (!cleanCep || cleanCep.length !== 8) newErrors.postalCode = 'CEP inválido (8 dígitos)';
     // complement pode ser opcional
     return newErrors;
   };
@@ -124,17 +127,22 @@ const ShippingAddressPage: React.FC = () => {
       return;
     }
     try {
-      await dispatch(addShippingAddress({
+      // Normalizar alguns campos antes do envio
+      const cleanPostal = String(newAddress.postalCode).replace(/\D/g, '');
+      const payload = {
         ...newAddress,
         street: String(newAddress.street),
         number: String(newAddress.number),
         complement: String(newAddress.complement || ''),
         city: String(newAddress.city),
-        state: String(newAddress.state),
-        country: String(newAddress.country),
-        postalCode: String(newAddress.postalCode),
+        state: String(newAddress.state).toUpperCase(),
+        // padronizar país para código BR
+        country: 'BR',
+        postalCode: cleanPostal,
         isDefault: Boolean(newAddress.isDefault),
-      })).unwrap();
+      };
+
+      await dispatch(addShippingAddress(payload)).unwrap();
       toast.success('Endereço adicionado com sucesso!');
       setShowNewAddressForm(false);
       setSelectedAddressIndex(shippingAddresses.length);
@@ -249,7 +257,7 @@ const ShippingAddressPage: React.FC = () => {
                       required
                       value={newAddress.postalCode}
                       placeholder="CEP"
-                      onChange={(e) => handleInputChange('postalCode', e.target.value)}
+                      onChange={(e) => handleCepChange(e.target.value)}
                       classes={errors.postalCode ? 'border-red-500' : ''}
                     />
                     {errors.postalCode && <span className="text-red-500 text-xs">{errors.postalCode}</span>}
@@ -339,9 +347,9 @@ const ShippingAddressPage: React.FC = () => {
                 <h3 className="text-xl font-semibold mb-4">Resumo do Pedido</h3>
                 
                 <div className="space-y-4 mb-6">
-                  {cartItems.map((item) => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span className="flex-1">{item.title} x {item.quantity}</span>
+                  {cartItems.map((item, idx) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span className="flex-1">{item.name} x {item.quantity}</span>
                       <span className="font-medium">R$ {item.totalPrice}</span>
                     </div>
                   ))}

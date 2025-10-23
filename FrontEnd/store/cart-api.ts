@@ -1,7 +1,7 @@
-import api from '../lib/axiosConfig';
+import axios from 'axios';
 
-export const fetchCart = () => api.get('/cart');
-export const addToCart = (productId: string, quantity: number) => api.post('/cart/items', { productId, quantity });
-export const updateCartItem = (itemId: string, quantity: number) => api.put(`/cart/items/${itemId}`, { quantity });
-export const removeCartItem = (itemId: string) => api.delete(`/cart/items/${itemId}`);
-export const clearCart = () => api.delete('/cart');
+export const fetchCart = () => axios.get('/api/cart');
+export const addToCart = (productId: string, quantity: number) => axios.post('/api/cart/items', { productId, quantity });
+export const updateCartItem = (itemId: string, quantity: number) => axios.put(`/api/cart/items/${itemId}`, { quantity });
+export const removeCartItem = (itemId: string) => axios.delete(`/api/cart/items/${itemId}`);
+export const clearCart = () => axios.delete('/api/cart');

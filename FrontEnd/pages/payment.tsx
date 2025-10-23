@@ -119,9 +119,14 @@ const PaymentPage: React.FC = () => {
         }))
       };
 
+      let token = '';
+      try {
+        const ui = localStorage.getItem('userInfo');
+        if (ui) token = JSON.parse(ui).accessToken || '';
+      } catch (e) {}
       const orderResponse = await axios.post('/api/orders', orderData, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${token}`
         }
       });
 
@@ -138,7 +143,7 @@ const PaymentPage: React.FC = () => {
 
       const paymentResponse = await axios.post('/api/payments', paymentData, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${token}`
         }
       });
 

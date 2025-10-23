@@ -8,7 +8,15 @@ const initialState: ICart = {
   totalAmount: 0,
 };
 
-export const fetchCart = createAsyncThunk('cart/fetchCart', async (_, { rejectWithValue }) => {
+export const fetchCart = createAsyncThunk('cart/fetchCart', async (_, { rejectWithValue, getState }) => {
+  // Se o usuário não estiver autenticado, não chamamos o backend — usar apenas estado local
+  const state: any = getState();
+  const isAuthenticated = state?.userInfo?.isAuthenticated;
+  if (!isAuthenticated) {
+    // Retorna um payload vazio para manter o estado local do cliente
+    return { items: [], totalQuantity: 0, totalAmount: 0 };
+  }
+
   try {
     const response = await api.get('/cart');
     return response.data;
@@ -19,7 +27,14 @@ export const fetchCart = createAsyncThunk('cart/fetchCart', async (_, { rejectWi
 
 export const addToCart = createAsyncThunk(
   'cart/addToCart',
-  async (payload: { productId: string; quantity: number }, { rejectWithValue }) => {
+  async (payload: { productId: string; quantity: number }, { rejectWithValue, getState }) => {
+    const state: any = getState();
+    const isAuthenticated = state?.userInfo?.isAuthenticated;
+    if (!isAuthenticated) {
+      // Usuário anônimo: não persiste no backend
+      return { items: [], totalQuantity: 0, totalAmount: 0 };
+    }
+
     try {
       const response = await api.post('/cart/items', payload);
       return response.data;
@@ -31,7 +46,14 @@ export const addToCart = createAsyncThunk(
 
 export const removeFromCart = createAsyncThunk(
   'cart/removeFromCart',
-  async (itemId: string, { rejectWithValue }) => {
+  async (itemId: string, { rejectWithValue, getState }) => {
+    const state: any = getState();
+    const isAuthenticated = state?.userInfo?.isAuthenticated;
+    if (!isAuthenticated) {
+      // Usuário anônimo: não persiste no backend
+      return { items: [], totalQuantity: 0, totalAmount: 0 };
+    }
+
     try {
       const response = await api.delete(`/cart/items/${itemId}`);
       return response.data;

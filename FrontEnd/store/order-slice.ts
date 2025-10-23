@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../lib/axiosConfig';
+import axios from 'axios';
 
 export interface ShippingAddress {
   street: string;
@@ -31,7 +32,13 @@ export const fetchUserAddresses = createAsyncThunk(
   'order/fetchUserAddresses',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await api.get('/addresses');
+      // Use relative path to ensure browser calls same origin (avoid NEXT_PUBLIC_API_URL pointing to localhost)
+      let token = '';
+      try {
+        const ui = typeof window !== 'undefined' ? localStorage.getItem('userInfo') : null;
+        if (ui) token = JSON.parse(ui)?.accessToken || '';
+      } catch (e) {}
+      const response = await axios.get('/api/addresses', { headers: { Authorization: `Bearer ${token}` }, withCredentials: true });
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Erro ao buscar endereços');
@@ -44,9 +51,15 @@ export const addShippingAddress = createAsyncThunk(
   'order/addShippingAddress',
   async (address: ShippingAddress, { rejectWithValue }) => {
     try {
-      const response = await api.post('/addresses', address);
+      let token = '';
+      try {
+        const ui = typeof window !== 'undefined' ? localStorage.getItem('userInfo') : null;
+        if (ui) token = JSON.parse(ui)?.accessToken || '';
+      } catch (e) {}
+      const response = await axios.post('/api/addresses', address, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, withCredentials: true });
       return response.data;
     } catch (error: any) {
+      console.error('Erro no addShippingAddress:', error);
       return rejectWithValue(error.response?.data?.message || 'Erro ao adicionar endereço');
     }
   }
@@ -57,7 +70,22 @@ export const createOrder = createAsyncThunk(
   'order/createOrder',
   async (orderData: { shippingAddress: ShippingAddress, items: any[] }, { rejectWithValue }) => {
     try {
-      const response = await api.post('/orders', orderData);
+      // Usar rota local do Next.js para garantir persistência no banco via handlers locais
+      // Tentar recuperar token do localStorage (userInfo) ou usar tokenStore se disponível
+      let token = '';
+      try {
+        const ui = typeof window !== 'undefined' ? localStorage.getItem('userInfo') : null;
+        if (ui) {
+          const parsed = JSON.parse(ui);
+          token = parsed?.accessToken || '';
+        }
+      } catch (e) {
+        // ignore
+      }
+      // header Bearer
+      const response = await axios.post('/api/orders', orderData, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Erro ao criar pedido');
