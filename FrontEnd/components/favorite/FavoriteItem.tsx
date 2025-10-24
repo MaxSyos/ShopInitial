@@ -5,6 +5,7 @@ import { useDispatch } from "react-redux";
 import { toast } from "react-toastify";
 import { favoriteActions } from "../../store/favorite-slice";
 import { cartActions } from "../../store/cart-slice";
+import { addItemAndPersist } from "../../store/cart-async-slice";
 import { useLanguage } from "../../hooks/useLanguage";
 import { urlFor } from "../../lib/client";
 import ProductPrice from "../UI/ProductPrice";
@@ -26,7 +27,8 @@ const FavoriteItem: React.FC<Props> = ({ product }) => {
   }
 
   function onAddToCart(product: IProduct) {
-    dispatch(cartActions.addItemToCart({ product: product, quantity: 1 }));
+    // tente persistir no backend (se autenticado) e aplicar atualização otimista local
+  (dispatch as any)(addItemAndPersist({ product, quantity: 1 }));
     toast.success(t.productAddedToCartMsg, {
       theme: theme === "dark" ? "dark" : "light",
     });
@@ -65,7 +67,7 @@ const FavoriteItem: React.FC<Props> = ({ product }) => {
           </div>
           <div className="flex flex-col justify-between flex-grow">
             <p>{product?.name}</p>
-            <ProductPrice price={product.price} discount={product.discount} />
+            <ProductPrice price={product.price} discount={product.discount ?? undefined} />
           </div>
         </a>
       </Link>

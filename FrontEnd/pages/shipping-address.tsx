@@ -152,18 +152,37 @@ const ShippingAddressPage: React.FC = () => {
   };
 
   const handleContinueToPayment = () => {
-    const selectedAddress = selectedAddressIndex >= 0 
-      ? shippingAddresses[selectedAddressIndex] 
-      : newAddress;
+    (async () => {
+      const selectedAddress = selectedAddressIndex >= 0
+        ? shippingAddresses[selectedAddressIndex]
+        : newAddress;
 
-    if (!selectedAddress.street || !selectedAddress.city || !selectedAddress.postalCode) {
-      toast.error('Por favor, selecione ou preencha um endereço válido');
-      return;
-    }
+      if (!selectedAddress.street || !selectedAddress.city || !selectedAddress.postalCode) {
+        toast.error('Por favor, selecione ou preencha um endereço válido');
+        return;
+      }
 
-    // Salvar endereço selecionado no localStorage para usar na próxima etapa
-    localStorage.setItem('selectedShippingAddress', JSON.stringify(selectedAddress));
-    router.push('/payment');
+      // Montar dados do pedido
+      const items = cartItems.map((it: any) => ({ productId: it.id, quantity: it.quantity, price: it.price }));
+      const orderData = { shippingAddress: selectedAddress, items };
+
+      try {
+        // mostrar carregando simples
+        // @ts-ignore dispatch typing
+        const created = await dispatch((await import('../store/order-slice')).createOrder(orderData)).unwrap();
+
+        // salvar order criado para uso na página de pagamento/confirmation
+        try {
+          localStorage.setItem('createdOrder', JSON.stringify(created));
+        } catch (e) {
+          // ignore
+        }
+
+        router.push('/payment');
+      } catch (e: any) {
+        toast.error(e?.message || 'Erro ao criar pedido');
+      }
+    })();
   };
 
   if (loading) {

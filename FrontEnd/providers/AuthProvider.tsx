@@ -49,16 +49,36 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                           const ui = localStorage.getItem('userInfo');
                           if (ui) token = JSON.parse(ui).accessToken || '';
                         } catch (e) {}
-                        await fetch('/api/cart/merge', {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                          },
-                          body: JSON.stringify({ items: localCart.items })
-                        });
-                        // opcional: limpar cart local para evitar duplicação
-                        // localStorage.removeItem('cart');
+
+                        // Mapear itens locais para o formato esperado pelo endpoint /api/cart/merge
+                        const mappedItems = localCart.items.map((it: any) => {
+                          const productId = it.id || (it.slug && it.slug.current) || null;
+                          const quantity = Number(it.quantity || 0);
+                          const unitPrice = Number(it.price ?? (it.totalPrice && it.quantity ? it.totalPrice / it.quantity : 0));
+                          return { productId, quantity, unitPrice };
+                        }).filter((x: any) => x.productId && x.quantity > 0);
+
+                        if (mappedItems.length === 0) {
+                          // nada para mesclar
+                        } else {
+                          const resp = await fetch('/api/cart/merge', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ items: mappedItems })
+                          });
+
+                          if (resp.ok) {
+                            // Recarregar o carrinho do servidor para atualizar o estado local
+                            dispatch(fetchCartThunk());
+                            // limpar cart local para evitar duplicação futura
+                            try { localStorage.removeItem('cart'); } catch(e) {}
+                          } else {
+                            console.warn('Merge do carrinho retornou não-ok', await resp.text().catch(()=>null));
+                          }
+                        }
                       } catch (e) {
                         console.error('Erro ao mesclar carrinho via endpoint:', e);
                       }

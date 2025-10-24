@@ -8,6 +8,7 @@ import { useLanguage } from "../../hooks/useLanguage";
 import { ICartRootState } from "../../lib/types/cart";
 import { IProduct } from "../../lib/types/products";
 import { cartActions } from "../../store/cart-slice";
+import { addItemAndPersist } from '../../store/cart-async-slice';
 import ProductPrice from "../UI/ProductPrice";
 
 interface Props {
@@ -33,7 +34,8 @@ const CartItem: React.FC<Props> = ({ product }) => {
 
   function increment(product: IProduct) {
     setCounter((prev) => ++prev!);
-    dispatch(cartActions.addItemToCart({ product: product, quantity: 1 }));
+    // atualizar local + persistir no backend quando autenticado
+    (dispatch as any)(addItemAndPersist({ product, quantity: 1 }));
   }
 
   function decrement(slug: string) {
@@ -116,7 +118,7 @@ const CartItem: React.FC<Props> = ({ product }) => {
           <p>{t.totalAmount}</p>
           <ProductPrice
             price={product.price * counter!}
-            discount={product.discount}
+            discount={product.discount ?? undefined}
           />
         </div>
       </div>

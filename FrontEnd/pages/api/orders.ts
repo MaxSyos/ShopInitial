@@ -12,6 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'POST') {
     try {
       const payload = req.body;
+      console.log('/api/orders POST payload:', JSON.stringify(payload).slice(0, 2000));
 
       // Persistir pedido localmente primeiro
       const createdOrder = await prisma.order.create({
@@ -29,48 +30,95 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       // Criar OrderItems locais (opcionalmente)
-      if (Array.isArray(payload.items) && payload.items.length > 0) {
-        for (const it of payload.items) {
-          await prisma.orderItem.create({
-            data: {
-              order: { connect: { id: createdOrder.id } },
-              // conectar produto pelo id (Prisma Mongo exige objeto relation em vez de productId direto)
-              product: { connect: { id: String(it.productId) } },
-              quantity: it.quantity || 0,
-              unitPrice: it.price || 0,
-              total: (it.price || 0) * (it.quantity || 0)
-            }
-          });
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      const itemsDebug: any[] = [];
+      const missingProducts: string[] = [];
+
+      if (items.length > 0) {
+        for (const it of items) {
+          const productId = String(it.productId);
+          // Verificar se o produto existe antes de tentar conectar (evita erro do Prisma)
+          const product = await prisma.product.findUnique({ where: { id: productId } }).catch(() => null);
+          if (!product) {
+            missingProducts.push(productId);
+            itemsDebug.push({ productId, productExists: false });
+            continue;
+          }
+
+          // criar o OrderItem conectando ao produto existente
+          try {
+            const createdItem = await prisma.orderItem.create({
+              data: {
+                order: { connect: { id: createdOrder.id } },
+                product: { connect: { id: productId } },
+                quantity: it.quantity || 0,
+                unitPrice: it.price || 0,
+                total: (it.price || 0) * (it.quantity || 0)
+              }
+            });
+
+            itemsDebug.push({ productId, productExists: true, orderItemId: createdItem.id, quantity: createdItem.quantity, unitPrice: createdItem.unitPrice, total: createdItem.total });
+          } catch (e) {
+            console.error('Erro criando orderItem para productId', productId, e);
+            itemsDebug.push({ productId, productExists: true, error: String(e) });
+          }
         }
       }
 
-      // Forward para API upstream
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/orders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': req.headers.authorization || ''
-        },
-        body: JSON.stringify(req.body),
-      });
-
-      if (!response.ok) {
-        const text = await response.text().catch(() => null);
-        console.error('Erro ao criar pedido (upstream):', text);
-        // Retornar o pedido local criado para o frontend, mas sinalizar que upstream falhou
-        return res.status(200).json({ localOrder: createdOrder, warning: 'Pedido criado localmente, mas falha ao criar no serviço upstream' });
+      // Se houve produtos faltantes, rejeitar a criação apontando os productIds ausentes
+      if (missingProducts.length > 0) {
+        console.error('Produtos não encontrados ao criar OrderItems:', missingProducts);
+        const partialOrder = await prisma.order.findUnique({ where: { id: createdOrder.id } });
+        return res.status(400).json({ error: 'Alguns produtos do pedido não foram encontrados', missingProducts, itemsDebug, localOrder: partialOrder });
       }
 
-      const data = await response.json();
+  // Recuperar pedido local com items para retornar ao frontend
+  const localOrder = await prisma.order.findUnique({ where: { id: createdOrder.id }, include: { items: true } });
 
-      // Atualizar registro local com externalId/infos do upstream quando disponível
-      try {
-        await prisma.order.update({ where: { id: createdOrder.id }, data: { externalId: data.id?.toString() || undefined } });
-      } catch (e) {
-        console.warn('Falha ao atualizar externalId localmente', e);
+      // Forward para API upstream — somente se a variável de ambiente apontar para um serviço externo
+      const upstream = process.env.NEXT_PUBLIC_API_URL || '';
+      const shouldForward = upstream
+        && !upstream.includes('localhost')
+        && !upstream.includes('127.0.0.1')
+        && !upstream.includes('/api');
+
+      if (shouldForward) {
+        try {
+          const response = await fetch(`${upstream}/orders`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': req.headers.authorization || ''
+            },
+            body: JSON.stringify(req.body),
+          });
+
+          if (!response.ok) {
+            const text = await response.text().catch(() => null);
+            console.error('Erro ao criar pedido (upstream):', text);
+            // Retornar o pedido local criado para o frontend, mas sinalizar que upstream falhou
+            return res.status(200).json({ id: localOrder?.id || createdOrder.id, localOrder, warning: 'Pedido criado localmente, mas falha ao criar no serviço upstream' });
+          }
+
+          const data = await response.json();
+
+          // Atualizar registro local com externalId/infos do upstream quando disponível
+          try {
+            await prisma.order.update({ where: { id: createdOrder.id }, data: { externalId: data.id?.toString() || undefined } });
+          } catch (e) {
+            console.warn('Falha ao atualizar externalId localmente', e);
+          }
+
+          // Retornar ambos: id (preferindo external.id), dados upstream e o pedido local completo
+          return res.status(200).json({ id: data?.id || localOrder?.id || createdOrder.id, external: data, localOrder });
+        } catch (e) {
+          console.error('Erro ao conectar com upstream:', e);
+          return res.status(200).json({ id: localOrder?.id || createdOrder.id, localOrder, warning: 'Pedido criado localmente; falha ao conectar com upstream' });
+        }
       }
 
-      res.status(200).json(data);
+      // Se não vamos encaminhar para upstream (ambiente local), apenas retornar o pedido local
+      return res.status(200).json({ id: localOrder?.id || createdOrder.id, localOrder, info: 'Pedido criado localmente (sem forward para upstream em ambiente local)'});
     } catch (error) {
       console.error('Error:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });

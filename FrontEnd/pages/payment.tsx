@@ -60,6 +60,24 @@ const PaymentPage: React.FC = () => {
   }, [userInfo, cartItems, router]);
 
   useEffect(() => {
+    // Se um pedido já foi criado na página de shipping-address, não criar novamente aqui.
+    // Em vez disso, reutilizamos o pedido já criado e apenas geramos o pagamento.
+    try {
+      const saved = localStorage.getItem('createdOrder');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const existingId = parsed?.id || parsed;
+        if (existingId) {
+          setOrderId(existingId);
+          // gerar apenas o pagamento para o pedido já criado
+          createPaymentForOrder(existingId);
+          return;
+        }
+      }
+    } catch (e) {
+      // ignorar parse errors e seguir para fluxo padrão
+    }
+
     if (shippingAddress && !paymentData) {
       createOrder();
     }
@@ -112,7 +130,7 @@ const PaymentPage: React.FC = () => {
       const orderData = {
         shippingAddress,
         items: cartItems.map(item => ({
-          productId: item.id,
+          productId: (item as any).id || item.slug?.current || item.name,
           quantity: item.quantity,
           price: item.price,
           discount: item.discount || 0
@@ -130,18 +148,39 @@ const PaymentPage: React.FC = () => {
         }
       });
 
-      const newOrderId = orderResponse.data.id;
+  const newOrderId = orderResponse.data.id;
       setOrderId(newOrderId);
+      // Armazenar o pedido criado para que a página /payment saiba que já existe
+      try { localStorage.setItem('createdOrder', JSON.stringify({ id: newOrderId })); } catch (e) {}
 
-      // 2. Criar o pagamento PIX
-      const paymentData = {
-        orderId: newOrderId,
+      // 2. Criar o pagamento PIX para o pedido recém-criado
+      await createPaymentForOrder(newOrderId);
+    } catch (error: any) {
+      console.error('Erro ao criar pedido/pagamento:', error);
+      toast.error(error.response?.data?.message || 'Erro ao processar pagamento');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createPaymentForOrder = async (orderIdParam: string) => {
+    if (!orderIdParam) return;
+    setLoading(true);
+    try {
+      let token = '';
+      try {
+        const ui = localStorage.getItem('userInfo');
+        if (ui) token = JSON.parse(ui).accessToken || '';
+      } catch (e) {}
+
+      const paymentDataReq = {
+        orderId: orderIdParam,
         amount: totalAmount,
         currency: 'BRL',
         paymentMethod: 'PIX'
       };
 
-      const paymentResponse = await axios.post('/api/payments', paymentData, {
+      const paymentResponse = await axios.post('/api/payments', paymentDataReq, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -150,8 +189,8 @@ const PaymentPage: React.FC = () => {
       setPaymentData(paymentResponse.data);
       toast.success('Pagamento PIX gerado com sucesso!');
     } catch (error: any) {
-      console.error('Erro ao criar pedido/pagamento:', error);
-      toast.error(error.response?.data?.message || 'Erro ao processar pagamento');
+      console.error('Erro ao gerar pagamento PIX:', error);
+      toast.error(error.response?.data?.message || 'Erro ao gerar pagamento');
     } finally {
       setLoading(false);
     }
@@ -305,8 +344,8 @@ const PaymentPage: React.FC = () => {
                 
                 <div className="space-y-3 mb-6">
                   {cartItems.map((item) => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span className="flex-1">{item.title} x {item.quantity}</span>
+                    <div key={(item as any).id || item.slug?.current || item.name} className="flex justify-between text-sm">
+                      <span className="flex-1">{item.name} x {item.quantity}</span>
                       <span className="font-medium">R$ {item.totalPrice}</span>
                     </div>
                   ))}
