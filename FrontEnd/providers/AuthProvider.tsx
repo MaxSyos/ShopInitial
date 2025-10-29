@@ -61,6 +61,7 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                         if (mappedItems.length === 0) {
                           // nada para mesclar
                         } else {
+                          console.log('AuthProvider -> merging local cart items', mappedItems);
                           const resp = await fetch('/api/cart/merge', {
                             method: 'POST',
                             headers: {
@@ -69,6 +70,8 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                             },
                             body: JSON.stringify({ items: mappedItems })
                           });
+
+                          console.log('AuthProvider -> merge response status', resp.status);
 
                           if (resp.ok) {
                             // Recarregar o carrinho do servidor para atualizar o estado local

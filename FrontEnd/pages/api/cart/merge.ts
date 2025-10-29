@@ -1,56 +1,50 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import prisma from '../../../lib/prisma';
-import { getUserFromRequest, requireAuth } from '../_utils/auth';
+import { requireAuth, getUserFromRequest } from '../_utils/auth';
 
-/**
- * Body esperado: { items: [{ productId: string, quantity: number, unitPrice?: number }] }
- */
+// Expected payload: { items: [{ productId, quantity, unitPrice }] }
 async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // @ts-ignore
   const user = await getUserFromRequest(req);
-  if (!user) return res.status(401).json({ error: 'Não autorizado' });
+  if (!user) return res.status(401).json({ message: 'Não autorizado' });
 
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+  console.log('/api/cart/merge', 'user:', user.id, 'body:', req.body);
 
-  const { items } = req.body || {};
-  if (!Array.isArray(items)) return res.status(400).json({ error: 'Payload inválido' });
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', ['POST']);
+    return res.status(405).end(`Method ${req.method} Not Allowed`);
+  }
 
   try {
-    // Verificar se já existe cart para o usuário
-    // @ts-ignore
+    const payload = req.body;
+    if (!payload || !Array.isArray(payload.items)) return res.status(400).json({ message: 'Payload inválido' });
+
+    // Ensure cart exists
     let cart = await prisma.cart.findUnique({ where: { userId: user.id }, include: { items: true } });
+    if (!cart) cart = await prisma.cart.create({ data: { user: { connect: { id: user.id } } }, include: { items: true } });
 
-    if (!cart) {
-      // Criar novo carrinho
-      // @ts-ignore
-      cart = await prisma.cart.create({ data: { user: { connect: { id: user.id } } } });
-    }
+    for (const it of payload.items) {
+      const productId = String(it.productId);
+      const qty = Number(it.quantity || 0);
+      const unit = Number(it.unitPrice || 0);
+      if (!productId || qty <= 0) continue;
 
-    // Mapear itens recebidos: somar quantidades se produto já existir
-    for (const it of items) {
-      const { productId, quantity, unitPrice } = it;
-      // Procurar item existente
-      // @ts-ignore
-      const existing = await prisma.cartItem.findFirst({ where: { cartId: cart.id, productId } });
+      const existing = cart.items.find((ci: any) => ci.productId === productId);
       if (existing) {
-        const newQty = existing.quantity + Number(quantity || 0);
-        const newTotal = (unitPrice || existing.unitPrice || 0) * newQty;
-        // @ts-ignore
-        await prisma.cartItem.update({ where: { id: existing.id }, data: { quantity: newQty, unitPrice: unitPrice || existing.unitPrice, total: newTotal } });
+        const newQty = existing.quantity + qty;
+        await prisma.cartItem.update({ where: { id: existing.id }, data: { quantity: newQty, total: newQty * existing.unitPrice } });
       } else {
-        const up = Number(unitPrice || 0);
-        // @ts-ignore
-        await prisma.cartItem.create({ data: { cart: { connect: { id: cart.id } }, productId, quantity: Number(quantity || 0), unitPrice: up, total: up * Number(quantity || 0) } });
+        await prisma.cartItem.create({ data: { cart: { connect: { id: cart.id } }, productId, quantity: qty, unitPrice: unit, total: unit * qty } });
       }
+      // reload cart items for next iteration
+      cart = await prisma.cart.findUnique({ where: { id: cart.id }, include: { items: true } }) as any;
     }
 
-    // Recarregar cart
-    // @ts-ignore
     const updated = await prisma.cart.findUnique({ where: { id: cart.id }, include: { items: true } });
-    return res.status(200).json(updated);
-  } catch (error: any) {
-    console.error('Erro ao mesclar carrinho', error);
-    return res.status(500).json({ error: 'Erro interno' });
+    console.log('/api/cart/merge -> merged items count:', updated?.items?.length ?? 0);
+    return res.status(200).json({ success: true, cart: updated });
+  } catch (error) {
+    console.error('/api/cart/merge error:', error);
+    return res.status(500).json({ message: 'Erro ao mesclar carrinho' });
   }
 }
 
