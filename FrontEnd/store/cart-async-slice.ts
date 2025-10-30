@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import api from '../lib/axiosConfig';
+import api from '../lib/axiosClient';
 import { ICart, ICartProduct } from '../lib/types/cart';
 import { cartActions } from './cart-slice';
 import { IProduct } from '../lib/types/products';

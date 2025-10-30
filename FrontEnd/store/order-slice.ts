@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import api from '../lib/axiosConfig';
+import api from '../lib/axiosClient';
 import axios from 'axios';
 
 export interface ShippingAddress {

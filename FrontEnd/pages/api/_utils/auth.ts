@@ -18,15 +18,25 @@ export function verifyToken(token: string) {
 
 export async function getUserFromRequest(req: NextApiRequest) {
   const auth = req.headers.authorization || '';
+  // debug: mostrar se header Authorization está presente (útil em ambiente de dev)
+  console.log('getUserFromRequest -> Authorization header present:', !!auth);
   const token = auth.startsWith('Bearer ') ? auth.substring(7) : null;
-  if (!token) return null;
+  if (!token) {
+    console.log('getUserFromRequest -> no Bearer token found');
+    return null;
+  }
 
   const decoded: any = verifyToken(token);
-  if (!decoded?.id) return null;
+  if (!decoded?.id) {
+    console.log('getUserFromRequest -> token invalid or missing id (decoded):', decoded);
+    return null;
+  }
 
   const user = await prisma.user.findUnique({
     where: { id: decoded.id },
   });
+
+  console.log('getUserFromRequest -> found user id:', user?.id ?? 'none');
 
   return user;
 }
