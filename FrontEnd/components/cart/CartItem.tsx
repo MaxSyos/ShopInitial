@@ -8,7 +8,8 @@ import { useLanguage } from "../../hooks/useLanguage";
 import { ICartRootState } from "../../lib/types/cart";
 import { IProduct } from "../../lib/types/products";
 import { cartActions } from "../../store/cart-slice";
-import { addItemAndPersist } from '../../store/cart-async-slice';
+import { addItemAndPersist, removeFromCart, fetchCart } from '../../store/cart-async-slice';
+import { updateCartItem } from '../../store/cart-api';
 import ProductPrice from "../UI/ProductPrice";
 
 interface Props {
@@ -40,7 +41,44 @@ const CartItem: React.FC<Props> = ({ product }) => {
 
   function decrement(slug: string) {
     setCounter((prev) => --prev!);
+    // update local state immediately
     dispatch(cartActions.removeItemFromCart(slug));
+    // try to persist removal if we have a cartItemId
+    const cartItemId = (product as any).cartItemId;
+    if (cartItemId) {
+      // fire-and-forget: the thunk will replace the cart state when resolved
+      (dispatch as any)(removeFromCart(cartItemId));
+    }
+  }
+
+  async function commitQuantityChange() {
+    // if no change, nothing to do
+    if (counter === product.quantity) return;
+
+    const diff = counter! - (product.quantity || 0);
+
+    try {
+      if (diff > 0) {
+        // increase: reuse optimistic add + persist
+        (dispatch as any)(addItemAndPersist({ product, quantity: diff }));
+      } else {
+        // decrease: update absolute quantity on the cart item via API
+        const cartItemId = (product as any).cartItemId;
+        if (!cartItemId) {
+          // fallback: if we don't have cartItemId, refresh from backend
+          (dispatch as any)(fetchCart());
+          return;
+        }
+
+        await updateCartItem(cartItemId, counter!);
+        // after successful update, refresh cart from backend
+        (dispatch as any)(fetchCart());
+      }
+    } catch (error: any) {
+      console.error('Erro ao persistir alteração de quantidade', error?.response || error);
+      // fallback: refresh cart to keep UI consistent with server
+      (dispatch as any)(fetchCart());
+    }
   }
 
   function onInputNumberChangeHandler(e: React.ChangeEvent<HTMLInputElement>) {
@@ -96,6 +134,7 @@ const CartItem: React.FC<Props> = ({ product }) => {
               max={10}
               value={counter}
               onChange={onInputNumberChangeHandler}
+              onBlur={commitQuantityChange}
             />
             {counter === 1 ? (
               <div

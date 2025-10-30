@@ -53,6 +53,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
           return {
             ...productMap,
+            // expor o id do cartItem para que o frontend consiga atualizar/remover diretamente
+            cartItemId: it.id,
             quantity: it.quantity,
             totalPrice: it.total,
           };
