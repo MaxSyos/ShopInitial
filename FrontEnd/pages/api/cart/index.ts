@@ -17,39 +17,36 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         return res.status(200).json({ items: [], totalQuantity: 0, totalAmount: 0 });
       }
 
-      // Map items to frontend shape: include product info
-      const mappedItems = await Promise.all(
+      // Map items to frontend shape: include product info.
+      // Se o produto não existir mais no banco, removemos o cartItem (limpeza) e não o incluímos na resposta.
+      const mappedItemsRaw = await Promise.all(
         cart.items.map(async (it) => {
           const product = await prisma.product.findUnique({ where: { id: it.productId } });
-          const productMap = product
-            ? {
-                id: product.id,
-                image: Array.isArray(product.images) ? product.images.map((img: any) => img.url || img) : [],
-                name: product.name,
-                slug: { _type: 'slug', current: product.id },
-                price: product.price,
-                discount: null,
-                brand: product.brandId ? '' : '',
-                category: product.categoryId ? [product.categoryId] : [],
-                starRating: product.rating || 0,
-                isOffer: product.isOffer || false,
-                details: [],
-                registerDate: product.createdAt ? new Date(product.createdAt).toISOString() : null,
-              }
-            : {
-                id: it.productId,
-                image: [],
-                name: 'Produto removido',
-                slug: { _type: 'slug', current: it.productId },
-                price: it.unitPrice,
-                discount: null,
-                brand: '',
-                category: [],
-                starRating: 0,
-                isOffer: false,
-                details: [],
-                registerDate: null,
-              };
+          if (!product) {
+            // cleanup stale cartItem pointing to removed product
+            try {
+              await prisma.cartItem.delete({ where: { id: it.id } });
+            } catch (e) {
+              // ignore errors during cleanup
+              console.warn('/api/cart cleanup failed for cartItem', it.id, e);
+            }
+            return null;
+          }
+
+          const productMap = {
+            id: product.id,
+            image: Array.isArray(product.images) ? product.images.map((img: any) => img.url || img) : [],
+            name: product.name,
+            slug: { _type: 'slug', current: product.id },
+            price: product.price,
+            discount: null,
+            brand: product.brandId ? '' : '',
+            category: product.categoryId ? [product.categoryId] : [],
+            starRating: product.rating || 0,
+            isOffer: product.isOffer || false,
+            details: [],
+            registerDate: product.createdAt ? new Date(product.createdAt).toISOString() : null,
+          };
 
           return {
             ...productMap,
@@ -60,6 +57,8 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           };
         })
       );
+
+      const mappedItems = mappedItemsRaw.filter((i) => i != null) as any[];
 
       const totalQuantity = mappedItems.reduce((s, i) => s + (i.quantity || 0), 0);
       const totalAmount = mappedItems.reduce((s, i) => s + (i.totalPrice || 0), 0);
