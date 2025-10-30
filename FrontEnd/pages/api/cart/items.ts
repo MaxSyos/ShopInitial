@@ -21,14 +21,19 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       // Check existing item
       const existing = cart.items.find((it: any) => it.productId === String(productId));
+      // try to get product price from DB to guarantee correct unitPrice
+      const product = await prisma.product.findUnique({ where: { id: String(productId) } });
+      const productPrice = (product && (product as any).price) || 0;
+
       if (existing) {
         const newQuantity = existing.quantity + Number(quantity);
-        const unit = unitPrice ?? existing.unitPrice;
+        // prefer unitPrice supplied by client, else existing.unitPrice, else product price
+        const unit = unitPrice ?? existing.unitPrice ?? productPrice;
         const newTotal = Number(unit) * newQuantity;
         await prisma.cartItem.update({ where: { id: existing.id }, data: { quantity: newQuantity, unitPrice: Number(unit), total: newTotal } });
       } else {
-        // create new item
-        const unit = unitPrice ?? 0;
+        // create new item — prefer product price over client-supplied value
+        const unit = unitPrice ?? productPrice ?? 0;
         await prisma.cartItem.create({ data: { cart: { connect: { id: cart.id } }, productId: String(productId), quantity: Number(quantity), unitPrice: Number(unit), total: Number(unit) * Number(quantity) } });
       }
 
