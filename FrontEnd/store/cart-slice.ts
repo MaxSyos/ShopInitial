@@ -109,6 +109,30 @@ const cartSlice = createSlice({
       }
     },
 
+    setItemQuantity(
+      state: ICart,
+      action: PayloadAction<{ productSlugOrId: string; quantity: number }>
+    ) {
+      const { productSlugOrId, quantity } = action.payload;
+      const existingItem = state.items.find(
+        (item) => item.slug?.current === productSlugOrId || item.id === productSlugOrId
+      );
+      if (!existingItem) return;
+
+      // adjust totals
+      const prevQty = existingItem.quantity || 0;
+      const delta = quantity - prevQty;
+      state.totalQuantity = state.totalQuantity + delta;
+
+      const unit = existingItem.discount
+        ? calculateDiscountPercentage(existingItem.price, existingItem.discount)
+        : existingItem.price;
+      state.totalAmount = state.totalAmount + delta * unit;
+
+      existingItem.quantity = quantity;
+      existingItem.totalPrice = unit * quantity;
+    },
+
     clearCart(state) {
       state = initialState;
     },

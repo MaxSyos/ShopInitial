@@ -32,13 +32,8 @@ export const fetchUserAddresses = createAsyncThunk(
   'order/fetchUserAddresses',
   async (_, { rejectWithValue }) => {
     try {
-      // Use relative path to ensure browser calls same origin (avoid NEXT_PUBLIC_API_URL pointing to localhost)
-      let token = '';
-      try {
-        const ui = typeof window !== 'undefined' ? localStorage.getItem('userInfo') : null;
-        if (ui) token = JSON.parse(ui)?.accessToken || '';
-      } catch (e) {}
-      const response = await axios.get('/api/addresses', { headers: { Authorization: `Bearer ${token}` }, withCredentials: true });
+      // Use internal axios client which injects Authorization from tokenStore
+      const response = await api.get('/addresses');
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Erro ao buscar endereços');
@@ -51,12 +46,7 @@ export const addShippingAddress = createAsyncThunk(
   'order/addShippingAddress',
   async (address: ShippingAddress, { rejectWithValue }) => {
     try {
-      let token = '';
-      try {
-        const ui = typeof window !== 'undefined' ? localStorage.getItem('userInfo') : null;
-        if (ui) token = JSON.parse(ui)?.accessToken || '';
-      } catch (e) {}
-      const response = await axios.post('/api/addresses', address, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, withCredentials: true });
+      const response = await api.post('/addresses', address);
       return response.data;
     } catch (error: any) {
       console.error('Erro no addShippingAddress:', error);

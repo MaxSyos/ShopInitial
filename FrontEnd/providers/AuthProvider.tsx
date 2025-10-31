@@ -3,6 +3,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { userInfoActions } from '../store/user-slice';
 import tokenStore from '../lib/tokenStore';
 import { fetchCart as fetchCartThunk, addToCart as addToCartThunk } from '../store/cart-async-slice';
+import { fetchUserAddresses } from '../store/order-slice';
+import cartSync from '../lib/cartSync';
 import type { ICart } from '../lib/types/cart';
 
 const API_BASE = '/api/auth';
@@ -38,6 +40,8 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                 try {
                   // Primeiro busca o carrinho do servidor
                   dispatch(fetchCartThunk());
+                    // also fetch user addresses so pages like shipping-address have data
+                    dispatch(fetchUserAddresses());
 
                   // Tentar mesclar itens locais (se existirem) enviando todos em um único request
                   if (typeof window !== 'undefined') {
@@ -76,6 +80,8 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                           if (resp.ok) {
                             // Recarregar o carrinho do servidor para atualizar o estado local
                             dispatch(fetchCartThunk());
+                            // Após merge, também disparar sincronização para enviar quaisquer ops pendentes
+                            try { cartSync.syncNow().catch(()=>{}); } catch(e) {}
                             // limpar cart local para evitar duplicação futura
                             try { localStorage.removeItem('cart'); } catch(e) {}
                           } else {

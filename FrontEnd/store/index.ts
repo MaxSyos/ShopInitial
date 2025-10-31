@@ -5,6 +5,7 @@ import newestProductReducer from "./newestProduct-slice";
 import SortedProductsListReducer from "./sortedProductList-slice";
 import cartUiReducer from "./cartUI-slice";
 import cartSliceReducer from "./cart-slice";
+import cartMiddleware from './cart-middleware';
 import userInfoReducer from "./user-slice";
 import sideNavBarReducer from "./sideNavBar-slice";
 import megaMenuReducer from "./megaMenu-slice";
@@ -33,7 +34,7 @@ const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: false,
-    }),
+    }).concat(cartMiddleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

@@ -10,6 +10,7 @@ import { IProduct } from "../../lib/types/products";
 import { cartActions } from "../../store/cart-slice";
 import { addItemAndPersist, removeFromCart, fetchCart } from '../../store/cart-async-slice';
 import { updateCartItem } from '../../store/cart-api';
+import { updateItemQuantity } from '../../store/cart-async-slice';
 import ProductPrice from "../UI/ProductPrice";
 
 interface Props {
@@ -59,20 +60,12 @@ const CartItem: React.FC<Props> = ({ product }) => {
 
     try {
       if (diff > 0) {
-        // increase: reuse optimistic add + persist
+        // increase: reuse optimistic add + persist (enqueue)
         (dispatch as any)(addItemAndPersist({ product, quantity: diff }));
       } else {
-        // decrease: update absolute quantity on the cart item via API
-        const cartItemId = (product as any).cartItemId;
-        if (!cartItemId) {
-          // fallback: if we don't have cartItemId, refresh from backend
-          (dispatch as any)(fetchCart());
-          return;
-        }
-
-        await updateCartItem(cartItemId, counter!);
-        // after successful update, refresh cart from backend
-        (dispatch as any)(fetchCart());
+        // decrease: set absolute quantity locally and enqueue update for sync
+        const productSlugOrId = product.id || product.slug?.current;
+        (dispatch as any)(updateItemQuantity({ productSlugOrId, quantity: counter!, cartItemId: (product as any).cartItemId }));
       }
     } catch (error: any) {
       console.error('Erro ao persistir alteração de quantidade', error?.response || error);
