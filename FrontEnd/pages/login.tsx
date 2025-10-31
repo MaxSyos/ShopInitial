@@ -1,6 +1,7 @@
 import axios from "axios";
 import type { NextPage } from "next";
 import { useDispatch } from "react-redux";
+import { fetchCart } from "../store/cart-async-slice";
 import { useRouter } from "next/router";
 import jsCookie from "js-cookie";
 import EnteringBox from "../components/entering/EnteringBox";
@@ -24,8 +25,20 @@ const Login: NextPage = () => {
   }, [userInfo, router]);
   async function LoginHandler(userData: IUser) {
     try {
+      // Atualiza estado de usuário e cache local
       dispatch(userInfoActions.userLogin(userData));
       jsCookie.set("userInfo", JSON.stringify(userData));
+
+      // Tentar atualizar/refresh do carrinho do servidor antes do redirect para garantir
+      // que o estado do carrinho esteja sincronizado na página inicial.
+      try {
+        // dispatch retorna uma Promise quando é um thunk
+        // @ts-ignore
+        await dispatch(fetchCart());
+      } catch (e) {
+        console.warn('fetchCart after login falhou:', e);
+      }
+
       await router.push("/");
     } catch (err: any) {
       setErrorMessage(getError(err));
