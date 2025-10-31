@@ -67,14 +67,28 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         }
       };
 
+      // Gerar chave de idempotência única para este pedido (requerido pelo MP)
+      let idempotencyKey = '';
+      try {
+        // Node 18+ e ambientes modernos suportam crypto.randomUUID()
+        // @ts-ignore
+        idempotencyKey = (globalThis?.crypto && typeof (globalThis as any).crypto.randomUUID === 'function')
+          ? (globalThis as any).crypto.randomUUID()
+          : require('crypto').randomBytes(16).toString('hex');
+      } catch (e) {
+        // fallback simples
+        idempotencyKey = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+      }
+
       const resp = await fetch('https://api.mercadopago.com/v1/payments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`
-        },
-        body: JSON.stringify(body)
-      });
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+            'x-idempotency-key': idempotencyKey
+          },
+          body: JSON.stringify(body)
+        });
 
       const data = await resp.json();
       if (!resp.ok) {
