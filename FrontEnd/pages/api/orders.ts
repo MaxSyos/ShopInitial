@@ -14,27 +14,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const payload = req.body;
       console.log('/api/orders POST payload:', JSON.stringify(payload).slice(0, 2000));
 
-      // Persistir pedido localmente primeiro
+      // Calcular valores financeiros do pedido caso não venham no payload
+      const items = Array.isArray(payload.items) ? payload.items : [];
+
+      const calcSubtotal = items.reduce((s: number, it: any) => {
+        const unit = Number(it.price ?? it.unitPrice ?? 0) || 0;
+        const qty = Number(it.quantity ?? 0) || 0;
+        return s + unit * qty;
+      }, 0);
+
+      // Configuráveis via env: FREE_SHIPPING_THRESHOLD e DEFAULT_SHIPPING_COST
+      const FREE_SHIPPING_THRESHOLD = Number(process.env.FREE_SHIPPING_THRESHOLD || '100');
+      const DEFAULT_SHIPPING_COST = Number(process.env.DEFAULT_SHIPPING_COST || '10');
+
+      const calcShippingCost = (payload.shippingCost !== undefined && payload.shippingCost !== null)
+        ? Number(payload.shippingCost)
+        : (calcSubtotal >= FREE_SHIPPING_THRESHOLD ? 0 : DEFAULT_SHIPPING_COST);
+
+      // Taxa fixa de 5% do subtotal (arredondada a 2 casas)
+      const calcTax = Math.round((calcSubtotal * 0.05) * 100) / 100;
+
+      const calcTotal = Math.round((calcSubtotal + calcShippingCost + calcTax) * 100) / 100;
+
+      // Persistir pedido localmente primeiro com os valores calculados
       const createdOrder = await prisma.order.create({
         data: {
           user: { connect: { id: user.id } },
           shippingAddress: payload.shippingAddress || {},
           billingAddress: payload.billingAddress || null,
-          subtotal: payload.subtotal || 0,
-          shippingCost: payload.shippingCost || 0,
-          tax: payload.tax || 0,
-          total: payload.total || 0,
+          subtotal: Number(payload.subtotal ?? calcSubtotal),
+          shippingCost: Number(payload.shippingCost ?? calcShippingCost),
+          tax: Number(payload.tax ?? calcTax),
+          total: Number(payload.total ?? calcTotal),
           status: 'PENDING',
           itemsJson: payload.items || [],
         }
       });
 
-      // Criar OrderItems locais (opcionalmente)
-      const items = Array.isArray(payload.items) ? payload.items : [];
+  // Criar OrderItems locais (opcionalmente)
       const itemsDebug: any[] = [];
       const missingProducts: string[] = [];
 
-      if (items.length > 0) {
+  if (items.length > 0) {
         for (const it of items) {
           const productId = String(it.productId);
           // Verificar se o produto existe antes de tentar conectar (evita erro do Prisma)
