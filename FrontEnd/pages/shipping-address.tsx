@@ -369,7 +369,7 @@ const ShippingAddressPage: React.FC = () => {
                   {cartItems.map((item, idx) => (
                     <div key={idx} className="flex justify-between text-sm">
                       <span className="flex-1">{item.name} x {item.quantity}</span>
-                      <span className="font-medium">R$ {item.totalPrice}</span>
+                      <span className="font-medium">R$ {Number(item.totalPrice || 0).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
@@ -377,7 +377,7 @@ const ShippingAddressPage: React.FC = () => {
                 <div className="border-t pt-4 mb-6">
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>
-                    <span>R$ {totalAmount}</span>
+                    <span>R$ {Number(totalAmount || 0).toFixed(2)}</span>
                   </div>
                 </div>
 

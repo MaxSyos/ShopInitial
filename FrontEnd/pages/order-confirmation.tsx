@@ -332,13 +332,13 @@ const OrderConfirmation: React.FC = () => {
                 {cartItems.map((item) => (
                   <div key={item.name + item.price} className="flex justify-between">
                     <span>{item.name} x {item.quantity}</span>
-                    <span>{item.totalPrice}</span>
+                    <span>{Number(item.totalPrice || 0).toFixed(2)}</span>
                   </div>
                 ))}
                 <div className="border-t pt-4 font-bold">
                   <div className="flex justify-between">
                     <span>{t.total}</span>
-                    <span>{totalAmount}</span>
+                    <span>{Number(totalAmount || 0).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
