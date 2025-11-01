@@ -24,8 +24,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }, 0);
 
       // Configuráveis via env: FREE_SHIPPING_THRESHOLD e DEFAULT_SHIPPING_COST
-      const FREE_SHIPPING_THRESHOLD = Number(process.env.FREE_SHIPPING_THRESHOLD || '100');
-      const DEFAULT_SHIPPING_COST = Number(process.env.DEFAULT_SHIPPING_COST || '10');
+      const FREE_SHIPPING_THRESHOLD = Number(process.env.FREE_SHIPPING_THRESHOLD || '0.01');
+      const DEFAULT_SHIPPING_COST = Number(process.env.DEFAULT_SHIPPING_COST || '0.01');
 
       const calcShippingCost = (payload.shippingCost !== undefined && payload.shippingCost !== null)
         ? Number(payload.shippingCost)

@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../lib/axiosClient';
-import axios from 'axios';
+import tokenStore from '../lib/tokenStore';
 
 export interface ShippingAddress {
   street: string;
@@ -62,20 +62,23 @@ export const createOrder = createAsyncThunk(
     try {
       // Usar rota local do Next.js para garantir persistência no banco via handlers locais
       // Tentar recuperar token do localStorage (userInfo) ou usar tokenStore se disponível
-      let token = '';
-      try {
-        const ui = typeof window !== 'undefined' ? localStorage.getItem('userInfo') : null;
-        if (ui) {
-          const parsed = JSON.parse(ui);
-          token = parsed?.accessToken || '';
+      // Prefer token stored in memory (tokenStore used by user-slice and axios interceptor)
+      let token = tokenStore.getToken() || '';
+      if (!token) {
+        // Fallback: try to read persisted userInfo from localStorage (older codepaths)
+        try {
+          const ui = typeof window !== 'undefined' ? localStorage.getItem('userInfo') : null;
+          if (ui) {
+            const parsed = JSON.parse(ui);
+            token = parsed?.accessToken || parsed?.token || '';
+          }
+        } catch (e) {
+          // ignore
         }
-      } catch (e) {
-        // ignore
       }
-      // header Bearer
-      const response = await axios.post('/api/orders', orderData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+
+      // Use internal axios client (api) which injects tokenStore and handles refresh
+      const response = await api.post('/orders', orderData);
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Erro ao criar pedido');
