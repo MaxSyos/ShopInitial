@@ -6,7 +6,8 @@ import { IUserInfoRootState } from '../lib/types/user';
 import { ICartRootState } from '../lib/types/cart';
 import { RootState, AppDispatch } from '../store';
 import { toast } from 'react-toastify';
-import axios from 'axios';
+import api from '../lib/axiosClient';
+import tokenStore from '../lib/tokenStore';
 import Breadcrumb from '../components/UI/Breadcrumb';
 import Benefits from '../components/Benefits';
 import OrderTracking from '../components/cart/OrderTracking';
@@ -59,6 +60,8 @@ const PaymentPage: React.FC = () => {
     setShippingAddress(JSON.parse(savedAddress));
   }, [userInfo, cartItems, router]);
 
+
+  
   useEffect(() => {
     // Se um pedido já foi criado na página de shipping-address, não criar novamente aqui.
     // Em vez disso, reutilizamos o pedido já criado e apenas geramos o pagamento.
@@ -137,21 +140,28 @@ const PaymentPage: React.FC = () => {
         }))
       };
 
-      let token = '';
-      try {
-        const ui = localStorage.getItem('userInfo');
-        if (ui) token = JSON.parse(ui).accessToken || '';
-      } catch (e) {}
-      const orderResponse = await axios.post('/api/orders', orderData, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      // Prefer token from in-memory tokenStore (set at login). Fallback to localStorage userInfo.
+      let token = tokenStore.getToken() || '';
+      if (!token) {
+        try {
+          const ui = localStorage.getItem('userInfo');
+          if (ui) token = JSON.parse(ui).accessToken || '';
+        } catch (e) {}
+      }
+      // use internal axios client (with tokenStore interceptor) for API calls
+      const orderResponse = await api.post('/orders', orderData);
 
   const newOrderId = orderResponse.data.id;
       setOrderId(newOrderId);
       // Armazenar o pedido criado para que a página /payment saiba que já existe
-      try { localStorage.setItem('createdOrder', JSON.stringify({ id: newOrderId })); } catch (e) {}
+      try { 
+        localStorage.setItem('createdOrder', JSON.stringify({ id: newOrderId })); 
+      } catch (e) {}
+
+      // garantir que o endereço selecionado também esteja salvo (mesma chave usada em shipping-address)
+      try {
+        if (shippingAddress) localStorage.setItem('selectedShippingAddress', JSON.stringify(shippingAddress));
+      } catch (e) { }
 
       // 2. Criar o pagamento PIX para o pedido recém-criado
       await createPaymentForOrder(newOrderId);
@@ -167,11 +177,13 @@ const PaymentPage: React.FC = () => {
     if (!orderIdParam) return;
     setLoading(true);
     try {
-      let token = '';
-      try {
-        const ui = localStorage.getItem('userInfo');
-        if (ui) token = JSON.parse(ui).accessToken || '';
-      } catch (e) {}
+      let token = tokenStore.getToken() || '';
+      if (!token) {
+        try {
+          const ui = localStorage.getItem('userInfo');
+          if (ui) token = JSON.parse(ui).accessToken || '';
+        } catch (e) {}
+      }
 
       const paymentDataReq = {
         orderId: orderIdParam,
@@ -180,13 +192,32 @@ const PaymentPage: React.FC = () => {
         paymentMethod: 'PIX'
       };
 
-      const paymentResponse = await axios.post('/api/payments', paymentDataReq, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const paymentResponse = await api.post('/payments/create', paymentDataReq);
 
-      setPaymentData(paymentResponse.data);
+      // A rota /api/payments/create retorna { order, mp: { id, qr, qrBase64 } }
+      const respData = paymentResponse.data || {};
+      const mp = respData.mp || {};
+
+      // mp.qrBase64 pode vir prefixado com data:image..., normalizar
+      let pixQrBase64: string | undefined = undefined;
+      if (mp.qrBase64) {
+        const raw = mp.qrBase64 as string;
+        pixQrBase64 = raw.startsWith('data:') ? raw.split(',')[1] ?? raw : raw;
+      } else if (respData.order && respData.order.mpQrCodeBase64) {
+        const raw = respData.order.mpQrCodeBase64 as string;
+        pixQrBase64 = raw.startsWith('data:') ? raw.split(',')[1] ?? raw : raw;
+      }
+
+      const paymentState: PaymentData = {
+        id: (mp.id || (respData.order && respData.order.mpPreferenceId) || orderIdParam).toString(),
+        status: (respData.order && respData.order.paymentStatus) || 'WAITING_PAYMENT',
+        pixCode: mp.qr || (respData.order && respData.order.mpQrCodeUrl) || undefined,
+        pixQrCode: pixQrBase64,
+        pixExpiresAt: respData.order?.paymentExpiresAt ? new Date(respData.order.paymentExpiresAt).toISOString() : undefined,
+        amount: paymentDataReq.amount
+      };
+
+      setPaymentData(paymentState);
       toast.success('Pagamento PIX gerado com sucesso!');
     } catch (error: any) {
       console.error('Erro ao gerar pagamento PIX:', error);
@@ -200,11 +231,9 @@ const PaymentPage: React.FC = () => {
     if (!paymentData?.id) return;
 
     try {
-      const response = await axios.get(`/api/payments/${paymentData.id}/pix-status`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      // Prefer in-memory token when checking status
+      const statusToken = tokenStore.getToken() || localStorage.getItem('token') || '';
+      const response = await api.get(`/payments/${paymentData.id}/pix-status`);
 
       if (response.data.status === 'COMPLETED') {
         toast.success('Pagamento aprovado!');
