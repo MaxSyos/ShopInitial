@@ -14,6 +14,7 @@ interface OrderData {
   status: string;
   totalAmount: number;
   createdAt: string;
+  paymentStatus: string;
   items: Array<{
     id: string;
     productName: string;
@@ -80,11 +81,39 @@ const OrderStatusPage: React.FC = () => {
       // Alguns endpoints retornam { order, localOrder, external } — preferir o campo `order` quando disponível
       const payload = response.data || {};
       const resolvedOrder = payload.order || payload.localOrder || payload;
-      setOrderData(resolvedOrder);
+
+      // Normalizar o formato retornado pelo backend/DB para o formato que a UI espera
+      const mapPaymentStatus = (s: any) => {
+        if (!s) return 'PENDING';
+        const up = String(s).toUpperCase();
+        if (up === 'PAID' || up === 'COMPLETED' || up === 'APPROVED') return 'COMPLETED';
+        if (up === 'PENDING' || up === 'IN_PROCESS') return 'PENDING';
+        if (up === 'FAILED' || up === 'REJECTED' || up === 'CANCELLED') return 'FAILED';
+        if (up === 'EXPIRED') return 'EXPIRED';
+        return up;
+      };
+
+      const normalized: any = {
+        id: resolvedOrder?.id || resolvedOrder?._id || resolvedOrder?.orderId || '',
+        status: resolvedOrder?.status || 'PENDING',
+        totalAmount: resolvedOrder?.total ?? resolvedOrder?.totalAmount ?? resolvedOrder?.subtotal ?? 0,
+        createdAt: resolvedOrder?.createdAt || resolvedOrder?.created_at || new Date().toISOString(),
+        items: resolvedOrder?.items || resolvedOrder?.itemsJson || [],
+        shippingAddress: resolvedOrder?.shippingAddress || {},
+        payment: {
+          id: resolvedOrder?.mpPreferenceId || resolvedOrder?.paymentId || '',
+          status: mapPaymentStatus(resolvedOrder?.paymentStatus || resolvedOrder?.payment_status),
+          method: resolvedOrder?.paymentMethod || resolvedOrder?.payment_method || 'PIX',
+          amount: Number(resolvedOrder?.total ?? resolvedOrder?.totalAmount ?? 0)
+        },
+        tracking: resolvedOrder?.tracking || null,
+      };
+
+      setOrderData(normalized);
 
       // Se o pedido foi pago e tem código de rastreamento, buscar dados dos Correios
-      if (resolvedOrder?.payment?.status === 'COMPLETED' && resolvedOrder?.tracking?.code) {
-        fetchTrackingData(resolvedOrder.tracking.code);
+      if (normalized.payment?.status === 'COMPLETED' && normalized.tracking?.code) {
+        fetchTrackingData(normalized.tracking.code);
       }
     } catch (error: any) {
       console.error('Erro ao buscar dados do pedido:', error);
@@ -244,7 +273,7 @@ const OrderStatusPage: React.FC = () => {
                     </p>
                   </div>
                   <div className={`px-3 py-1 rounded-lg ${getStatusColor(orderData.payment?.status ?? 'PENDING')}`}>
-                    {getStatusText(orderData.payment?.status ?? 'PENDING')}
+                    {getStatusText(orderData.paymentStatus ?? 'PENDING')}
                   </div>
                 </div>
               </div>
