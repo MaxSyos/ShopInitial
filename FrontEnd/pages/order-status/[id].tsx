@@ -77,12 +77,14 @@ const OrderStatusPage: React.FC = () => {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
-      
-      setOrderData(response.data);
-      
+      // Alguns endpoints retornam { order, localOrder, external } — preferir o campo `order` quando disponível
+      const payload = response.data || {};
+      const resolvedOrder = payload.order || payload.localOrder || payload;
+      setOrderData(resolvedOrder);
+
       // Se o pedido foi pago e tem código de rastreamento, buscar dados dos Correios
-      if (response.data.payment.status === 'COMPLETED' && response.data.tracking?.code) {
-        fetchTrackingData(response.data.tracking.code);
+      if (resolvedOrder?.payment?.status === 'COMPLETED' && resolvedOrder?.tracking?.code) {
+        fetchTrackingData(resolvedOrder.tracking.code);
       }
     } catch (error: any) {
       console.error('Erro ao buscar dados do pedido:', error);
@@ -222,9 +224,9 @@ const OrderStatusPage: React.FC = () => {
         
         <div className="mt-8">
           <div className="flex items-center justify-between mb-8">
-            <h1 className="text-3xl font-bold">Pedido #{orderData.id.slice(-8)}</h1>
-            <div className={`px-4 py-2 rounded-lg ${getStatusColor(orderData.status)}`}>
-              {getStatusText(orderData.status)}
+            <h1 className="text-3xl font-bold">Pedido #{String(orderData.id ?? '').slice(-8)}</h1>
+            <div className={`px-4 py-2 rounded-lg ${getStatusColor(orderData.status ?? 'PENDING')}`}>
+              {getStatusText(orderData.status ?? 'PENDING')}
             </div>
           </div>
           
@@ -236,13 +238,13 @@ const OrderStatusPage: React.FC = () => {
                 <h2 className="text-xl font-semibold mb-4">Status do Pagamento</h2>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">Método: {orderData.payment.method}</p>
+                    <p className="font-medium">Método: {orderData.payment?.method ?? '-'}</p>
                     <p className="text-sm text-palette-mute">
-                      Valor: R$ {orderData.payment.amount.toFixed(2)}
+                      Valor: R$ {Number(orderData.payment?.amount ?? 0).toFixed(2)}
                     </p>
                   </div>
-                  <div className={`px-3 py-1 rounded-lg ${getStatusColor(orderData.payment.status)}`}>
-                    {getStatusText(orderData.payment.status)}
+                  <div className={`px-3 py-1 rounded-lg ${getStatusColor(orderData.payment?.status ?? 'PENDING')}`}>
+                    {getStatusText(orderData.payment?.status ?? 'PENDING')}
                   </div>
                 </div>
               </div>
@@ -294,21 +296,21 @@ const OrderStatusPage: React.FC = () => {
               {/* Produtos do pedido */}
               <div className="bg-palette-card p-6 rounded-lg shadow-md">
                 <h2 className="text-xl font-semibold mb-4">Produtos</h2>
-                <div className="space-y-4">
-                  {orderData.items.map((item) => (
+                  <div className="space-y-4">
+                  {(orderData.items || []).map((item) => (
                     <div key={item.id} className="flex items-center justify-between border-b pb-4">
                       <div className="flex-1">
                         <p className="font-medium">{item.productName}</p>
                         <p className="text-sm text-palette-mute">Quantidade: {item.quantity}</p>
                       </div>
-                      <p className="font-medium">R$ {(item.price * item.quantity).toFixed(2)}</p>
+                      <p className="font-medium">R$ {Number((item.price || 0) * (item.quantity || 0)).toFixed(2)}</p>
                     </div>
                   ))}
                 </div>
                 <div className="border-t pt-4 mt-4">
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>
-                    <span>R$ {orderData.totalAmount.toFixed(2)}</span>
+                    <span>R$ {Number(orderData.totalAmount ?? 0).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -326,7 +328,7 @@ const OrderStatusPage: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-palette-mute">Número do pedido:</span>
-                    <p className="font-mono font-medium">#{orderData.id.slice(-8)}</p>
+                    <p className="font-mono font-medium">#{String(orderData.id ?? '').slice(-8)}</p>
                   </div>
                 </div>
               </div>
@@ -335,10 +337,10 @@ const OrderStatusPage: React.FC = () => {
               <div className="bg-palette-card p-6 rounded-lg shadow-md">
                 <h3 className="text-lg font-semibold mb-4">Endereço de Entrega</h3>
                 <div className="text-sm space-y-1">
-                  <p>{orderData.shippingAddress.street}</p>
-                  <p>{orderData.shippingAddress.city}, {orderData.shippingAddress.state}</p>
-                  <p>CEP: {orderData.shippingAddress.postalCode}</p>
-                  <p>{orderData.shippingAddress.country}</p>
+                  <p>{orderData.shippingAddress?.street ?? ''}</p>
+                  <p>{orderData.shippingAddress?.city ?? ''}, {orderData.shippingAddress?.state ?? ''}</p>
+                  <p>CEP: {orderData.shippingAddress?.postalCode ?? ''}</p>
+                  <p>{orderData.shippingAddress?.country ?? ''}</p>
                 </div>
               </div>
 
@@ -358,7 +360,7 @@ const OrderStatusPage: React.FC = () => {
                   Continuar Comprando
                 </button>
 
-                {orderData.payment.status === 'COMPLETED' && (
+                {orderData.payment?.status === 'COMPLETED' && (
                   <button
                     onClick={() => window.print()}
                     className="w-full border border-gray-300 text-palette-base py-3 px-4 rounded-lg hover:bg-gray-50 transition-colors"
