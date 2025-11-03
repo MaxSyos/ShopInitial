@@ -48,6 +48,20 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Se o pedido existe localmente, garantimos que pertence ao usuário
     if (order && order.userId !== user.id) return res.status(403).json({ error: 'Pedido não pertence ao usuário' });
 
+    // Se o pedido já possui um pagamento criado (mpPreferenceId ou mpQrCodeBase64),
+    // não devemos criar outro pagamento no MercadoPago para evitar duplicidade.
+    // Retornamos os dados existentes para o frontend.
+    if (order && (order.mpPreferenceId || order.mpQrCodeBase64)) {
+      return res.status(200).json({
+        order,
+        mp: {
+          id: order.mpPreferenceId || null,
+          qr: order.mpQrCodeUrl || null,
+          qrBase64: order.mpQrCodeBase64 || null,
+        },
+      });
+    }
+
     const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
 
     // Monta payload simplificado para criar pagamento PIX via MercadoPago

@@ -28,6 +28,7 @@ const PaymentPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
+  const [pixDataUrl, setPixDataUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [orderId, setOrderId] = useState<string>('');
@@ -126,6 +127,43 @@ const PaymentPage: React.FC = () => {
     };
   }, [paymentData?.id, paymentData?.status]);
 
+  // Gerar data URL do QR quando tivermos paymentData
+  useEffect(() => {
+    let cancelled = false;
+    const generate = async () => {
+      setPixDataUrl(null);
+      if (!paymentData) return;
+
+      // Se já vier a imagem em base64 (somente base64), monta o data URI
+      if (paymentData.pixQrCode) {
+        // caso já seja base64 puro
+        setPixDataUrl(`data:image/png;base64,${paymentData.pixQrCode}`);
+        return;
+      }
+
+      // Se vier apenas o payload (pixCode), tentar gerar imagem de QR no cliente
+      if (paymentData.pixCode) {
+        try {
+          // tentar carregar a lib qrcode dinamicamente (se não estiver instalada, pegamos fallback)
+          // @ts-ignore: may not be installed in dev environment
+          const qrcode: any = await import('qrcode');
+          if (cancelled) return;
+          const dataUrl = await qrcode.toDataURL(paymentData.pixCode);
+          if (!cancelled) setPixDataUrl(dataUrl as string);
+          return;
+        } catch (err) {
+          // não consegui gerar (lib não instalada) — fallback: manter null e mostrar código
+          if (!cancelled) setPixDataUrl(null);
+          return;
+        }
+      }
+    };
+
+    generate();
+
+    return () => { cancelled = true; };
+  }, [paymentData]);
+
   const createOrder = async () => {
     setLoading(true);
     try {
@@ -208,9 +246,13 @@ const PaymentPage: React.FC = () => {
         pixQrBase64 = raw.startsWith('data:') ? raw.split(',')[1] ?? raw : raw;
       }
 
+      // Normalizar status: API usa 'PENDING' enquanto a UI espera 'WAITING_PAYMENT'
+      const rawStatus = (respData.order && respData.order.paymentStatus) || 'WAITING_PAYMENT';
+      const normalizedStatus = rawStatus === 'PENDING' ? 'WAITING_PAYMENT' : rawStatus;
+
       const paymentState: PaymentData = {
         id: (mp.id || (respData.order && respData.order.mpPreferenceId) || orderIdParam).toString(),
-        status: (respData.order && respData.order.paymentStatus) || 'WAITING_PAYMENT',
+        status: normalizedStatus,
         pixCode: mp.qr || (respData.order && respData.order.mpQrCodeUrl) || undefined,
         pixQrCode: pixQrBase64,
         pixExpiresAt: respData.order?.paymentExpiresAt ? new Date(respData.order.paymentExpiresAt).toISOString() : undefined,
@@ -310,12 +352,12 @@ const PaymentPage: React.FC = () => {
                   )}
 
                   {/* QR Code */}
-                  {paymentData.pixQrCode && paymentData.status === 'WAITING_PAYMENT' && (
+                  {(pixDataUrl || paymentData.pixQrCode) && paymentData.status === 'WAITING_PAYMENT' && (
                     <div className="bg-palette-card p-6 rounded-lg shadow-md text-center">
                       <h2 className="text-xl font-semibold mb-4">Escaneie o QR Code</h2>
                       <div className="flex justify-center mb-4">
                         <img 
-                          src={`data:image/png;base64,${paymentData.pixQrCode}`}
+                          src={pixDataUrl ? pixDataUrl : `data:image/png;base64,${paymentData.pixQrCode}`}
                           alt="QR Code PIX"
                           className="w-64 h-64 border-2 border-gray-200 rounded-lg"
                         />
