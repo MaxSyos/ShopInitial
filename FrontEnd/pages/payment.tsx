@@ -205,7 +205,6 @@ const PaymentPage: React.FC = () => {
       await createPaymentForOrder(newOrderId);
     } catch (error: any) {
       console.error('Erro ao criar pedido/pagamento:', error);
-      toast.error(error.response?.data?.message || 'Erro ao processar pagamento');
     } finally {
       setLoading(false);
     }
@@ -263,7 +262,6 @@ const PaymentPage: React.FC = () => {
       toast.success('Pagamento PIX gerado com sucesso!');
     } catch (error: any) {
       console.error('Erro ao gerar pagamento PIX:', error);
-      toast.error(error.response?.data?.message || 'Erro ao gerar pagamento');
     } finally {
       setLoading(false);
     }
