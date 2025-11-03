@@ -81,18 +81,12 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
         }
       };
 
-      // Gerar chave de idempotência única para este pedido (requerido pelo MP)
-      let idempotencyKey = '';
-      try {
-        // Node 18+ e ambientes modernos suportam crypto.randomUUID()
-        // @ts-ignore
-        idempotencyKey = (globalThis?.crypto && typeof (globalThis as any).crypto.randomUUID === 'function')
-          ? (globalThis as any).crypto.randomUUID()
-          : require('crypto').randomBytes(16).toString('hex');
-      } catch (e) {
-        // fallback simples
-        idempotencyKey = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
-      }
+      // Usar uma chave de idempotência determinística baseada no orderId.
+      // Isso evita que múltiplas requisições concorrentes criem pagamentos duplicados no MP.
+      // Ainda assim, mantemos um fallback caso orderId contenha caracteres impróprios.
+      let idempotencyKey = `order-${String(orderId)}`;
+      // Garantir que a chave não exceda limites conhecidos (por segurança)
+      if (idempotencyKey.length > 64) idempotencyKey = idempotencyKey.slice(0, 64);
 
       const resp = await fetch('https://api.mercadopago.com/v1/payments', {
           method: 'POST',
