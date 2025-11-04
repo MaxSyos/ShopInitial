@@ -48,7 +48,7 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Se o pedido existe localmente, garantimos que pertence ao usuário
     if (order && order.userId !== user.id) return res.status(403).json({ error: 'Pedido não pertence ao usuário' });
 
-    // Se o pedido já possui um pagamento criado (mpPreferenceId ou mpQrCodeBase64),
+  // Se o pedido já possui um pagamento criado (mpPreferenceId ou mpQrCodeBase64),
     // não devemos criar outro pagamento no MercadoPago para evitar duplicidade.
     // Retornamos os dados existentes para o frontend.
     if (order && (order.mpPreferenceId || order.mpQrCodeBase64)) {
@@ -62,11 +62,15 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       });
     }
 
-    const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+  const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+
+  // Se o cliente forneceu uma idempotencyKey (frontend), use-a; caso contrário gere uma baseada no orderId
+  // Isso permite rastrear e reutilizar a mesma chave em re-submits do cliente.
+  const clientIdempotencyKey = (req.body && req.body.idempotencyKey) ? String(req.body.idempotencyKey) : null;
 
     // Monta payload simplificado para criar pagamento PIX via MercadoPago
     if (accessToken) {
-      // Determina o valor a ser cobrado a partir do pedido local ou externo
+  // Determina o valor a ser cobrado a partir do pedido local ou externo
       const amount = order ? order.total : (externalOrder?.total || externalOrder?.totalAmount || 0);
       // Criar pagamento via Payments API (PIX)
       const body = {
@@ -84,11 +88,31 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // Usar uma chave de idempotência determinística baseada no orderId.
       // Isso evita que múltiplas requisições concorrentes criem pagamentos duplicados no MP.
       // Ainda assim, mantemos um fallback caso orderId contenha caracteres impróprios.
-      let idempotencyKey = `order-${String(orderId)}`;
-      // Garantir que a chave não exceda limites conhecidos (por segurança)
-      if (idempotencyKey.length > 64) idempotencyKey = idempotencyKey.slice(0, 64);
+      // Preferir a chave enviada pelo frontend (persistida localmente), senão gerar uma determinística
+      let idempotencyKey = clientIdempotencyKey || `order-${String(orderId)}`;
+      if (idempotencyKey.length > 128) idempotencyKey = idempotencyKey.slice(0, 128);
 
-      const resp = await fetch('https://api.mercadopago.com/v1/payments', {
+      // Persistir a idempotencyKey no pedido local como uma defesa adicional
+      if (order) {
+        try {
+          // @ts-ignore
+          await prisma.order.update({ where: { id: orderId }, data: { mpIdempotencyKey: idempotencyKey } });
+        } catch (err) {
+          console.warn('Não foi possível persistir mpIdempotencyKey no pedido:', err);
+        }
+      }
+
+      console.log('Criando pagamento MP — orderId:', orderId, 'idempotencyKey:', idempotencyKey);
+
+      // Tentar criar pagamento no Mercado Pago com idempotência e tratamento para status 423
+      const mpUrl = 'https://api.mercadopago.com/v1/payments';
+      let resp: Response | null = null;
+      let data: any = null;
+
+      // Tentativas limitadas (retry simples) para lidar com condições transitórias
+      const maxAttempts = 3;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        resp = await fetch(mpUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -98,8 +122,69 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
           body: JSON.stringify(body)
         });
 
-      const data = await resp.json();
-      if (!resp.ok) {
+        try {
+          data = await resp.json();
+        } catch (e) {
+          data = null;
+        }
+
+        // Se recebeu 423 (resource locked), tentar buscar pagamento existente e retornar
+        if (resp.status === 423) {
+          console.warn('MP returned 423 (resource_already_locked), tentando localizar pagamento existente (attempt', attempt + 1, ')');
+
+          try {
+            const searchUrl = `https://api.mercadopago.com/v1/payments/search?external_reference=${encodeURIComponent(orderId)}`;
+            const searchResp = await fetch(searchUrl, {
+              headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+            });
+            if (searchResp.ok) {
+              const searchData = await searchResp.json();
+              const results = searchData.results || [];
+              if (results.length > 0) {
+                const existing = results[0];
+                const qr = existing?.point_of_interaction?.transaction_data?.qr_code;
+                const qrBase64 = existing?.point_of_interaction?.transaction_data?.qr_code_base64;
+
+                // Atualizar pedido local se existir
+                let updatedExisting = null;
+                try {
+                  // @ts-ignore
+                  updatedExisting = await prisma.order.update({
+                    where: { id: orderId },
+                    data: {
+                      mpPreferenceId: existing.id?.toString(),
+                      mpQrCodeUrl: qr || undefined,
+                      mpQrCodeBase64: qrBase64 || undefined,
+                      paymentExpiresAt: existing?.date_of_expiration ? new Date(existing.date_of_expiration) : undefined,
+                      paymentStatus: 'PENDING'
+                    }
+                  });
+                } catch (err) {
+                  console.warn('Falha ao atualizar pedido local com pagamento existente do MP', err);
+                }
+
+                return res.status(200).json({ order: updatedExisting || externalOrder || null, mp: { id: existing.id, qr, qrBase64 } });
+              }
+            }
+          } catch (err) {
+            console.warn('Erro ao buscar pagamento existente no MP após 423:', err);
+          }
+
+          // Se não encontrou, aguardar um backoff curto e tentar novamente
+          const backoffMs = 200 * Math.pow(2, attempt);
+          await new Promise(r => setTimeout(r, backoffMs));
+          continue; // próxima tentativa
+        }
+
+        // Se não for OK e não for 423, interrompe o loop para tratar como erro
+        if (!resp.ok) break;
+
+        // sucesso
+        break;
+      }
+
+      // Se não obteve resposta bem-sucedida
+      if (!resp || !resp.ok) {
         console.error('MP create payment error', data);
         return res.status(502).json({ error: 'Erro ao criar pagamento no MercadoPago', details: data });
       }

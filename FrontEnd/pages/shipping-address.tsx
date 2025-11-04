@@ -173,12 +173,21 @@ const ShippingAddressPage: React.FC = () => {
 
         // salvar order criado para uso na página de pagamento/confirmation
         try {
-          localStorage.setItem('createdOrder', JSON.stringify(created));
+          // gerar idempotencyKey local para reutilizar no fluxo de pagamento
+          let idempotencyKey = '';
+          try {
+            // @ts-ignore
+            idempotencyKey = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+          } catch (e) {
+            idempotencyKey = `id-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+          }
+          const createdWithKey = { ...created, idempotencyKey };
+          localStorage.setItem('createdOrder', JSON.stringify(createdWithKey));
         } catch (e) {
           // ignore
         }
 
-        router.push('/payment');
+        router.push(`/payment/${created.id}`);
       } catch (e: any) {
         toast.error(e?.message || 'Erro ao criar pedido');
       }

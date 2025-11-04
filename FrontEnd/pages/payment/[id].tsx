@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { useSelector, useDispatch } from 'react-redux';
-import { useLanguage } from '../hooks/useLanguage';
-import { IUserInfoRootState } from '../lib/types/user';
-import { ICartRootState } from '../lib/types/cart';
-import { RootState, AppDispatch } from '../store';
+import { useSelector } from 'react-redux';
+import { useLanguage } from '../../hooks/useLanguage';
+import { IUserInfoRootState } from '../../lib/types/user';
+import { ICartRootState } from '../../lib/types/cart';
+import { RootState } from '../../store';
 import { toast } from 'react-toastify';
-import api from '../lib/axiosClient';
-import tokenStore from '../lib/tokenStore';
-import Breadcrumb from '../components/UI/Breadcrumb';
-import Benefits from '../components/Benefits';
-import OrderTracking from '../components/cart/OrderTracking';
-import PrivateRoute from '../components/auth/PrivateRoute';
+import api from '../../lib/axiosClient';
+import tokenStore from '../../lib/tokenStore';
+import Breadcrumb from '../../components/UI/Breadcrumb';
+import Benefits from '../../components/Benefits';
+import OrderTracking from '../../components/cart/OrderTracking';
+import PrivateRoute from '../../components/auth/PrivateRoute';
 
 interface PaymentData {
   id: string;
@@ -22,11 +22,11 @@ interface PaymentData {
   amount: number;
 }
 
-const PaymentPage: React.FC = () => {
+const PaymentByIdPage: React.FC = () => {
   const { t } = useLanguage();
   const router = useRouter();
-  const dispatch = useDispatch<AppDispatch>();
-  
+  const { id } = router.query as { id?: string };
+
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [pixDataUrl, setPixDataUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -34,68 +34,44 @@ const PaymentPage: React.FC = () => {
   const [orderId, setOrderId] = useState<string>('');
   const [shippingAddress, setShippingAddress] = useState<any>(null);
 
-  const userInfo = useSelector(
-    (state: IUserInfoRootState) => state.userInfo.userInformation
-  );
+  const userInfo = useSelector((state: IUserInfoRootState) => state.userInfo.userInformation);
   const cartItems = useSelector((state: ICartRootState) => state.cart.items);
   const totalAmount = useSelector((state: ICartRootState) => state.cart.totalAmount);
 
   useEffect(() => {
     if (!userInfo) {
-      router.push('/login?redirect=/payment');
-      return;
-    }
-    
-    if (cartItems.length === 0) {
-      router.push('/cart');
+      // redirecionar para login mantendo a rota atual
+      router.push(`/login?redirect=/payment/${id || ''}`);
       return;
     }
 
-    // Recuperar endereço selecionado
+    // Recuperar endereço selecionado (pode ter sido salvo antes)
     const savedAddress = localStorage.getItem('selectedShippingAddress');
-    if (!savedAddress) {
-      router.push('/shipping-address');
-      return;
+    if (savedAddress) setShippingAddress(JSON.parse(savedAddress));
+
+    // definir orderId quando disponível via rota
+    if (id) {
+      const idStr = Array.isArray(id) ? id[0] : id;
+      setOrderId(idStr);
     }
+  }, [userInfo, id, router]);
 
-    setShippingAddress(JSON.parse(savedAddress));
-  }, [userInfo, cartItems, router]);
-
-
-  
   useEffect(() => {
-    // Se um pedido já foi criado na página de shipping-address, não criar novamente aqui.
-    // Em vez disso, reutilizamos o pedido já criado e apenas geramos o pagamento.
-    try {
-      const saved = localStorage.getItem('createdOrder');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const existingId = parsed?.id || parsed;
-        if (existingId) {
-          setOrderId(existingId);
-          // gerar apenas o pagamento para o pedido já criado
-          createPaymentForOrder(existingId);
-          return;
-        }
-      }
-    } catch (e) {
-      // ignorar parse errors e seguir para fluxo padrão
+    // quando receber o orderId via rota, tentar criar o pagamento para esse pedido
+    if (orderId && !paymentData) {
+      createPaymentForOrder(orderId);
     }
-
-    if (shippingAddress && !paymentData) {
-      createOrder();
-    }
-  }, [shippingAddress]);
+  }, [orderId]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    
+
     if (paymentData?.pixExpiresAt) {
       const updateTimer = () => {
         const expiresAt = new Date(paymentData.pixExpiresAt!).getTime();
         const now = new Date().getTime();
         const difference = expiresAt - now;
-        
+
         if (difference > 0) {
           setTimeLeft(Math.floor(difference / 1000));
         } else {
@@ -115,11 +91,11 @@ const PaymentPage: React.FC = () => {
 
   useEffect(() => {
     let statusInterval: NodeJS.Timeout;
-    
+
     if (paymentData?.id && paymentData.status === 'WAITING_PAYMENT') {
       statusInterval = setInterval(() => {
         checkPaymentStatus();
-      }, 5000); // Verificar a cada 5 segundos
+      }, 5000);
     }
 
     return () => {
@@ -127,32 +103,26 @@ const PaymentPage: React.FC = () => {
     };
   }, [paymentData?.id, paymentData?.status]);
 
-  // Gerar data URL do QR quando tivermos paymentData
   useEffect(() => {
     let cancelled = false;
     const generate = async () => {
       setPixDataUrl(null);
       if (!paymentData) return;
 
-      // Se já vier a imagem em base64 (somente base64), monta o data URI
       if (paymentData.pixQrCode) {
-        // caso já seja base64 puro
         setPixDataUrl(`data:image/png;base64,${paymentData.pixQrCode}`);
         return;
       }
 
-      // Se vier apenas o payload (pixCode), tentar gerar imagem de QR no cliente
       if (paymentData.pixCode) {
         try {
-          // tentar carregar a lib qrcode dinamicamente (se não estiver instalada, pegamos fallback)
-          // @ts-ignore: may not be installed in dev environment
+          // @ts-ignore
           const qrcode: any = await import('qrcode');
           if (cancelled) return;
           const dataUrl = await qrcode.toDataURL(paymentData.pixCode);
           if (!cancelled) setPixDataUrl(dataUrl as string);
           return;
         } catch (err) {
-          // não consegui gerar (lib não instalada) — fallback: manter null e mostrar código
           if (!cancelled) setPixDataUrl(null);
           return;
         }
@@ -160,69 +130,11 @@ const PaymentPage: React.FC = () => {
     };
 
     generate();
-
     return () => { cancelled = true; };
   }, [paymentData]);
 
-  const createOrder = async () => {
-    setLoading(true);
-    try {
-      // 1. Criar o pedido
-      const orderData = {
-        shippingAddress,
-        items: cartItems.map(item => ({
-          productId: (item as any).id || item.slug?.current || item.name,
-          quantity: item.quantity,
-          price: item.price,
-          discount: item.discount || 0
-        }))
-      };
-
-      // Prefer token from in-memory tokenStore (set at login). Fallback to localStorage userInfo.
-      let token = tokenStore.getToken() || '';
-      if (!token) {
-        try {
-          const ui = localStorage.getItem('userInfo');
-          if (ui) token = JSON.parse(ui).accessToken || '';
-        } catch (e) {}
-      }
-      // use internal axios client (with tokenStore interceptor) for API calls
-      const orderResponse = await api.post('/orders', orderData);
-
-      const newOrderId = orderResponse.data.id;
-      setOrderId(newOrderId);
-      // Gerar idempotencyKey para este fluxo de compra e armazenar junto com o pedido criado
-      let idempotencyKey = '';
-      try {
-        // usar crypto.randomUUID quando disponível
-        // @ts-ignore
-        idempotencyKey = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-      } catch (e) {
-        idempotencyKey = `id-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-      }
-
-      // Armazenar o pedido criado e a chave de idempotência
-      try { 
-        localStorage.setItem('createdOrder', JSON.stringify({ id: newOrderId, idempotencyKey })); 
-      } catch (e) {}
-
-      // garantir que o endereço selecionado também esteja salvo (mesma chave usada em shipping-address)
-      try {
-        if (shippingAddress) localStorage.setItem('selectedShippingAddress', JSON.stringify(shippingAddress));
-      } catch (e) { }
-
-      // 2. Criar o pagamento PIX para o pedido recém-criado
-      await createPaymentForOrder(newOrderId);
-    } catch (error: any) {
-      console.error('Erro ao criar pedido/pagamento:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const createPaymentForOrder = async (orderIdParam: string) => {
     if (!orderIdParam) return;
-    // evitar chamadas concorrentes
     if (loading) return;
     setLoading(true);
     try {
@@ -249,11 +161,9 @@ const PaymentPage: React.FC = () => {
 
       const paymentResponse = await api.post('/payments/create', paymentDataReq);
 
-      // A rota /api/payments/create retorna { order, mp: { id, qr, qrBase64 } }
       const respData = paymentResponse.data || {};
       const mp = respData.mp || {};
 
-      // mp.qrBase64 pode vir prefixado com data:image..., normalizar
       let pixQrBase64: string | undefined = undefined;
       if (mp.qrBase64) {
         const raw = mp.qrBase64 as string;
@@ -263,7 +173,6 @@ const PaymentPage: React.FC = () => {
         pixQrBase64 = raw.startsWith('data:') ? raw.split(',')[1] ?? raw : raw;
       }
 
-      // Normalizar status: API usa 'PENDING' enquanto a UI espera 'WAITING_PAYMENT'
       const rawStatus = (respData.order && respData.order.paymentStatus) || 'WAITING_PAYMENT';
       const normalizedStatus = rawStatus === 'PENDING' ? 'WAITING_PAYMENT' : rawStatus;
 
@@ -280,10 +189,8 @@ const PaymentPage: React.FC = () => {
       toast.success('Pagamento PIX gerado com sucesso!');
     } catch (error: any) {
       console.error('Erro ao gerar pagamento PIX:', error);
-      // Mostrar mensagem amigável para o usuário
       const message = error?.response?.data?.error || error?.message || 'Erro ao gerar pagamento';
       toast.error(`Erro ao gerar pagamento PIX: ${message}`);
-      // limpar estado de pagamento para evitar UI inconsistente
       setPaymentData(null);
     } finally {
       setLoading(false);
@@ -294,8 +201,6 @@ const PaymentPage: React.FC = () => {
     if (!paymentData?.id) return;
 
     try {
-      // Prefer in-memory token when checking status
-      const statusToken = tokenStore.getToken() || localStorage.getItem('token') || '';
       const response = await api.get(`/payments/${paymentData.id}/pix-status`);
 
       if (response.data.status === 'COMPLETED') {
@@ -337,12 +242,12 @@ const PaymentPage: React.FC = () => {
     <PrivateRoute>
       <div className="max-w-6xl mx-auto px-4 py-8">
         <Breadcrumb />
-        
+
         <OrderTracking currentStep={2} />
-        
+
         <div className="mt-8">
           <h1 className="text-3xl font-bold mb-8 text-center">Pagamento PIX</h1>
-          
+
           <div className="grid lg:grid-cols-2 gap-8">
             {/* Coluna principal - QR Code e instruções */}
             <div className="space-y-6">
@@ -350,8 +255,8 @@ const PaymentPage: React.FC = () => {
                 <>
                   {/* Status do pagamento */}
                   <div className={`p-4 rounded-lg text-center ${
-                    paymentData.status === 'WAITING_PAYMENT' 
-                      ? 'bg-yellow-100 text-yellow-800' 
+                    paymentData.status === 'WAITING_PAYMENT'
+                      ? 'bg-yellow-100 text-yellow-800'
                       : paymentData.status === 'COMPLETED'
                       ? 'bg-green-100 text-green-800'
                       : 'bg-red-100 text-red-800'
@@ -433,7 +338,7 @@ const PaymentPage: React.FC = () => {
               {/* Resumo do pedido */}
               <div className="bg-palette-card p-6 rounded-lg shadow-md">
                 <h3 className="text-xl font-semibold mb-4">Resumo do Pedido</h3>
-                
+
                 <div className="space-y-3 mb-6">
                   {cartItems.map((item) => (
                     <div key={(item as any).id || item.slug?.current || item.name} className="flex justify-between text-sm">
@@ -474,7 +379,7 @@ const PaymentPage: React.FC = () => {
                     Verificar Pagamento
                   </button>
                 )}
-                
+
                 <button
                   onClick={() => router.push('/cart')}
                   className="w-full border border-palette-primary text-palette-primary py-3 px-4 rounded-lg hover:bg-palette-primary hover:text-palette-side transition-colors"
@@ -492,5 +397,4 @@ const PaymentPage: React.FC = () => {
   );
 };
 
-export default PaymentPage;
-
+export default PaymentByIdPage;

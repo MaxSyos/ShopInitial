@@ -115,6 +115,7 @@ model Order {
   paymentStatus   PaymentStatus @default(PENDING)
   // Campos do MercadoPago / PIX
   mpPreferenceId  String?   // id da preference criado no MercadoPago
+  mpIdempotencyKey String?  // chave de idempotência usada ao criar pagamento no MP
   mpQrCodeBase64  String?   // QR code em base64 (imagem) retornado pela API
   mpQrCodeUrl     String?   // URL público para o QR code (se houver)
   paymentExpiresAt DateTime?
