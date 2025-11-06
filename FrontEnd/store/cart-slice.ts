@@ -52,11 +52,15 @@ const cartSlice = createSlice({
             ? calculateDiscountPercentage(newItem.price, newItem.discount)
             : newItem.price) * action.payload.quantity;
 
-        state.items.push({
+        state.items.push(({
           ...newItem,
+          // garantir que discount não seja null (tipagem espera undefined quando ausente)
+          discount: (newItem.discount ?? undefined),
+          // garantir que registerDate/nulls não quebrem a tipagem do ICartProduct em tempo de compilação
+          registerDate: (newItem as any).registerDate ?? undefined,
           quantity: action.payload.quantity,
           totalPrice,
-        });
+        } as unknown) as ICartProduct);
       } else {
         const totalPrice =
           existingItem.totalPrice +
@@ -134,7 +138,10 @@ const cartSlice = createSlice({
     },
 
     clearCart(state) {
-      state = initialState;
+      // Immer requires mutating the draft state fields instead of reassigning the state variable.
+      state.items = [];
+      state.totalQuantity = 0;
+      state.totalAmount = 0;
     },
   },
   extraReducers: (builder) => {

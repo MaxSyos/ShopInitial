@@ -5,6 +5,7 @@ import { useLanguage } from '../hooks/useLanguage';
 import { IUserInfoRootState } from '../lib/types/user';
 import { ICartRootState } from '../lib/types/cart';
 import { ShippingAddress, fetchUserAddresses, addShippingAddress } from '../store/order-slice';
+import { cartActions } from '../store/cart-slice';
 import { RootState, AppDispatch } from '../store';
 import { toast } from 'react-toastify';
 import Breadcrumb from '../components/UI/Breadcrumb';
@@ -185,6 +186,13 @@ const ShippingAddressPage: React.FC = () => {
           localStorage.setItem('createdOrder', JSON.stringify(createdWithKey));
         } catch (e) {
           // ignore
+        }
+
+        // Limpar o carrinho local APENAS após o pedido ser criado com sucesso
+        try {
+          dispatch(cartActions.clearCart());
+        } catch (e) {
+          console.warn('Falha ao limpar o carrinho local:', e);
         }
 
         router.push(`/payment/${created.id}`);

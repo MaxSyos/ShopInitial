@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import { useLanguage } from '../../hooks/useLanguage';
 import { IUserInfoRootState } from '../../lib/types/user';
 import { toast } from 'react-toastify';
-import axios from 'axios';
+import api from '../../lib/axiosClient';
 import Breadcrumb from '../../components/UI/Breadcrumb';
 import Benefits from '../../components/Benefits';
 import PrivateRoute from '../../components/auth/PrivateRoute';
@@ -20,6 +20,8 @@ interface OrderData {
     productName: string;
     quantity: number;
     price: number;
+    unitPrice?: number | null;
+    total?: number;
   }>;
   shippingAddress: {
     street: string;
@@ -73,11 +75,8 @@ const OrderStatusPage: React.FC = () => {
 
   const fetchOrderData = async () => {
     try {
-      const response = await axios.get(`/api/orders/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      // Use centralized axios client which handles tokenStore and refresh logic
+      const response = await api.get(`/orders/${id}`);
       // Alguns endpoints retornam { order, localOrder, external } — preferir o campo `order` quando disponível
       const payload = response.data || {};
       const resolvedOrder = payload.order || payload.localOrder || payload;
@@ -93,12 +92,25 @@ const OrderStatusPage: React.FC = () => {
         return up;
       };
 
+      const itemsRaw = resolvedOrder?.items || resolvedOrder?.itemsJson || [];
+
       const normalized: any = {
         id: resolvedOrder?.id || resolvedOrder?._id || resolvedOrder?.orderId || '',
         status: resolvedOrder?.status || 'PENDING',
         totalAmount: resolvedOrder?.total ?? resolvedOrder?.totalAmount ?? resolvedOrder?.subtotal ?? 0,
         createdAt: resolvedOrder?.createdAt || resolvedOrder?.created_at || new Date().toISOString(),
-        items: resolvedOrder?.items || resolvedOrder?.itemsJson || [],
+        // normalizar itens para garantir que UI encontre `price` e `quantity`
+        items: (itemsRaw || []).map((it: any) => ({
+          id: it.id,
+          productId: it.productId,
+          productName: it.productName || it.product?.name || '',
+          quantity: it.quantity ?? 0,
+          // aceitar unitPrice (do backend) ou price, e calcular fallback quando necessário
+          price: (it.unitPrice ?? it.price ?? (it.total && it.quantity ? (it.total / it.quantity) : 0)),
+          unitPrice: it.unitPrice ?? it.price ?? null,
+          total: it.total ?? ((it.unitPrice ?? it.price ?? 0) * (it.quantity ?? 0)),
+          product: it.product || null
+        })),
         shippingAddress: resolvedOrder?.shippingAddress || {},
         payment: {
           id: resolvedOrder?.mpPreferenceId || resolvedOrder?.paymentId || '',
@@ -106,6 +118,8 @@ const OrderStatusPage: React.FC = () => {
           method: resolvedOrder?.paymentMethod || resolvedOrder?.payment_method || 'PIX',
           amount: Number(resolvedOrder?.total ?? resolvedOrder?.totalAmount ?? 0)
         },
+        // também expor paymentStatus no topo para compatibilidade
+        paymentStatus: mapPaymentStatus(resolvedOrder?.paymentStatus || resolvedOrder?.payment_status),
         tracking: resolvedOrder?.tracking || null,
       };
 
@@ -254,8 +268,8 @@ const OrderStatusPage: React.FC = () => {
         <div className="mt-8">
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-3xl font-bold">Pedido #{String(orderData.id ?? '').slice(-8)}</h1>
-            <div className={`px-4 py-2 rounded-lg ${getStatusColor(orderData.status ?? 'PENDING')}`}>
-              {getStatusText(orderData.status ?? 'PENDING')}
+            <div className={`px-4 py-2 rounded-lg ${getStatusColor(orderData.payment?.status ?? orderData.status ?? 'PENDING')}`}>
+              {getStatusText(orderData.payment?.status ?? orderData.paymentStatus ?? orderData.status ?? 'PENDING')}
             </div>
           </div>
           
@@ -272,8 +286,8 @@ const OrderStatusPage: React.FC = () => {
                       Valor: R$ {Number(orderData.payment?.amount ?? 0).toFixed(2)}
                     </p>
                   </div>
-                  <div className={`px-3 py-1 rounded-lg ${getStatusColor(orderData.payment?.status ?? 'PENDING')}`}>
-                    {getStatusText(orderData.paymentStatus ?? 'PENDING')}
+                  <div className={`px-3 py-1 rounded-lg ${getStatusColor(orderData.payment?.status ?? orderData.paymentStatus ?? 'PENDING')}`}>
+                    {getStatusText(orderData.payment?.status ?? orderData.paymentStatus ?? 'PENDING')}
                   </div>
                 </div>
               </div>
@@ -331,8 +345,10 @@ const OrderStatusPage: React.FC = () => {
                       <div className="flex-1">
                         <p className="font-medium">{item.productName}</p>
                         <p className="text-sm text-palette-mute">Quantidade: {item.quantity}</p>
+                        {/* mostrar preço unitário se disponível */}
+                        <p className="text-sm text-palette-mute">Preço unitário: R$ {Number(item.price ?? item.unitPrice ?? 0).toFixed(2)}</p>
                       </div>
-                      <p className="font-medium">R$ {Number((item.price || 0) * (item.quantity || 0)).toFixed(2)}</p>
+                      <p className="font-medium">R$ {Number((item.price ?? item.unitPrice ?? 0) * (item.quantity ?? 0)).toFixed(2)}</p>
                     </div>
                   ))}
                 </div>

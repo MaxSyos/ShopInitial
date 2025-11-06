@@ -33,6 +33,7 @@ const PaymentByIdPage: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [orderId, setOrderId] = useState<string>('');
   const [shippingAddress, setShippingAddress] = useState<any>(null);
+  const [orderSummary, setOrderSummary] = useState<any | null>(null);
 
   const userInfo = useSelector((state: IUserInfoRootState) => state.userInfo.userInformation);
   const cartItems = useSelector((state: ICartRootState) => state.cart.items);
@@ -60,6 +61,21 @@ const PaymentByIdPage: React.FC = () => {
     // quando receber o orderId via rota, tentar criar o pagamento para esse pedido
     if (orderId && !paymentData) {
       createPaymentForOrder(orderId);
+    }
+    // também tentar carregar resumo do pedido (caso o carrinho tenha sido limpo)
+    if (orderId) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('createdOrder') || 'null');
+        if (stored && (stored.id === orderId || String(stored.id) === String(orderId))) {
+          // createdOrder pode conter items/total dependendo de como foi salvo
+          setOrderSummary(stored.localOrder || stored || null);
+        } else {
+          // buscar do endpoint caso não tenha no localStorage
+          fetchOrderSummary(orderId);
+        }
+      } catch (e) {
+        fetchOrderSummary(orderId);
+      }
     }
   }, [orderId]);
 
@@ -186,6 +202,10 @@ const PaymentByIdPage: React.FC = () => {
       };
 
       setPaymentData(paymentState);
+      // se a resposta trouxe o pedido local/upstream, usar para o resumo
+      if (respData.order || respData.localOrder) {
+        setOrderSummary(respData.order || respData.localOrder);
+      }
       toast.success('Pagamento PIX gerado com sucesso!');
     } catch (error: any) {
       console.error('Erro ao gerar pagamento PIX:', error);
@@ -194,6 +214,28 @@ const PaymentByIdPage: React.FC = () => {
       setPaymentData(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchOrderSummary = async (idToFetch: string) => {
+    try {
+      const res = await api.get(`/orders/${idToFetch}`);
+      const payload = res.data || {};
+      const resolved = payload.order || payload.localOrder || payload;
+      if (resolved) {
+        // normalize items to shape used in UI
+        const items = (resolved.items || []).map((it: any) => ({
+          id: it.id || it.productId,
+          name: it.productName || it.product?.name || it.name || '',
+          quantity: it.quantity || 1,
+          totalPrice: it.total ?? ((it.unitPrice || it.price || 0) * (it.quantity || 1)),
+        }));
+
+        setOrderSummary({ items, totalAmount: resolved.total ?? resolved.subtotal ?? 0 });
+      }
+    } catch (e) {
+      // falha silenciosa — será utilizado o cartItems como fallback
+      console.warn('Falha ao buscar resumo do pedido:', e);
     }
   };
 
@@ -223,9 +265,14 @@ const PaymentByIdPage: React.FC = () => {
   };
 
   const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    // Se não há horas, mostrar apenas MM:SS (mais compacto)
+    if (hrs === 0) {
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   if (loading) {
@@ -340,10 +387,10 @@ const PaymentByIdPage: React.FC = () => {
                 <h3 className="text-xl font-semibold mb-4">Resumo do Pedido</h3>
 
                 <div className="space-y-3 mb-6">
-                  {cartItems.map((item) => (
-                    <div key={(item as any).id || item.slug?.current || item.name} className="flex justify-between text-sm">
-                      <span className="flex-1">{item.name} x {item.quantity}</span>
-                      <span className="font-medium">R$ {Number(item.totalPrice || 0).toFixed(2)}</span>
+                  {(orderSummary?.items || cartItems || []).map((item: any) => (
+                    <div key={item.id || item.slug || item.name} className="flex justify-between text-sm">
+                      <span className="flex-1">{item.name || item.productName || item.product?.name} x {item.quantity}</span>
+                      <span className="font-medium">R$ {Number(item.totalPrice || item.total || 0).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
@@ -351,7 +398,7 @@ const PaymentByIdPage: React.FC = () => {
                 <div className="border-t pt-4 mb-6">
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>
-                    <span>R$ {Number(totalAmount || 0).toFixed(2)}</span>
+                    <span>R$ {Number((orderSummary?.totalAmount ?? totalAmount) || 0).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
