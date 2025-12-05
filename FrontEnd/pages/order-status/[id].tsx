@@ -268,9 +268,25 @@ const OrderStatusPage: React.FC = () => {
         <div className="mt-8">
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-3xl font-bold">Pedido #{String(orderData.id ?? '').slice(-8)}</h1>
-            <div className={`px-4 py-2 rounded-lg ${getStatusColor(orderData.payment?.status ?? orderData.status ?? 'PENDING')}`}>
-              {getStatusText(orderData.payment?.status ?? orderData.paymentStatus ?? orderData.status ?? 'PENDING')}
-            </div>
+            {
+              (() => {
+                const payStatus = orderData.payment?.status ?? orderData.paymentStatus ?? orderData.status ?? 'PENDING';
+                const badgeClass = `px-4 py-2 rounded-lg ${getStatusColor(payStatus)}`;
+                const badgeText = getStatusText(payStatus);
+                if (String(payStatus).toUpperCase() === 'PENDING') {
+                  return (
+                    <button
+                      onClick={() => router.push(`/payment/${orderData.id}`)}
+                      className={`${badgeClass} hover:opacity-90 cursor-pointer`}
+                      title="Ir para pagamento"
+                    >
+                      {badgeText}
+                    </button>
+                  );
+                }
+                return <div className={badgeClass}>{badgeText}</div>;
+              })()
+            }
           </div>
           
           <div className="grid lg:grid-cols-3 gap-8">
@@ -286,9 +302,25 @@ const OrderStatusPage: React.FC = () => {
                       Valor: R$ {Number(orderData.payment?.amount ?? 0).toFixed(2)}
                     </p>
                   </div>
-                  <div className={`px-3 py-1 rounded-lg ${getStatusColor(orderData.payment?.status ?? orderData.paymentStatus ?? 'PENDING')}`}>
-                    {getStatusText(orderData.payment?.status ?? orderData.paymentStatus ?? 'PENDING')}
-                  </div>
+                  {
+                    (() => {
+                      const payStatus = orderData.payment?.status ?? orderData.paymentStatus ?? 'PENDING';
+                      const badgeCls = `px-3 py-1 rounded-lg ${getStatusColor(payStatus)}`;
+                      const text = getStatusText(payStatus);
+                      if (String(payStatus).toUpperCase() === 'PENDING') {
+                        return (
+                          <button
+                            onClick={() => router.push(`/payment/${orderData.id}`)}
+                            className={`${badgeCls} hover:opacity-90 cursor-pointer`}
+                            title="Ir para pagamento"
+                          >
+                            {text}
+                          </button>
+                        );
+                      }
+                      return <div className={badgeCls}>{text}</div>;
+                    })()
+                  }
                 </div>
               </div>
 

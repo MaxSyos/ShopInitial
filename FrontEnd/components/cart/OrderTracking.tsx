@@ -27,23 +27,21 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({
             <div className="flex flex-col items-center">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                  step.id <= currentStep
-                    ? 'bg-palette-primary text-palette-side'
-                    : 'bg-gray-200 text-gray-500'
+                  step.id < currentStep
+                    ? 'bg-green-600 text-white' // passos verificados: círculo verde
+                    : step.id === currentStep
+                    ? 'bg-palette-primary text-palette-side' // passo atual: manter cor primária
+                    : 'bg-gray-200 text-gray-500' // passos futuros: cinza
                 }`}
               >
-                {step.id <= currentStep ? (
-                  step.id < currentStep ? (
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  ) : (
-                    step.id
-                  )
+                {step.id < currentStep ? (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
                 ) : (
                   step.id
                 )}
@@ -51,7 +49,7 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({
               <div className="mt-2 text-center">
                 <p
                   className={`text-sm font-medium ${
-                    step.id <= currentStep ? 'text-palette-primary' : 'text-gray-500'
+                    step.id < currentStep ? 'text-green-600' : step.id === currentStep ? 'text-palette-primary' : 'text-gray-500'
                   }`}
                 >
                   {step.title}
@@ -66,7 +64,7 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({
             {index < steps.length - 1 && (
               <div
                 className={`flex-1 h-0.5 mx-4 transition-colors ${
-                  step.id < currentStep ? 'bg-palette-primary' : 'bg-gray-200'
+                  step.id < currentStep ? 'bg-green-600' : 'bg-gray-200'
                 }`}
               />
             )}

@@ -5,6 +5,7 @@ import { userInfoActions } from "../../../store/user-slice";
 import { useLanguage } from "../../../hooks/useLanguage";
 import { AiOutlineHeart } from "react-icons/ai";
 import { IoLogOutOutline } from "react-icons/io5";
+import { MdShoppingBag } from "react-icons/md";
 import jsCookie from "js-cookie";
 
 interface Props {
@@ -21,6 +22,21 @@ const UserAccountBox: React.FC<Props> = ({ onClose }) => {
   return (
     <div>
       <ul>
+        <li className="my-1 py-1" onClick={onClose}>
+          <Link href={"/orders"}>
+            <a className="flex items-center hover:text-palette-primary">
+              <MdShoppingBag
+                style={{
+                  fontSize: "1.2rem",
+                  width: "1.8rem",
+                }}
+              />
+              <span className="font-normal rtl:mr-1 ltr:ml-1">
+                Meus Pedidos
+              </span>
+            </a>
+          </Link>
+        </li>
         <li className="my-1 py-1" onClick={onClose}>
           <Link href={"/favorite"}>
             <a className="flex items-center hover:text-palette-primary">
