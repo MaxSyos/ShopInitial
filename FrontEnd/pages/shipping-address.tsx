@@ -4,7 +4,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useLanguage } from '../hooks/useLanguage';
 import { IUserInfoRootState } from '../lib/types/user';
 import { ICartRootState } from '../lib/types/cart';
-import { ShippingAddress, fetchUserAddresses, addShippingAddress } from '../store/order-slice';
+import { ShippingAddress, fetchUserAddresses, addShippingAddress, deleteShippingAddress } from '../store/order-slice';
 import { cartActions } from '../store/cart-slice';
 import { RootState, AppDispatch } from '../store';
 import { toast } from 'react-toastify';
@@ -70,6 +70,25 @@ const ShippingAddressPage: React.FC = () => {
     setSelectedAddressIndex(-1);
   };
 
+  const handleDeleteAddress = async (index: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const addressToDelete = shippingAddresses[index] as any;
+    if (!addressToDelete || !addressToDelete.id) {
+      toast.error('Endereço inválido para deleção');
+      return;
+    }
+
+    if (!window.confirm('Tem certeza que deseja deletar este endereço?')) return;
+
+    try {
+      await dispatch(deleteShippingAddress(addressToDelete.id)).unwrap();
+      toast.success('Endereço deletado com sucesso');
+      if (selectedAddressIndex === index) setSelectedAddressIndex(-1);
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao deletar endereço');
+    }
+  };
+
   const handleInputChange = (field: keyof typeof newAddress, value: string | boolean) => {
     setNewAddress(prev => ({
       ...prev,
@@ -78,28 +97,42 @@ const ShippingAddressPage: React.FC = () => {
     setErrors(prev => ({ ...prev, [field]: '' }));
   };
 
+  const formatCepMask = (digits: string) => {
+    if (!digits) return '';
+    const d = digits.replace(/\D/g, '');
+    if (d.length <= 5) return d;
+    return `${d.slice(0,5)}-${d.slice(5,8)}`;
+  };
+
   const handleCepChange = async (cep: string) => {
-    setNewAddress(prev => ({ ...prev, postalCode: cep }));
-    
-    // Remover caracteres não numéricos
-    const cleanCep = cep.replace(/\D/g, '');
-    
+    // Format cep visually as XXXXX-XXX while keeping digits for API
+    const cleanCep = String(cep || '').replace(/\D/g, '');
+    const masked = formatCepMask(cleanCep);
+    setNewAddress(prev => ({ ...prev, postalCode: masked }));
+
     if (cleanCep.length === 8) {
       try {
         const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
         const data = await response.json();
-        
+
         if (!data.erro) {
           setNewAddress(prev => ({
             ...prev,
+            postalCode: formatCepMask(cleanCep),
             street: data.logradouro || prev.street,
+            number: prev.number,
+            complement: data.complemento || prev.complement,
             city: data.localidade || prev.city,
             state: data.uf || prev.state,
-            country: 'Brasil'
+            country: 'BR'
           }));
+          toast.success('Endereço preenchido automaticamente pelo CEP');
+        } else {
+          toast.error('CEP não encontrado. Verifique e tente novamente.');
         }
       } catch (error) {
         console.error('Erro ao buscar CEP:', error);
+        toast.error('Erro ao buscar CEP. Tente novamente.');
       }
     }
   };
@@ -240,22 +273,47 @@ const ShippingAddressPage: React.FC = () => {
                         }`}
                         onClick={() => handleAddressSelect(index)}
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
-                            <p className="font-medium text-palette-base">{address.street}</p>
+                            <p className="font-medium text-palette-base">{address.street}{address.number ? `, ${address.number}` : ''}</p>
+                            {address.complement && (
+                              <p className="text-sm text-palette-mute">{address.complement}</p>
+                            )}
                             <p className="text-sm text-palette-mute">
                               {address.city}, {address.state} - CEP: {address.postalCode}
                             </p>
                             <p className="text-sm text-palette-mute">{address.country}</p>
                           </div>
-                          <div className={`w-4 h-4 rounded-full border-2 ${
-                            selectedAddressIndex === index 
-                              ? 'bg-palette-primary border-palette-primary' 
-                              : 'border-gray-300'
-                          }`}>
-                            {selectedAddressIndex === index && (
-                              <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
-                            )}
+                          <div className="flex items-start gap-3">
+                            <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 mt-1 ${
+                              selectedAddressIndex === index 
+                                ? 'bg-palette-primary border-palette-primary' 
+                                : 'border-gray-300'
+                            }`}>
+                              {selectedAddressIndex === index && (
+                                <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
+                              )}
+                            </div>
+                            <button
+                              onClick={(e) => handleDeleteAddress(index, e)}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded transition-colors flex-shrink-0"
+                              title="Deletar endereço"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -292,6 +350,7 @@ const ShippingAddressPage: React.FC = () => {
                       type="text"
                       required
                       value={newAddress.postalCode}
+                      maxLength={9}
                       placeholder="CEP"
                       onChange={(e) => handleCepChange(e.target.value)}
                       classes={errors.postalCode ? 'border-red-500' : ''}
@@ -309,7 +368,7 @@ const ShippingAddressPage: React.FC = () => {
                     {errors.street && <span className="text-red-500 text-xs">{errors.street}</span>}
                     <div className="grid md:grid-cols-2 gap-4">
                       <Input
-                        id="number"
+                        id="Number"
                         type="text"
                         required
                         value={newAddress.number}
@@ -319,7 +378,7 @@ const ShippingAddressPage: React.FC = () => {
                       />
                       {errors.number && <span className="text-red-500 text-xs block md:col-span-2">{errors.number}</span>}
                       <Input
-                        id="complement"
+                        id="Neighborhood"
                         type="text"
                         value={newAddress.complement}
                         placeholder="Complemento (opcional)"

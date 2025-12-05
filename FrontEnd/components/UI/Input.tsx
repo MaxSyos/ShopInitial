@@ -1,4 +1,4 @@
-import React, { useImperativeHandle, useRef, useState } from "react";
+import React, { useImperativeHandle, useRef, useState, useEffect } from "react";
 import { useLanguage } from "../../hooks/useLanguage";
 
 interface Props {
@@ -24,6 +24,10 @@ interface IImperativeHandler {
 const Input = React.forwardRef<IImperativeHandler, Props>((props, ref) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [value, setValue] = useState(props.value || "");
+
+  useEffect(() => {
+    setValue(props.value || "");
+  }, [props.value]);
 
   function inputChangeHandler(e: React.ChangeEvent<HTMLInputElement>) {
     setValue(e.currentTarget.value);

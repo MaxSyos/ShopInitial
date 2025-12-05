@@ -8,6 +8,7 @@ export interface ShippingAddress {
   state: string; // deve ter 2 caracteres
   postalCode: string; // deve ter 8 caracteres
   country: string;
+  id?: string;
   number: string; // novo campo obrigatório
   complement: string; // novo campo obrigatório
   isDefault?: boolean;
@@ -51,6 +52,19 @@ export const addShippingAddress = createAsyncThunk(
     } catch (error: any) {
       console.error('Erro no addShippingAddress:', error);
       return rejectWithValue(error.response?.data?.message || 'Erro ao adicionar endereço');
+    }
+  }
+);
+
+// Thunk para deletar endereço
+export const deleteShippingAddress = createAsyncThunk(
+  'order/deleteShippingAddress',
+  async (addressId: string, { rejectWithValue }) => {
+    try {
+      await api.delete(`/addresses/${addressId}`);
+      return addressId;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Erro ao deletar endereço');
     }
   }
 );
@@ -129,6 +143,21 @@ const orderSlice = createSlice({
       state.shippingAddresses.push(action.payload);
     });
     builder.addCase(addShippingAddress.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.payload as string;
+    });
+
+    // Delete Address
+    builder.addCase(deleteShippingAddress.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(deleteShippingAddress.fulfilled, (state, action) => {
+      state.loading = false;
+      const deletedId = action.payload as string;
+      state.shippingAddresses = state.shippingAddresses.filter(addr => (addr as any).id !== deletedId);
+    });
+    builder.addCase(deleteShippingAddress.rejected, (state, action) => {
       state.loading = false;
       state.error = action.payload as string;
     });
