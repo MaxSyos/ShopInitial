@@ -62,22 +62,37 @@ const PaymentByIdPage: React.FC = () => {
     if (orderId && !paymentData) {
       createPaymentForOrder(orderId);
     }
-    // também tentar carregar resumo do pedido (caso o carrinho tenha sido limpo)
+    // sempre buscar resumo do pedido da API para garantir dados atualizados
     if (orderId) {
-      try {
-        const stored = JSON.parse(localStorage.getItem('createdOrder') || 'null');
-        if (stored && (stored.id === orderId || String(stored.id) === String(orderId))) {
-          // createdOrder pode conter items/total dependendo de como foi salvo
-          setOrderSummary(stored.localOrder || stored || null);
-        } else {
-          // buscar do endpoint caso não tenha no localStorage
-          fetchOrderSummary(orderId);
-        }
-      } catch (e) {
-        fetchOrderSummary(orderId);
-      }
+      fetchOrderSummary(orderId);
     }
   }, [orderId]);
+
+  // Tentar refazer a busca do resumo se estiver vazio após 2 segundos (fallback caso API demore)
+  useEffect(() => {
+    if (!orderId || orderSummary?.items?.length > 0) return;
+    
+    const timer = setTimeout(() => {
+      console.log('Tentando buscar resumo novamente pois estava vazio...');
+      fetchOrderSummary(orderId);
+    }, 2000);
+    
+    return () => clearTimeout(timer);
+  }, [orderId, orderSummary?.items?.length]);
+
+  const normalizeOrderItems = (items: any[], amount: number) => {
+    if (!items || items.length === 0) {
+      return { items: [], totalAmount: amount };
+    }
+    const normalized = items.map((it: any) => ({
+      id: it.id || it.productId,
+      name: it.productName || it.product?.name || it.name || '',
+      quantity: it.quantity || 1,
+      price: it.unitPrice || it.price || 0,
+      totalPrice: it.total ?? it.totalPrice ?? ((it.unitPrice || it.price || 0) * (it.quantity || 1)),
+    }));
+    return { items: normalized, totalAmount: amount };
+  };
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -222,20 +237,61 @@ const PaymentByIdPage: React.FC = () => {
       const res = await api.get(`/orders/${idToFetch}`);
       const payload = res.data || {};
       const resolved = payload.order || payload.localOrder || payload;
-      if (resolved) {
-        // normalize items to shape used in UI
-        const items = (resolved.items || []).map((it: any) => ({
+      
+      if (resolved && (resolved.items || resolved.itemsJson)) {
+        // Extrair items — podem estar em diferentes formatos
+        const rawItems = resolved.items || resolved.itemsJson || [];
+        const total = resolved.total ?? resolved.subtotal ?? resolved.amount ?? 0;
+        
+        // Normalizar items
+        const normalizedItems = (rawItems || []).map((it: any) => ({
           id: it.id || it.productId,
           name: it.productName || it.product?.name || it.name || '',
           quantity: it.quantity || 1,
-          totalPrice: it.total ?? ((it.unitPrice || it.price || 0) * (it.quantity || 1)),
+          price: it.unitPrice || it.price || 0,
+          totalPrice: it.total ?? it.totalPrice ?? ((it.unitPrice || it.price || 0) * (it.quantity || 1)),
         }));
-
-        setOrderSummary({ items, totalAmount: resolved.total ?? resolved.subtotal ?? 0 });
+        
+        setOrderSummary({ items: normalizedItems, totalAmount: total });
+        console.log('Order Summary carregado da API:', { items: normalizedItems, total });
+        return;
       }
     } catch (e) {
-      // falha silenciosa — será utilizado o cartItems como fallback
-      console.warn('Falha ao buscar resumo do pedido:', e);
+      console.warn('Falha ao buscar resumo do pedido da API:', e);
+    }
+    
+    // Se a API falhar ou não retornar items, tentar localStorage como fallback
+    try {
+      const stored = JSON.parse(localStorage.getItem('createdOrder') || 'null');
+      if (stored && (stored.items || stored.itemsJson)) {
+        const total = stored.total ?? stored.totalAmount ?? 0;
+        const rawItems = stored.items || stored.itemsJson || [];
+        const normalizedItems = (rawItems || []).map((it: any) => ({
+          id: it.id || it.productId,
+          name: it.productName || it.product?.name || it.name || '',
+          quantity: it.quantity || 1,
+          price: it.unitPrice || it.price || 0,
+          totalPrice: it.totalPrice ?? ((it.unitPrice || it.price || 0) * (it.quantity || 1)),
+        }));
+        setOrderSummary({ items: normalizedItems, totalAmount: total });
+        console.log('Order Summary carregado do localStorage:', { items: normalizedItems, total });
+        return;
+      }
+    } catch (fallbackErr) {
+      console.warn('Fallback localStorage também falhou:', fallbackErr);
+    }
+    
+    // Se tudo falhar mas temos cartItems do Redux, usar como última opção
+    if (cartItems && cartItems.length > 0) {
+      const normalizedItems = cartItems.map((item: any) => ({
+        id: item.id || item.productId,
+        name: item.productName || item.product?.name || item.name || '',
+        quantity: item.quantity || 1,
+        price: item.unitPrice || item.price || item.pricePerQuantity || 0,
+        totalPrice: item.totalPrice ?? item.total ?? ((item.unitPrice || item.price || item.pricePerQuantity || 0) * (item.quantity || 1)),
+      }));
+      setOrderSummary({ items: normalizedItems, totalAmount });
+      console.log('Order Summary carregado do Redux cartItems:', { items: normalizedItems, totalAmount });
     }
   };
 
@@ -386,19 +442,31 @@ const PaymentByIdPage: React.FC = () => {
               <div className="bg-palette-card p-6 rounded-lg shadow-md">
                 <h3 className="text-xl font-semibold mb-4">Resumo do Pedido</h3>
 
+                {/* Itens do pedido */}
                 <div className="space-y-3 mb-6">
-                  {(orderSummary?.items || cartItems || []).map((item: any) => (
-                    <div key={item.id || item.slug || item.name} className="flex justify-between text-sm">
-                      <span className="flex-1">{item.name || item.productName || item.product?.name} x {item.quantity}</span>
+                  {(orderSummary?.items && orderSummary.items.length > 0 ? orderSummary.items : (cartItems && cartItems.length > 0 ? cartItems : [])).map((item: any) => (
+                    <div key={item.id || item.slug?.current || item.productId || item.name} className="flex justify-between text-sm">
+                      <span className="flex-1">
+                        {item.name || item.productName || item.product?.name || 'Produto'} x {item.quantity || 1}
+                      </span>
                       <span className="font-medium">R$ {Number(item.totalPrice || item.total || 0).toFixed(2)}</span>
                     </div>
                   ))}
+                  {(!orderSummary?.items || orderSummary.items.length === 0) && (!cartItems || cartItems.length === 0) && (
+                    <p className="text-palette-mute text-sm italic">Carregando itens do pedido...</p>
+                  )}
                 </div>
 
                 <div className="border-t pt-4 mb-6">
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>
-                    <span>R$ {Number((orderSummary?.totalAmount ?? totalAmount) || 0).toFixed(2)}</span>
+                    <span>
+                      R$ {Number(
+                        orderSummary?.totalAmount ?? 
+                        (orderSummary?.items?.reduce((sum: number, item: any) => sum + (item.totalPrice || item.total || 0), 0) || 0) ||
+                        totalAmount || 0
+                      ).toFixed(2)}
+                    </span>
                   </div>
                 </div>
               </div>
