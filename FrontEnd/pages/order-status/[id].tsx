@@ -57,6 +57,8 @@ const OrderStatusPage: React.FC = () => {
   const [orderData, setOrderData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [trackingLoading, setTrackingLoading] = useState<boolean>(false);
+  const [isEditingAddress, setIsEditingAddress] = useState<boolean>(false);
+  const [addressForm, setAddressForm] = useState<any>({});
 
   const userInfo = useSelector(
     (state: IUserInfoRootState) => state.userInfo.userInformation
@@ -178,6 +180,40 @@ const OrderStatusPage: React.FC = () => {
       console.error('Erro ao buscar dados de rastreamento:', error);
     } finally {
       setTrackingLoading(false);
+    }
+  };
+
+  const startEditAddress = () => {
+    setAddressForm(orderData?.shippingAddress || {});
+    setIsEditingAddress(true);
+  };
+
+  const cancelEditAddress = () => {
+    setIsEditingAddress(false);
+    setAddressForm({});
+  };
+
+  const handleAddressChange = (field: string, value: any) => {
+    setAddressForm((prev: any) => ({ ...(prev || {}), [field]: value }));
+  };
+
+  const saveAddress = async () => {
+    if (!orderData) return;
+    try {
+      const payload = { shippingAddress: addressForm };
+      const res = await api.patch(`/orders/${orderData.id}`, payload);
+      const updated = res.data?.order || res.data;
+      if (updated) {
+        setOrderData((prev) => prev ? { ...prev, shippingAddress: updated.shippingAddress } : prev);
+        toast.success('Endereço atualizado com sucesso');
+        setIsEditingAddress(false);
+      } else {
+        toast.error('Resposta inválida ao atualizar endereço');
+      }
+    } catch (e: any) {
+      console.error('Erro ao salvar endereço:', e);
+      const message = e?.response?.data?.error || e.message || 'Erro ao salvar endereço';
+      toast.error(message);
     }
   };
 
@@ -414,10 +450,59 @@ const OrderStatusPage: React.FC = () => {
               <div className="bg-palette-card p-6 rounded-lg shadow-md">
                 <h3 className="text-lg font-semibold mb-4">Endereço de Entrega</h3>
                 <div className="text-sm space-y-1">
-                  <p>{orderData.shippingAddress?.street ?? ''}</p>
-                  <p>{orderData.shippingAddress?.city ?? ''}, {orderData.shippingAddress?.state ?? ''}</p>
-                  <p>CEP: {orderData.shippingAddress?.postalCode ?? ''}</p>
-                  <p>{orderData.shippingAddress?.country ?? ''}</p>
+                  {!isEditingAddress ? (
+                    <>
+                      <p>{orderData.shippingAddress?.street ?? ''} {orderData.shippingAddress?.number ? `, ${orderData.shippingAddress.number}` : ''}</p>
+                      {orderData.shippingAddress?.complement && <p>{orderData.shippingAddress.complement}</p>}
+                      <p>{orderData.shippingAddress?.city ?? ''}, {orderData.shippingAddress?.state ?? ''}</p>
+                      <p>CEP: {orderData.shippingAddress?.postalCode ?? ''}</p>
+                      <p>{orderData.shippingAddress?.country ?? ''}</p>
+                      <div className="mt-2">
+                        <button onClick={startEditAddress} className="text-palette-primary hover:underline text-sm mr-3">Editar</button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs text-palette-mute">Logradouro</label>
+                        <input value={addressForm?.street || ''} onChange={(e) => handleAddressChange('street', e.target.value)} className="w-full mt-1 p-2 border rounded" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-palette-mute">Número</label>
+                          <input value={addressForm?.number || ''} onChange={(e) => handleAddressChange('number', e.target.value)} className="w-full mt-1 p-2 border rounded" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-palette-mute">Complemento</label>
+                          <input value={addressForm?.complement || ''} onChange={(e) => handleAddressChange('complement', e.target.value)} className="w-full mt-1 p-2 border rounded" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-palette-mute">Cidade</label>
+                          <input value={addressForm?.city || ''} onChange={(e) => handleAddressChange('city', e.target.value)} className="w-full mt-1 p-2 border rounded" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-palette-mute">Estado</label>
+                          <input value={addressForm?.state || ''} onChange={(e) => handleAddressChange('state', e.target.value)} className="w-full mt-1 p-2 border rounded" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-palette-mute">CEP</label>
+                          <input value={addressForm?.postalCode || ''} onChange={(e) => handleAddressChange('postalCode', e.target.value)} className="w-full mt-1 p-2 border rounded" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-palette-mute">País</label>
+                          <input value={addressForm?.country || ''} onChange={(e) => handleAddressChange('country', e.target.value)} className="w-full mt-1 p-2 border rounded" />
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <button onClick={saveAddress} className="bg-palette-primary text-palette-side px-4 py-2 rounded">Salvar</button>
+                        <button onClick={cancelEditAddress} className="px-4 py-2 border rounded">Cancelar</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

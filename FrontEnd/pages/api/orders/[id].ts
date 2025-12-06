@@ -9,8 +9,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { id } = req.query;
   if (!id) return res.status(400).json({ error: 'order id é obrigatório' });
 
-  try {
-    // procurar por id (local), ou externalId igual ao id passado
+  // helper para localizar pedido do usuário por id/external/mp
+  const findUserOrder = async () => {
     const whereClause = {
       OR: [
         { id: String(id) },
@@ -18,50 +18,116 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         { mpPreferenceId: String(id) }
       ]
     };
-
-    // buscar pedido incluindo items
     // @ts-ignore prisma typings
     const order = await prisma.order.findFirst({
       where: { AND: [{ userId: user.id }, whereClause] },
       include: { items: { include: { product: true } } }
     });
+    return order;
+  };
 
-    if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
-
-    // estruturar retorno com campos relevantes para a UI
-    const o: any = order as any;
-    const response = {
-      order: {
-        id: o.id,
-        userId: o.userId,
-        status: o.status,
-        createdAt: o.createdAt,
-        subtotal: o.subtotal,
-        shippingCost: o.shippingCost,
-        tax: o.tax,
-        total: o.total,
-        paymentMethod: o.paymentMethod,
-        paymentStatus: o.paymentStatus,
-        mpPreferenceId: o.mpPreferenceId,
-        mpIdempotencyKey: o.mpIdempotencyKey,
-        mpQrCodeBase64: o.mpQrCodeBase64,
-        mpQrCodeUrl: o.mpQrCodeUrl,
-        paymentExpiresAt: o.paymentExpiresAt,
-        paidAt: o.paidAt,
-        shippingAddress: o.shippingAddress,
-        items: (o.items || []).map((it: any) => ({
-          id: it.id,
-          productId: it.productId,
-          productName: it.product?.name || it.productName || '',
-          quantity: it.quantity,
-          unitPrice: it.unitPrice,
-          total: it.total,
-          product: it.product || null
-        }))
+  try {
+    // atualizar shippingAddress (PATCH/PUT)
+    if (req.method === 'PATCH' || req.method === 'PUT') {
+      const payload = req.body || {};
+      if (!payload.shippingAddress || typeof payload.shippingAddress !== 'object') {
+        return res.status(400).json({ error: 'shippingAddress inválido' });
       }
-    };
 
-    return res.status(200).json(response);
+      const order = await findUserOrder();
+      if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
+
+      const updated = await prisma.order.update({
+        where: { id: String(order.id) },
+        data: { shippingAddress: payload.shippingAddress }
+      });
+
+      const o: any = updated as any;
+      const response = {
+        order: {
+          id: o.id,
+          userId: o.userId,
+          status: o.status,
+          createdAt: o.createdAt,
+          subtotal: o.subtotal,
+          shippingCost: o.shippingCost,
+          tax: o.tax,
+          total: o.total,
+          paymentMethod: o.paymentMethod,
+          paymentStatus: o.paymentStatus,
+          mpPreferenceId: o.mpPreferenceId,
+          mpIdempotencyKey: o.mpIdempotencyKey,
+          mpQrCodeBase64: o.mpQrCodeBase64,
+          mpQrCodeUrl: o.mpQrCodeUrl,
+          paymentExpiresAt: o.paymentExpiresAt,
+          paidAt: o.paidAt,
+          shippingAddress: o.shippingAddress,
+          items: [] // updated does not include items by default here
+        }
+      };
+      // tentar incluir items se existirem
+      try {
+        const refreshed = await prisma.order.findUnique({ where: { id: updated.id }, include: { items: { include: { product: true } } } });
+        if (refreshed) {
+          response.order.items = (refreshed.items || []).map((it: any) => ({
+            id: it.id,
+            productId: it.productId,
+            productName: it.product?.name || it.productName || '',
+            quantity: it.quantity,
+            unitPrice: it.unitPrice,
+            total: it.total,
+            product: it.product || null
+          }));
+        }
+      } catch (e) {
+        console.warn('Não foi possível incluir items ao retornar pedido atualizado', e);
+      }
+
+      return res.status(200).json(response);
+    }
+
+    // GET (padrão)
+    if (req.method === 'GET') {
+      const order = await findUserOrder();
+      if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
+
+      const o: any = order as any;
+      const response = {
+        order: {
+          id: o.id,
+          userId: o.userId,
+          status: o.status,
+          createdAt: o.createdAt,
+          subtotal: o.subtotal,
+          shippingCost: o.shippingCost,
+          tax: o.tax,
+          total: o.total,
+          paymentMethod: o.paymentMethod,
+          paymentStatus: o.paymentStatus,
+          mpPreferenceId: o.mpPreferenceId,
+          mpIdempotencyKey: o.mpIdempotencyKey,
+          mpQrCodeBase64: o.mpQrCodeBase64,
+          mpQrCodeUrl: o.mpQrCodeUrl,
+          paymentExpiresAt: o.paymentExpiresAt,
+          paidAt: o.paidAt,
+          shippingAddress: o.shippingAddress,
+          items: (o.items || []).map((it: any) => ({
+            id: it.id,
+            productId: it.productId,
+            productName: it.product?.name || it.productName || '',
+            quantity: it.quantity,
+            unitPrice: it.unitPrice,
+            total: it.total,
+            product: it.product || null
+          }))
+        }
+      };
+
+      return res.status(200).json(response);
+    }
+
+    res.setHeader('Allow', ['GET', 'PATCH', 'PUT']);
+    return res.status(405).end(`Method ${req.method} Not Allowed`);
   } catch (error: any) {
     console.error('GET /api/orders/[id] error', error);
     return res.status(500).json({ error: 'Erro interno' });

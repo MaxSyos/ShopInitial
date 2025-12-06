@@ -23,7 +23,22 @@ const UserAccountBox: React.FC<Props> = ({ onClose }) => {
     <div>
       <ul>
         <li className="my-1 py-1" onClick={onClose}>
-          <Link href={"/orders"}>
+          <Link href={'/profile'}>
+            <a className="flex items-center hover:text-palette-primary">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="w-5 h-5"
+              >
+                <path d="M12 12a5 5 0 100-10 5 5 0 000 10zM2 20a10 10 0 0120 0H2z" />
+              </svg>
+              <span className="font-normal rtl:mr-1 ltr:ml-1">Perfil</span>
+            </a>
+          </Link>
+        </li>
+        <li className="my-1 py-1" onClick={onClose}>
+          <Link href={'/orders'}>
             <a className="flex items-center hover:text-palette-primary">
               <MdShoppingBag
                 style={{

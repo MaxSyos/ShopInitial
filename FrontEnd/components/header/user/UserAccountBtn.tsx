@@ -25,6 +25,11 @@ const UserAccountBtn = () => {
         onClick={onIconClickHandler}
       >
         <AiOutlineUser style={{ fontSize: "1.5rem" }} />
+        {user?.name ? (
+          <span className="ltr:ml-2 rtl:mr-2 text-sm font-medium hidden sm:inline-block">
+            {user.name.split(' ')[0]}
+          </span>
+        ) : null}
         <HiChevronDown />
       </div>
       <Transition
