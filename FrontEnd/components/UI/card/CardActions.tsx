@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useTheme } from "next-themes";
 import { cartActions } from "../../../store/cart-slice";
 import { addItemAndPersist } from '../../../store/cart-async-slice';
-import { favoriteActions } from "../../../store/favorite-slice";
+import { favoriteActions, addFavoriteProduct, removeFavoriteProduct } from "../../../store/favorite-slice";
 import {
   RiHeartFill,
   RiHeartAddLine,
@@ -12,6 +12,7 @@ import {
 } from "react-icons/ri";
 import { IProduct } from "../../../lib/types/products";
 import { IFavoriteRootState } from "../../../lib/types/favorite";
+import { useAuth } from "../../../hooks/useAuth";
 
 import { toast } from "react-toastify";
 import { useLanguage } from "../../../hooks/useLanguage";
@@ -24,12 +25,13 @@ const CardActions: React.FC<Props> = ({ product }) => {
   const dispatch = useDispatch();
   const { t } = useLanguage();
   const { theme } = useTheme();
+  const { isAuthenticated } = useAuth();
 
   const favoriteItems = useSelector(
     (state: IFavoriteRootState) => state.favorite.items
   );
   const isInFavorite = favoriteItems.some(
-    (item) => item.slug.current === product.slug.current
+    (item: any) => item.slug?.current === product.slug.current || item.productId === product._id
   );
   const FavoriteIcon = isInFavorite ? RiHeartFill : RiHeartAddLine;
 
@@ -41,10 +43,46 @@ const CardActions: React.FC<Props> = ({ product }) => {
     });
   }
 
-  function toggleFavoriteHandler() {
-    !isInFavorite
-      ? dispatch(favoriteActions.addToFavorite(product))
-      : dispatch(favoriteActions.removeFromFavorite(product.slug.current));
+  async function toggleFavoriteHandler() {
+    if (!isAuthenticated) {
+      toast.warn('Faça login para adicionar aos favoritos');
+      return;
+    }
+
+    if (!isInFavorite) {
+      // Adicionar aos favoritos (persistir no BD)
+      const productData = {
+        name: product.name,
+        price: product.price,
+        slug: product.slug,
+        image: product.images?.[0]?.url || '',
+      };
+      try {
+        (dispatch as any)(addFavoriteProduct({ productId: product._id || product.id, productData }));
+        toast.success('Adicionado aos favoritos', {
+          theme: theme === "dark" ? "dark" : "light",
+        });
+      } catch (err) {
+        console.error(err);
+        toast.error('Erro ao adicionar aos favoritos');
+      }
+    } else {
+      // Remover dos favoritos
+      const favoriteItem = favoriteItems.find(
+        (item: any) => item.slug?.current === product.slug.current || item.productId === product._id
+      );
+      if (favoriteItem?.id) {
+        try {
+          (dispatch as any)(removeFavoriteProduct(favoriteItem.id));
+          toast.success('Removido dos favoritos', {
+            theme: theme === "dark" ? "dark" : "light",
+          });
+        } catch (err) {
+          console.error(err);
+          toast.error('Erro ao remover dos favoritos');
+        }
+      }
+    }
   }
 
   return (
@@ -52,7 +90,7 @@ const CardActions: React.FC<Props> = ({ product }) => {
     <div className="w-1/2 md:w-auto md:h-[130px] mt-2 p-2 flex md:flex-col justify-around self-center absolute bottom-2 md:-top-2 md:bottom-auto left-0  md:-left-1 rounded-lg md:rounded-full shadow-lg backdrop-filter backdrop-blur-[8px] bg-palette-card/20 pointer-events-none">
       <div
         // este item precisa aceitar cliques => pointer-events-auto
-        className="hover:text-rose-600 transition-colors sm:px-3 md:px-0 pointer-events-auto"
+        className="hover:text-rose-600 transition-colors sm:px-3 md:px-0 pointer-events-auto cursor-pointer"
         onClick={toggleFavoriteHandler}
       >
         <FavoriteIcon
@@ -66,7 +104,7 @@ const CardActions: React.FC<Props> = ({ product }) => {
         <RiShareLine style={{ fontSize: "1.2rem" }} />
       </div>
       <div
-        className="hover:text-rose-600 active:scale-125 transition-all sm:px-3 md:px-0 pointer-events-auto"
+        className="hover:text-rose-600 active:scale-125 transition-all sm:px-3 md:px-0 pointer-events-auto cursor-pointer"
         onClick={addToCartHandler}
       >
         <RiShoppingCart2Line
