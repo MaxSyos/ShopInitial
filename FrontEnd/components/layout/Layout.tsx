@@ -13,8 +13,8 @@ const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const toastConfig = {
     autoClose: 2000,
     hideProgressBar: true,
-    rtl: locale === "en" ? false : true,
-    position: locale === "en" ? "top-right" : "top-left"
+    position: "top-left",
+    limit: 1
   };
 
   return (
