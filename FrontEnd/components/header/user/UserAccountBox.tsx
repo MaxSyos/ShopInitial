@@ -1,12 +1,15 @@
 import Link from "next/link";
 import React from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { userInfoActions } from "../../../store/user-slice";
 import { useLanguage } from "../../../hooks/useLanguage";
 import { AiOutlineHeart } from "react-icons/ai";
 import { IoLogOutOutline } from "react-icons/io5";
 import { MdShoppingBag } from "react-icons/md";
+import { MdAdd } from "react-icons/md";
+import { MdCategory } from "react-icons/md";
 import jsCookie from "js-cookie";
+import { IUserInfoRootState } from "../../../lib/types/user";
 
 interface Props {
   onClose: () => void;
@@ -14,6 +17,10 @@ interface Props {
 const UserAccountBox: React.FC<Props> = ({ onClose }) => {
   const { t } = useLanguage();
   const dispatch = useDispatch();
+  const userInfo = useSelector(
+    (state: IUserInfoRootState) => state.userInfo.userInformation
+  );
+  const isAdmin = userInfo?.role === "ADMIN";
   function onLogoutClickHandler() {
     dispatch(userInfoActions.userLogout());
     jsCookie.remove("userInfo");
@@ -52,6 +59,40 @@ const UserAccountBox: React.FC<Props> = ({ onClose }) => {
             </a>
           </Link>
         </li>
+        {isAdmin && (
+          <li className="my-1 py-1" onClick={onClose}>
+            <Link href={'/create-product'}>
+              <a className="flex items-center hover:text-palette-primary">
+                <MdAdd
+                  style={{
+                    fontSize: "1.2rem",
+                    width: "1.8rem",
+                  }}
+                />
+                <span className="font-normal rtl:mr-1 ltr:ml-1">
+                  {t.createProduct}
+                </span>
+              </a>
+            </Link>
+          </li>
+        )}
+        {isAdmin && (
+          <li className="my-1 py-1" onClick={onClose}>
+            <Link href={'/manage-categories-brands'}>
+              <a className="flex items-center hover:text-palette-primary">
+                <MdCategory
+                  style={{
+                    fontSize: "1.2rem",
+                    width: "1.8rem",
+                  }}
+                />
+                <span className="font-normal rtl:mr-1 ltr:ml-1">
+                  {t.manageCategoriesBrands}
+                </span>
+              </a>
+            </Link>
+          </li>
+        )}
         <li className="my-1 py-1" onClick={onClose}>
           <Link href={"/favorite"}>
             <a className="flex items-center hover:text-palette-primary">

@@ -5,14 +5,16 @@ import { useAuth } from '../../hooks/useAuth';
 interface PrivateRouteProps {
   children: React.ReactNode;
   redirectTo?: string;
+  requiredRole?: string;
 }
 
 export const PrivateRoute: React.FC<PrivateRouteProps> = ({ 
   children, 
-  redirectTo = '/login'
+  redirectTo = '/login',
+  requiredRole,
 }) => {
   const router = useRouter();
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -21,13 +23,26 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({
         query: { redirect: router.pathname }
       });
     }
-  }, [isAuthenticated, loading, router, redirectTo]);
+
+    if (!loading && isAuthenticated && requiredRole && user?.role !== requiredRole) {
+      // Redirecionar se o role não corresponde
+      router.replace('/');
+    }
+  }, [isAuthenticated, loading, router, redirectTo, requiredRole, user]);
 
   if (loading) {
     return <div>Carregando...</div>;
   }
 
-  return isAuthenticated ? <>{children}</> : null;
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  if (requiredRole && user?.role !== requiredRole) {
+    return null;
+  }
+
+  return <>{children}</>;
 };
 
 export default PrivateRoute;

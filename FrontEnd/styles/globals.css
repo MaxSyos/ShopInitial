@@ -213,3 +213,25 @@ select:-webkit-autofill:focus {
   color: #b9b9b9;
   font-size: 14px;
 }
+
+/* Select styling for dark mode */
+select {
+  color-scheme: light;
+}
+
+.dark select {
+  color-scheme: dark;
+  background-color: rgb(var(--color-bg-side));
+  color: rgb(var(--color-text-base));
+}
+
+.dark select option {
+  background-color: rgb(var(--color-bg-side));
+  color: rgb(var(--color-text-base));
+}
+
+.dark select option:checked {
+  background-color: rgb(var(--color-primary) / 1);
+  color: white;
+}
+
