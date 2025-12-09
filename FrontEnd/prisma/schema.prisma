@@ -126,6 +126,12 @@ model Order {
   tax             Float     @default(0)
   total           Float
   status          String    @default("PENDING")
+  // Rastreamento e entrega
+  trackingCode    String?   // Código de rastreamento dos Correios
+  deliveryMethod  String    @default("PENDING") // PENDING, CORREIOS, LOCAL
+  isDelivered     Boolean   @default(false) // Entrega confirmada (local)
+  deliveredAt     DateTime? // Data/hora da entrega
+  trackingUrl     String?   // URL do rastreamento
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 }

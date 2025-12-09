@@ -358,6 +358,13 @@ const br: { [key: string]: string } = {
   errorDeleting: "Erro ao deletar",
   createCategory: "Criar Categoria",
   createBrand: "Criar Marca",
+  // Order Status Bar
+  deliveryInformation: "Informações de entrega",
+  paymentMethod: "Método de pagamento",
+  orderReview: "Revisão do pedido",
+  orderFinalized: "Pedido finalizado",
+  confirmation: "Confirmação",
+  completed: "Concluído",
 };
 
 export default br;

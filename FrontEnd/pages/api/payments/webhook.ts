@@ -75,7 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (status === 'PAID') {
       updateData.paidAt = new Date();
       // avançar o status do pedido para permitir processamento/logística no frontend
-      updateData.status = 'PROCESSING';
+      updateData.status = 'IN_PROCESS';
     }
 
     // persistir outros campos retornados pelo MP quando disponíveis

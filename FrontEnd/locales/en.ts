@@ -239,5 +239,12 @@ const en: { [key: string]: string } = {
   myName: "Zahra Mirzaei",
   cafeDX: "Work is meant to improve life, not the opposite.",
   productAddedToCartMsg: "Product added to cart successfully",
+  // Order Status Bar
+  deliveryInformation: "Delivery Information",
+  paymentMethod: "Payment Method",
+  orderReview: "Order Review",
+  orderFinalized: "Order Finalized",
+  confirmation: "Confirmation",
+  completed: "Completed",
 };
 export default en;

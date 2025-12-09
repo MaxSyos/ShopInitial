@@ -62,6 +62,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           paymentExpiresAt: o.paymentExpiresAt,
           paidAt: o.paidAt,
           shippingAddress: o.shippingAddress,
+          isDelivered: o.isDelivered || false,
+          deliveryMethod: o.deliveryMethod || 'PENDING',
+          trackingCode: o.trackingCode || null,
           items: [] // updated does not include items by default here
         }
       };
@@ -111,6 +114,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           paymentExpiresAt: o.paymentExpiresAt,
           paidAt: o.paidAt,
           shippingAddress: o.shippingAddress,
+          isDelivered: o.isDelivered || false,
+          deliveryMethod: o.deliveryMethod || 'PENDING',
+          trackingCode: o.trackingCode || null,
           items: (o.items || []).map((it: any) => ({
             id: it.id,
             productId: it.productId,

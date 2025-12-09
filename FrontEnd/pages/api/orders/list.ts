@@ -45,6 +45,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       mpPreferenceId: o.mpPreferenceId,
       paidAt: o.paidAt,
       shippingAddress: o.shippingAddress,
+      isDelivered: o.isDelivered || false,
+      deliveryMethod: o.deliveryMethod || 'PENDING',
+      trackingCode: o.trackingCode || null,
       items: (o.items || []).map((it: any) => ({
         id: it.id,
         productId: it.productId,

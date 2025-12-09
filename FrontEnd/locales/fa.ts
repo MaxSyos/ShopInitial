@@ -236,5 +236,12 @@ const fa: { [key: string]: string } = {
   myName: "زهرا میرزایی",
   cafeDX: "کار برای بهبود زندگی است نه برعکس.",
   productAddedToCartMsg: "محصول با موفقیت به سبد خرید اضافه شد",
+  // Order Status Bar
+  deliveryInformation: "اطلاعات تحویل",
+  paymentMethod: "روش پرداخت",
+  orderReview: "بررسی سفارش",
+  orderFinalized: "سفارش نهایی شد",
+  confirmation: "تایید",
+  completed: "تکمیل شده",
 };
 export default fa;

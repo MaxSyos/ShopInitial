@@ -12,6 +12,9 @@ interface Order {
   paymentStatus: string;
   total: number;
   createdAt: string;
+  isDelivered?: boolean;
+  deliveryMethod?: string;
+  trackingCode?: string | null;
   items: Array<{
     productName: string;
     quantity: number;
@@ -52,6 +55,13 @@ const Orders: React.FC = () => {
     }
 
     fetchOrders(currentPage);
+
+    // Polling automático a cada 30 segundos para refletir mudanças feitas no admin
+    const pollInterval = setInterval(() => {
+      fetchOrders(currentPage);
+    }, 30000);
+
+    return () => clearInterval(pollInterval);
   }, [userInfo, currentPage]);
 
   const fetchOrders = async (page: number) => {
@@ -67,6 +77,13 @@ const Orders: React.FC = () => {
       const data = response.data || {};
       setOrders(data.orders || []);
       setPagination(data.pagination || null);
+      try {
+        const debugArr = (data.orders || []).map((o: { id: string; status: string; paymentStatus: string; isDelivered?: boolean }) => ({ id: o.id, status: o.status, paymentStatus: o.paymentStatus, isDelivered: o.isDelivered }));
+        // eslint-disable-next-line no-console
+        console.debug('DEBUG: fetched orders:', debugArr);
+      } catch (e) {
+        // ignore
+      }
     } catch (error: any) {
       console.error('Erro ao buscar pedidos:', error);
       toast.error('Erro ao carregar seus pedidos');
@@ -79,7 +96,8 @@ const Orders: React.FC = () => {
   const getStatusColor = (status: string) => {
     const upperStatus = String(status).toUpperCase();
     // Pendente deve ficar vermelho conforme solicitado
-    if (upperStatus === 'PENDING' || upperStatus === 'IN_PROCESS') return 'bg-red-100 text-red-800';
+    if (upperStatus === 'PENDING') return 'bg-red-100 text-red-800';
+    if (upperStatus === 'IN_PROCESS' || upperStatus === 'PROCESSING') return 'bg-blue-100 text-blue-800';
     if (upperStatus === 'COMPLETED' || upperStatus === 'DELIVERED') return 'bg-green-100 text-green-800';
     if (upperStatus === 'CANCELLED' || upperStatus === 'FAILED') return 'bg-red-100 text-red-800';
     return 'bg-gray-100 text-gray-800';
@@ -105,7 +123,7 @@ const Orders: React.FC = () => {
   const getStatusLabel = (status: string) => {
     const upperStatus = String(status).toUpperCase();
     if (upperStatus === 'PENDING') return 'Pendente';
-    if (upperStatus === 'IN_PROCESS') return 'Em Processamento';
+    if (upperStatus === 'IN_PROCESS' || upperStatus === 'PROCESSING') return 'Em Processamento';
     if (upperStatus === 'COMPLETED') return 'Concluído';
     if (upperStatus === 'DELIVERED') return 'Entregue';
     if (upperStatus === 'CANCELLED') return 'Cancelado';
@@ -204,9 +222,26 @@ const Orders: React.FC = () => {
                 <div className="md:col-span-1">
                   <div className="mb-3">
                     <p className="text-sm text-palette-mute mb-1">Status</p>
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(order.status)}`}>
-                      {getStatusLabel(order.status)}
-                    </span>
+                    {(() => {
+                      // Se pagamento foi feito mas status do pedido ainda é PENDING/PROCESSING, mostrar como EM PROCESSAMENTO
+                      const paymentUpper = String(order.paymentStatus || '').toUpperCase();
+                      const isPaid = paymentUpper === 'COMPLETED' || paymentUpper === 'PAID';
+                      const statusUpper = String(order.status || '').toUpperCase();
+                      // Priorizar isDelivered: se marcado como entregue no admin, exibir Entregue
+                      if (order.isDelivered === true) {
+                        return (
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor('DELIVERED')}`}>
+                            {getStatusLabel('DELIVERED')}
+                          </span>
+                        );
+                      }
+                      const displayStatus = (isPaid && (statusUpper === 'PENDING' || statusUpper === 'PROCESSING')) ? 'IN_PROCESS' : (order.status || 'PENDING');
+                      return (
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(displayStatus)}`}>
+                          {getStatusLabel(displayStatus)}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div>
                     <p className="text-sm text-palette-mute mb-1">Pagamento</p>

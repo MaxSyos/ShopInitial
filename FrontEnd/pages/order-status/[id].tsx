@@ -8,6 +8,7 @@ import api from '../../lib/axiosClient';
 import Breadcrumb from '../../components/UI/Breadcrumb';
 import Benefits from '../../components/Benefits';
 import PrivateRoute from '../../components/auth/PrivateRoute';
+import OrderStatusBar from '../../components/UI/OrderStatusBar';
 
 interface OrderData {
   id: string;
@@ -15,6 +16,9 @@ interface OrderData {
   totalAmount: number;
   createdAt: string;
   paymentStatus: string;
+  isDelivered?: boolean;
+  deliveryMethod?: string;
+  trackingCode?: string;
   items: Array<{
     id: string;
     productName: string;
@@ -72,6 +76,13 @@ const OrderStatusPage: React.FC = () => {
 
     if (id) {
       fetchOrderData();
+
+      // Polling automático a cada 30 segundos para refletir mudanças feitas no admin
+      const pollInterval = setInterval(() => {
+        fetchOrderData();
+      }, 30000);
+
+      return () => clearInterval(pollInterval);
     }
   }, [userInfo, id]);
 
@@ -101,6 +112,10 @@ const OrderStatusPage: React.FC = () => {
         status: resolvedOrder?.status || 'PENDING',
         totalAmount: resolvedOrder?.total ?? resolvedOrder?.totalAmount ?? resolvedOrder?.subtotal ?? 0,
         createdAt: resolvedOrder?.createdAt || resolvedOrder?.created_at || new Date().toISOString(),
+        // Dados de entrega
+        isDelivered: resolvedOrder?.isDelivered || false,
+        deliveryMethod: resolvedOrder?.deliveryMethod || 'PENDING',
+        trackingCode: resolvedOrder?.trackingCode || null,
         // normalizar itens para garantir que UI encontre `price` e `quantity`
         items: (itemsRaw || []).map((it: any) => ({
           id: it.id,
@@ -228,6 +243,7 @@ const OrderStatusPage: React.FC = () => {
       case 'FAILED':
         return 'bg-red-100 text-red-800';
       case 'PROCESSING':
+      case 'IN_PROCESS':
       case 'EM_TRANSITO':
         return 'bg-blue-100 text-blue-800';
       default:
@@ -242,6 +258,7 @@ const OrderStatusPage: React.FC = () => {
       case 'COMPLETED':
         return 'Pago';
       case 'PROCESSING':
+      case 'IN_PROCESS':
         return 'Processando';
       case 'SHIPPED':
         return 'Enviado';
@@ -301,15 +318,37 @@ const OrderStatusPage: React.FC = () => {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <Breadcrumb />
         
+        {/* Order Status Progress Bar */}
+        {orderData && (
+          <OrderStatusBar 
+            orderStatus={orderData.status} 
+            paymentStatus={orderData.payment?.status ?? orderData.paymentStatus ?? 'PENDING'}
+            isDelivered={orderData.isDelivered}
+          />
+        )}
+        
         <div className="mt-8">
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-3xl font-bold">Pedido #{String(orderData.id ?? '').slice(-8)}</h1>
             {
               (() => {
-                const payStatus = orderData.payment?.status ?? orderData.paymentStatus ?? orderData.status ?? 'PENDING';
-                const badgeClass = `px-4 py-2 rounded-lg ${getStatusColor(payStatus)}`;
-                const badgeText = getStatusText(payStatus);
-                if (String(payStatus).toUpperCase() === 'PENDING') {
+                // Priorizar isDelivered: se admin marcou como entregue, exibir Entregue
+                if (orderData.isDelivered === true) {
+                  const cls = `px-4 py-2 rounded-lg ${getStatusColor('DELIVERED')}`;
+                  return <div className={cls}>{getStatusText('DELIVERED')}</div>;
+                }
+
+                const paymentStatus = orderData.payment?.status ?? orderData.paymentStatus ?? 'PENDING';
+                const actualOrderStatus = orderData.status ?? 'PENDING';
+                const paymentUpper = String(paymentStatus).toUpperCase();
+                const isPaid = paymentUpper === 'COMPLETED' || paymentUpper === 'PAID';
+                const statusUpper = String(actualOrderStatus).toUpperCase();
+                const displayStatus = (isPaid && (statusUpper === 'PENDING' || statusUpper === 'PROCESSING')) ? 'IN_PROCESS' : actualOrderStatus;
+
+                const badgeClass = `px-4 py-2 rounded-lg ${getStatusColor(displayStatus)}`;
+                const badgeText = getStatusText(displayStatus);
+
+                if (String(displayStatus).toUpperCase() === 'PENDING') {
                   return (
                     <button
                       onClick={() => router.push(`/payment/${orderData.id}`)}
@@ -320,6 +359,7 @@ const OrderStatusPage: React.FC = () => {
                     </button>
                   );
                 }
+
                 return <div className={badgeClass}>{badgeText}</div>;
               })()
             }
