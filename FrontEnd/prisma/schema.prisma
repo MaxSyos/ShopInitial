@@ -182,6 +182,44 @@ model Favorite {
   @@index([userId])
 }
 
+// --- Content Management Models ---
+
+model Banner {
+  id          String    @id @map("_id") @default(auto()) @db.ObjectId
+  title       String
+  description String?
+  imageUrl    String
+  buttonText  String?
+  linkUrl     String?
+  isActive    Boolean   @default(true)
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model CarouselImage {
+  id          String    @id @map("_id") @default(auto()) @db.ObjectId
+  title       String
+  description String?
+  imageUrl    String
+  linkUrl     String?
+  isActive    Boolean   @default(true)
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Offer {
+  id          String    @id @map("_id") @default(auto()) @db.ObjectId
+  productId   String    @db.ObjectId
+  discount    Float     // Percentual de desconto
+  isActive    Boolean   @default(true)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
 enum PaymentMethod {
   PIX
 }
