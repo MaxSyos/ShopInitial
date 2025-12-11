@@ -35,7 +35,34 @@ const Newest: React.FC = () => {
         // Não requer autorização.
         const resp = await productService.getProducts({ page: 1, limit: 1000 });
         const items = resp?.items || [];
-        const mapped: IProduct[] = mapBackendProductsToIProducts(items as any);
+        // fetch active offers and merge discount into products
+        let offers: any[] = [];
+        try {
+          const offResp = await fetch('/api/content/offers');
+          if (offResp.ok) {
+            const offJson = await offResp.json();
+            offers = offJson?.items || [];
+          }
+        } catch (e) {
+          console.warn('Newest - could not fetch offers', e);
+        }
+
+        // Apply offers to items (match by productId). Check isActive and date range
+        const now = new Date();
+        const itemsWithOffers = items.map((p: any) => {
+          const offer = offers.find((o: any) => o.productId === p.id && o.isActive);
+          if (offer) {
+            const start = offer.startDate ? new Date(offer.startDate) : null;
+            const end = offer.endDate ? new Date(offer.endDate) : null;
+            const valid = (!start || start <= now) && (!end || end >= now);
+            if (valid) {
+              return { ...p, discount: offer.discount, isOffer: true };
+            }
+          }
+          return { ...p, discount: (p as any).discount ?? null, isOffer: (p as any).isOffer ?? false };
+        });
+
+        const mapped: IProduct[] = mapBackendProductsToIProducts(itemsWithOffers as any);
         if (!mounted) return;
         setProducts(mapped);
         // também atualiza o slice global para consistência

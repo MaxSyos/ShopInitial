@@ -89,6 +89,25 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       return { props: { initialProduct: null } };
     }
 
+    // buscar ofertas ativas para este produto e mesclar desconto
+    try {
+      const offers = await prisma.offer.findMany({ where: { productId: product.id, isActive: true } });
+      const now = new Date();
+      const validOffer = offers.find((o: any) => {
+        const start = o.startDate ? new Date(o.startDate) : null;
+        const end = o.endDate ? new Date(o.endDate) : null;
+        const valid = (!start || start <= now) && (!end || end >= now);
+        return valid;
+      });
+      if (validOffer) {
+        // anexa o desconto diretamente no objeto do produto antes do mapeamento
+        (product as any).discount = validOffer.discount;
+        (product as any).isOffer = true;
+      }
+    } catch (offerErr) {
+      console.warn('getServerSideProps: erro ao buscar ofertas para produto', offerErr);
+    }
+
     const mapped = mapBackendProduct(product as any);
     return { props: { initialProduct: mapped } };
   } catch (error) {

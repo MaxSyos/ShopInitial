@@ -32,13 +32,42 @@ const Home: NextPage = () => {
     console.log('🔍 Index - products:', products);
   }, [newestProducts, products]);
   useEffect(() => {
-    if (Array.isArray(products) && products.length > 0) {
-      // Mapeia produtos do backend para o formato do frontend
-      const mappedProducts = mapBackendProductsToIProducts(products as any);
-      // Filtra produtos com desconto para ofertas
-      const offersProducts = mappedProducts.filter((item) => item.discount);
-      dispatch(specialOfferProductsActions.addProducts(offersProducts));
-    }
+    const mergeOffers = async () => {
+      if (!Array.isArray(products) || products.length === 0) return;
+      try {
+        // busca ofertas públicas e mescla descontos válidos
+        let offers: any[] = [];
+        try {
+          const offResp = await fetch('/api/content/offers');
+          if (offResp.ok) {
+            const offJson = await offResp.json();
+            offers = offJson?.items || [];
+          }
+        } catch (e) {
+          console.warn('Index - could not fetch offers', e);
+        }
+
+        const now = new Date();
+        const productsWithOffers = (products as any[]).map((p) => {
+          const offer = offers.find((o: any) => o.productId === p.id && o.isActive);
+          if (offer) {
+            const start = offer.startDate ? new Date(offer.startDate) : null;
+            const end = offer.endDate ? new Date(offer.endDate) : null;
+            const valid = (!start || start <= now) && (!end || end >= now);
+            if (valid) return { ...p, discount: offer.discount, isOffer: true };
+          }
+          return { ...p, discount: (p as any).discount ?? null, isOffer: (p as any).isOffer ?? false };
+        });
+
+        const mappedProducts = mapBackendProductsToIProducts(productsWithOffers as any);
+        const offersProducts = mappedProducts.filter((item) => item.discount);
+        dispatch(specialOfferProductsActions.addProducts(offersProducts));
+      } catch (err) {
+        console.error('Index - error merging offers:', err);
+      }
+    };
+
+    mergeOffers();
   }, [dispatch, products]);
 
   useEffect(() => {
