@@ -11,6 +11,8 @@ export const useAuth = (requireAuth = false, redirectTo = '/login') => {
     (state: IUserInfoRootState) => state.userInfo
   );
 
+  console.log('useAuth: userInformation=', userInformation, 'isAuthenticated=', isAuthenticated, 'loading=', loading);
+
   useEffect(() => {
     if (requireAuth && !loading && !isAuthenticated) {
       router.replace(redirectTo);

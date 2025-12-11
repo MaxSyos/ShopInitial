@@ -22,11 +22,15 @@ const Home: NextPage = () => {
   useEffect(() => {
     // Carrega todos os produtos para ofertas
     loadProducts();
-    // Carrega os produtos mais novos
-    loadNewestProducts(10);
+    // Carrega os produtos mais novos - agora feito direto no componente Newest
+    // loadNewestProducts(10); // REMOVIDO - Newest component agora faz fetch direto
     // eslint-disable-next-line
   }, []);
 
+  useEffect(() => {
+    console.log('🔍 Index - newestProducts:', newestProducts);
+    console.log('🔍 Index - products:', products);
+  }, [newestProducts, products]);
   useEffect(() => {
     if (Array.isArray(products) && products.length > 0) {
       // Mapeia produtos do backend para o formato do frontend
@@ -59,3 +63,27 @@ const Home: NextPage = () => {
 };
 
 export default Home;
+
+export async function getServerSideProps() {
+  try {
+    const prismaModule = await import('../lib/prisma');
+    const prisma = (prismaModule as any).default || (prismaModule as any).prisma;
+
+    const page = 1;
+    const limit = 20;
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      prisma.product.findMany({ where: {}, skip, take: limit, include: { images: true, brand: true, category: true }, orderBy: { createdAt: 'desc' } }),
+      prisma.product.count({}),
+    ]);
+
+    // Serialize by stringifying/parsing to convert Date objects (including nested ones) to ISO strings
+    const safeItems = JSON.parse(JSON.stringify(items));
+
+    return { props: { initialProducts: { items: safeItems, total, page, limit } } };
+  } catch (error) {
+    console.error('getServerSideProps products error:', error);
+    return { props: { initialProducts: { items: [], total: 0, page: 1, limit: 20 } } };
+  }
+}

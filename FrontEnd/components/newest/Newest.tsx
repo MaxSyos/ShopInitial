@@ -1,32 +1,90 @@
-import React from "react";
-import { useSelector } from "react-redux";
+import React, { useEffect, useState } from "react";
+import { useSelector, useDispatch } from "react-redux";
 import { useLanguage } from "../../hooks/useLanguage";
 import { useWindowDimensions } from "../../hooks/useWindowDimensions";
 import Link from "next/link";
-import Card from "../UI/card/Card";
+import ProductCard from "../UI/card/Card";
 import { IProduct } from "../../lib/types/products";
 import SectionTitle from "../UI/SectionTitle";
+import { productService } from "../../lib/services/productService";
+import { mapBackendProductsToIProducts } from "../../utilities/mapBackendProduct";
+import { newestProductsActions } from "../../store/newestProduct-slice";
+import { AppDispatch } from "../../store";
 
-const Newest = () => {
+const Newest: React.FC = () => {
   const { t } = useLanguage();
   const { width } = useWindowDimensions();
-  let numProductToShow = width >= 1536 ? 12 : 8;
+  const dispatch = useDispatch<AppDispatch>();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [products, setProducts] = useState<IProduct[]>([]);
 
-  const newestProducts: IProduct[] = useSelector(
-    (state: any) => state.newestProductsList.productsList
-  );
+  // determine columns based on exact widths requested
+  const cols = width >= 1280 ? 4 : width >= 935 ? 3 : width >= 715 ? 2 : width >= 470 ? 1 : 1;
+  // show up to 4 rows
+  const numProductToShow = cols * 4;
 
-  if (!newestProducts || newestProducts.length === 0) {
-    return null;
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Buscar todos os produtos (endpoint público). Usamos um limit alto
+        // para obter todos os produtos para renderização no componente.
+        // Não requer autorização.
+        const resp = await productService.getProducts({ page: 1, limit: 1000 });
+        const items = resp?.items || [];
+        const mapped: IProduct[] = mapBackendProductsToIProducts(items as any);
+        if (!mounted) return;
+        setProducts(mapped);
+        // também atualiza o slice global para consistência
+        dispatch(newestProductsActions.addProducts(mapped));
+      } catch (err: any) {
+        console.error('Newest - erro ao carregar produtos:', err?.message || err);
+        if (!mounted) return;
+        setError(err?.message || 'Erro ao carregar produtos');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [dispatch, numProductToShow]);
+
+  if (loading && products.length === 0) {
+    return (
+      <div className="mx-auto my-4 md:my-8 flex flex-col xl:max-w-[2130px]">
+        <SectionTitle title="newest" />
+        <div className="grid gap-6 sm:gap-6" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+          {Array.from({ length: numProductToShow }).map((_, i) => (
+            <div key={i} className="animate-pulse bg-gray-700 h-64 rounded-lg" />
+          ))}
+        </div>
+      </div>
+    );
   }
+
+  if (error) {
+    return (
+      <div className="mx-auto my-4 md:my-8 flex flex-col xl:max-w-[2130px]">
+        <SectionTitle title="newest" />
+        <div className="text-center text-red-400">{error}</div>
+      </div>
+    );
+  }
+
+  if (!products || products.length === 0) return null;
 
   return (
     <div className="mx-auto my-4 md:my-8 flex flex-col xl:max-w-[2130px]">
       <SectionTitle title="newest" />
 
-      <div className="grid gap-4 md:gap-2 grid-cols-6 md:grid-cols-12">
-        {newestProducts.slice(0, numProductToShow).map((product: IProduct) => (
-          <Card key={product.id || product.name} product={product} />
+      <div className="grid gap-6 sm:gap-6" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+        {products.slice(0, numProductToShow).map((product: IProduct) => (
+          <ProductCard key={product.slug?.current || product.id || product.name} product={product} />
         ))}
       </div>
 
@@ -42,3 +100,5 @@ const Newest = () => {
 };
 
 export default Newest;
+
+

@@ -32,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Rotaciona o refresh token: remove o antigo e cria um novo
     await prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
 
-    const newAccessToken = signToken({ id: user.id, email: user.email }, '1h');
+    const newAccessToken = signToken({ id: user.id, email: user.email, role: user.role }, '1h');
     const newRefreshToken = signToken({ id: user.id }, '7d');
 
     await prisma.refreshToken.create({ data: { token: newRefreshToken, userId: user.id } });

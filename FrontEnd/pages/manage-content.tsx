@@ -6,6 +6,7 @@ import { MdAdd, MdDelete, MdArrowBack, MdUploadFile, MdEdit } from 'react-icons/
 import { useRouter } from 'next/router';
 import PrivateRoute from '../components/auth/PrivateRoute';
 import { uploadImageToImgBB } from '../lib/services/imgbbService';
+import { Product } from '../lib/services/productService';
 
 interface Banner {
   id: string;
@@ -50,13 +51,31 @@ const ManageContent = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('banners');
   
+  // Helper para extrair token do localStorage
+  const getAuthHeaders = () => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const userInfo = localStorage.getItem('userInfo');
+      if (userInfo) {
+        const userData = JSON.parse(userInfo);
+        const token = userData.accessToken || userData.token;
+        return token ? { Authorization: `Bearer ${token}` } : {};
+      }
+    } catch (error) {
+      console.error('Erro ao extrair token:', error);
+    }
+    return {};
+  };
+  
   // Data states
   const [banners, setBanners] = useState<Banner[]>([]);
   const [carouselImages, setCarouselImages] = useState<CarouselImage[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loadingData, setLoadingData] = useState(false);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
+  const [productsError, setProductsError] = useState<string | null>(null);
 
   // Form states
   const [bannerForm, setBannerForm] = useState({
@@ -94,11 +113,45 @@ const ManageContent = () => {
     loadData();
   }, []);
 
+  const fetchProducts = async (retryCount = 0) => {
+    setProductsError(null);
+    try {
+      console.log('manage-content: fetching products via api client (attempt ' + (retryCount + 1) + ')');
+      const headers = getAuthHeaders();
+      
+      const res = await api.get('/products?limit=200', { headers });
+      console.log('manage-content: products response', res && res.data);
+      const items = res.data?.items || [];
+      setProducts(items);
+      if (items.length > 0) {
+        toast.success(`${items.length} produtos carregados`);
+      }
+    } catch (err: any) {
+      const msg = String(err?.message || err || 'Erro desconhecido');
+      console.error('manage-content: error fetching products', err, err?.response?.status, err?.response?.data);
+      setProducts([]);
+      
+      // Retry automático até 2 vezes se falhar por timeout ou erro de rede
+      if (retryCount < 2 && (err.code === 'ECONNABORTED' || err.message.includes('timeout') || !err.response)) {
+        console.log('manage-content: retrying products fetch...');
+        toast.info('Tentando carregar novamente...');
+        setTimeout(() => fetchProducts(retryCount + 1), 2000);
+        return;
+      }
+      
+      setProductsError(msg);
+      if (msg.includes('ERR_BLOCKED_BY_CLIENT') || /blocked/i.test(msg)) {
+        toast.warn('Requisição a /api/products bloqueada no navegador (extensão adblock)...');
+      } else {
+        toast.error(t.errorLoadingData || 'Erro ao carregar produtos');
+      }
+    }
+  };
+
   const loadData = async () => {
     setLoadingData(true);
     try {
-      const token = localStorage.getItem('token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers = getAuthHeaders();
 
       const [bannersRes, carouselRes, offersRes, brandsRes] = await Promise.all([
         api.get('/content/banners', { headers }),
@@ -111,6 +164,8 @@ const ManageContent = () => {
       setCarouselImages(carouselRes.data.items || []);
       setOffers(offersRes.data.items || []);
       setBrands(brandsRes.data.items || []);
+      
+      await fetchProducts();
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error(t.errorLoadingData || 'Erro ao carregar dados');
@@ -165,8 +220,7 @@ const ManageContent = () => {
 
     setLoadingSubmit(true);
     try {
-      const token = localStorage.getItem('token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers = getAuthHeaders();
 
       if (editingId) {
         await api.put(
@@ -196,8 +250,7 @@ const ManageContent = () => {
     if (!confirm('Confirmar exclusão?')) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers = getAuthHeaders();
       
       await api.delete('/content/banners', { data: { id }, headers });
       toast.success('Banner deletado com sucesso');
@@ -221,8 +274,7 @@ const ManageContent = () => {
 
     setLoadingSubmit(true);
     try {
-      const token = localStorage.getItem('token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers = getAuthHeaders();
 
       if (editingId) {
         await api.put(
@@ -252,8 +304,7 @@ const ManageContent = () => {
     if (!confirm('Confirmar exclusão?')) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers = getAuthHeaders();
       
       await api.delete('/content/carousel', { data: { id }, headers });
       toast.success('Imagem deletada com sucesso');
@@ -277,8 +328,7 @@ const ManageContent = () => {
 
     setLoadingSubmit(true);
     try {
-      const token = localStorage.getItem('token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers = getAuthHeaders();
 
       const offerData = {
         ...offerForm,
@@ -313,8 +363,7 @@ const ManageContent = () => {
     if (!confirm('Confirmar exclusão?')) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers = getAuthHeaders();
       
       await api.delete('/content/offers', { data: { id }, headers });
       toast.success('Oferta deletada com sucesso');
@@ -347,6 +396,25 @@ const ManageContent = () => {
               Voltar
             </button>
           </div>
+
+          {/* Error Alert for Products */}
+          {productsError && (
+            <div className="mb-4 p-4 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <strong className="block text-sm font-semibold mb-1">Problema ao carregar lista de produtos</strong>
+                  <p className="text-sm mb-2">{productsError}</p>
+                  <p className="text-xs text-yellow-700">Possível causa: extensão de navegador (adblock, Privacy Badger, etc.)</p>
+                </div>
+                <button
+                  onClick={() => fetchProducts()}
+                  className="ml-4 px-3 py-1 bg-yellow-600 text-white rounded text-sm font-semibold hover:bg-yellow-700 transition-colors whitespace-nowrap"
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Tabs */}
           <div className="flex gap-2 mb-8 border-b border-palette-primary overflow-x-auto">
@@ -775,17 +843,36 @@ const ManageContent = () => {
                 <form onSubmit={handleCreateOffer} className="space-y-4">
                   <div>
                     <label className="block text-sm font-semibold text-palette-base mb-2">
-                      ID do Produto *
+                      Produto *
                     </label>
-                    <input
-                      type="text"
-                      value={offerForm.productId}
-                      onChange={(e) => setOfferForm({ ...offerForm, productId: e.target.value })}
-                      placeholder="ID do produto (MongoDB ObjectId)"
-                      className={`w-full px-4 py-2 border rounded-lg bg-palette-fill text-palette-base placeholder-palette-mute focus:outline-none focus:ring-2 focus:ring-palette-primary transition ${
-                        errors.productId ? 'border-red-500' : 'border-palette-primary'
-                      }`}
-                    />
+                    {products.length > 0 ? (
+                      <select
+                        value={offerForm.productId}
+                        onChange={(e) => setOfferForm({ ...offerForm, productId: e.target.value })}
+                        className={`w-full px-4 py-2 border rounded-lg bg-palette-fill text-palette-base focus:outline-none focus:ring-2 focus:ring-palette-primary transition ${
+                          errors.productId ? 'border-red-500' : 'border-palette-primary'
+                        }`}
+                      >
+                        <option value="">Selecione um produto</option>
+                        {products.map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.name}
+                            {product.sku && ` — SKU: ${product.sku}`}
+                            {products.filter(p => p.name === product.name).length > 1 && ` — ${product.id.slice(0, 8)}`}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={offerForm.productId}
+                        onChange={(e) => setOfferForm({ ...offerForm, productId: e.target.value })}
+                        placeholder="Cole o ID do produto aqui (ou tente carregar a lista novamente)"
+                        className={`w-full px-4 py-2 border rounded-lg bg-palette-fill text-palette-base placeholder-palette-mute focus:outline-none focus:ring-2 focus:ring-palette-primary transition ${
+                          errors.productId ? 'border-red-500' : 'border-palette-primary'
+                        }`}
+                      />
+                    )}
                     {errors.productId && <p className="text-red-500 text-sm mt-1">{errors.productId}</p>}
                   </div>
 
@@ -881,42 +968,48 @@ const ManageContent = () => {
                   <p className="text-palette-mute">Nenhuma oferta encontrada</p>
                 ) : (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {offers.map((offer) => (
-                      <div key={offer.id} className="flex flex-col p-3 bg-palette-fill rounded-lg">
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <p className="font-semibold text-palette-base">{offer.discount}% de desconto</p>
-                            <p className="text-xs text-palette-mute">{offer.productId}</p>
-                            <p className={`text-xs ${offer.isActive ? 'text-green-600' : 'text-gray-500'}`}>
-                              {offer.isActive ? 'Ativa' : 'Inativa'}
-                            </p>
-                          </div>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => {
-                                setEditingId(offer.id);
-                                setOfferForm({
-                                  productId: offer.productId,
-                                  discount: offer.discount.toString(),
-                                  isActive: offer.isActive,
-                                  startDate: offer.startDate ? new Date(offer.startDate).toISOString().slice(0, 16) : '',
-                                  endDate: offer.endDate ? new Date(offer.endDate).toISOString().slice(0, 16) : '',
-                                });
-                              }}
-                              className="text-blue-500 hover:text-blue-700 p-1"
-                            >
-                              <MdEdit size={18} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteOffer(offer.id)}
-                              className="text-red-500 hover:text-red-700 p-1"
-                            >
-                              <MdDelete size={18} />
-                            </button>
+                    {offers.map((offer) => {
+                      const product = products.find(p => p.id === offer.productId);
+                      return (
+                        <div key={offer.id} className="flex flex-col p-3 bg-palette-fill rounded-lg">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <p className="font-semibold text-palette-base">{offer.discount}% de desconto</p>
+                              <p className="text-xs text-palette-mute">
+                                {product ? product.name : offer.productId}
+                                {product?.sku && ` — SKU: ${product.sku}`}
+                              </p>
+                              <p className={`text-xs ${offer.isActive ? 'text-green-600' : 'text-gray-500'}`}>
+                                {offer.isActive ? 'Ativa' : 'Inativa'}
+                              </p>
+                            </div>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => {
+                                  setEditingId(offer.id);
+                                  setOfferForm({
+                                    productId: offer.productId,
+                                    discount: offer.discount.toString(),
+                                    isActive: offer.isActive,
+                                    startDate: offer.startDate ? new Date(offer.startDate).toISOString().slice(0, 16) : '',
+                                    endDate: offer.endDate ? new Date(offer.endDate).toISOString().slice(0, 16) : '',
+                                  });
+                                }}
+                                className="text-blue-500 hover:text-blue-700 p-1"
+                              >
+                                <MdEdit size={18} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteOffer(offer.id)}
+                                className="text-red-500 hover:text-red-700 p-1"
+                              >
+                                <MdDelete size={18} />
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

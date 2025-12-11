@@ -22,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ message: 'Credenciais inválidas' });
 
-    const accessToken = signToken({ id: user.id, email: user.email }, '1h');
+    const accessToken = signToken({ id: user.id, email: user.email, role: user.role }, '1h');
     const refreshToken = signToken({ id: user.id }, '7d');
 
     await prisma.refreshToken.create({ data: { token: refreshToken, userId: user.id } });

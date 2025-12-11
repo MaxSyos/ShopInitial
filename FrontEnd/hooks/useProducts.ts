@@ -24,6 +24,16 @@ export const useProducts = () => {
     popularProducts
   } = useSelector((state: RootState) => state.products);
 
+  useEffect(() => {
+    console.log('🔍 useProducts - state:', {
+      loading,
+      error,
+      itemsCount: items?.length || 0,
+      newestCount: newestProducts?.length || 0,
+      popularCount: popularProducts?.length || 0,
+    });
+  }, [loading, error, items, newestProducts, popularProducts]);
+
   const loadProducts = async (filters: ProductFilters = {}) => {
     await dispatch(fetchProducts(filters)).unwrap();
   };

@@ -60,9 +60,16 @@ class ProductService {
       }
     });
 
-    const response = await axiosInstance.get(`/products?${params.toString()}`);
+    // Use fetch instead of axiosInstance (avoid interceptors / auth headers)
+    const url = `/api/products?${params.toString()}`;
+    const resp = await fetch(url, { method: 'GET', credentials: 'same-origin' });
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`Product fetch failed ${resp.status}: ${text}`);
+    }
+    const data = await resp.json();
     // O backend retorna { items: [...] }
-    return response.data;
+    return data;
   }
 
   async getProductById(id: string): Promise<Product> {
@@ -97,8 +104,18 @@ class ProductService {
   }
 
   async getNewestProducts(limit: number = 10): Promise<Product[]> {
-    const response = await axiosInstance.get(`/products/newest?limit=${limit}`);
-    return response.data;
+    try {
+      console.log('🚀 getNewestProducts (using /products endpoint)', { limit });
+      // Use the same endpoint as the /products page to keep response shape consistent
+      const response = await axiosInstance.get(`/products?page=1&limit=${limit}`);
+      // response.data has shape { items, total, page, limit }
+      const items = response.data?.items || [];
+      console.log('✅ getNewestProducts items count:', items.length);
+      return items;
+    } catch (error: any) {
+      console.error('❌ getNewestProducts error:', error?.message || error);
+      throw error;
+    }
   }
 
   async getPopularProducts(limit: number = 10): Promise<Product[]> {
