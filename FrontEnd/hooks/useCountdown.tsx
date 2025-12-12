@@ -1,12 +1,4 @@
-import { useEffect, useState } from "react";
-
-Date.prototype.addDays = function (days: number): Date {
-  var date = new Date(this.valueOf());
-  date.setDate(date.getDate() + days);
-  return date;
-};
-
-var date = new Date();
+import { useEffect, useState, useMemo } from "react";
 
 const getReturnValues = (countDown: number) => {
   // calculate time left
@@ -21,19 +13,35 @@ const getReturnValues = (countDown: number) => {
 };
 
 const useCountdown = (targetDate: number) => {
-  var expireDate = date.addDays(targetDate);
-  const countDownDate = new Date(expireDate).getTime();
+  // `targetDate` representa número de dias a partir de agora
+  const countDownDate = useMemo(() => {
+    const now = Date.now();
+    const expire = new Date(now);
+    expire.setDate(expire.getDate() + (Number(targetDate) || 0));
+    return expire.getTime();
+  }, [targetDate]);
 
   const [countDown, setCountDown] = useState(
-    countDownDate - new Date().getTime()
+    countDownDate - Date.now()
   );
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCountDown(countDownDate - new Date().getTime());
-    }, 1000);
+    let mounted = true;
 
-    return () => clearInterval(interval);
+    const update = () => {
+      if (!mounted) return;
+      setCountDown(countDownDate - Date.now());
+    };
+
+    // run immediately to avoid 1s delay
+    update();
+
+    const interval = setInterval(update, 1000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [countDownDate]);
 
   return getReturnValues(countDown);

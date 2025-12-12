@@ -192,6 +192,7 @@ model Banner {
   buttonText  String?
   linkUrl     String?
   isActive    Boolean   @default(true)
+  numberOfDiscountDate Int      @default(0)
   order       Int       @default(0)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

@@ -33,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === 'POST') {
       // POST: Criar novo banner
-      const { title, description, imageUrl, buttonText, linkUrl, isActive } = req.body;
+      const { title, description, imageUrl, buttonText, linkUrl, isActive, numberOfDiscountDate } = req.body;
 
       if (!title || !imageUrl) {
         return res.status(400).json({ error: 'Título e URL da imagem são obrigatórios' });
@@ -52,6 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           buttonText: buttonText || null,
           linkUrl: linkUrl || null,
           isActive: isActive !== undefined ? isActive : true,
+          numberOfDiscountDate: Number(numberOfDiscountDate) || 0,
           order: (lastBanner?.order || 0) + 1,
         },
       });
@@ -61,7 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method === 'PUT') {
       // PUT: Atualizar banner
-      const { id, title, description, imageUrl, buttonText, linkUrl, isActive, order } = req.body;
+      const { id, title, description, imageUrl, buttonText, linkUrl, isActive, order, numberOfDiscountDate } = req.body;
 
       if (!id) {
         return res.status(400).json({ error: 'ID do banner é obrigatório' });
@@ -76,6 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           buttonText: buttonText !== undefined ? buttonText : undefined,
           linkUrl: linkUrl !== undefined ? linkUrl : undefined,
           isActive: isActive !== undefined ? isActive : undefined,
+          numberOfDiscountDate: numberOfDiscountDate !== undefined ? Number(numberOfDiscountDate) : undefined,
           order: order !== undefined ? order : undefined,
         },
       });
