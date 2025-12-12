@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script para fazer commit e push de todas as alterações
+# Script para fazer commit e push de todas as alterações para o GitHub
 
 cd /workspaces/ShopInitial
 
@@ -17,37 +17,40 @@ git status
 
 echo ""
 echo "🔔 Fazendo commit..."
-git commit -m "feat: Sistema de gerenciamento de conteúdo para ADMINs
+git commit -m "feat: integração CategoryGrid com banco de dados MongoDB
 
 ✨ Implementado:
-- Novo módulo de gerenciamento de conteúdo (banners, carousel, ofertas, marcas)
-- 3 APIs RESTful seguras com autenticação JWT
-- Página admin /manage-content.tsx com 4 abas
-- 3 novos modelos Prisma (Banner, CarouselImage, Offer)
-- Upload de imagens via ImgBB
-- Persistência de URLs no MongoDB
-- Link de admin no menu do usuário (visível apenas para ADMIN)
-- Suporte a 3 idiomas (PT, EN, FA)
-- Interface responsiva e dark mode
-- Validações robustas
-- Documentação completa
+- Hook customizado useCategoryGrid para buscar categorias do MongoDB
+- Atualização do componente Category.tsx para usar dados do banco
+- Script de seed (seedCategoryGrid.js) com upsert de 7 categorias
+- Tratamento de loading e erro no componente
+- Transformação correta de dados: styles → campos individuais
+- Scripts de execução (Linux/Mac e Windows)
 
 📁 Arquivos criados:
-- pages/api/content/banners.ts
-- pages/api/content/carousel.ts
-- pages/api/content/offers.ts
-- pages/manage-content.tsx
-- CONTENT_MANAGEMENT_IMPLEMENTATION.md
-- CONTENT_MANAGEMENT_SUMMARY.md
-- CONTENT_MANAGEMENT_TESTS.md
-- PROJECT_COMPLETION_REPORT.md
-- FILES_CHECKLIST.md
+- FrontEnd/hooks/useCategoryGrid.ts (novo hook)
+- FrontEnd/prisma/seedCategoryGrid.js (script seed)
+- FrontEnd/run-seed.sh (script bash)
+- FrontEnd/run-seed.bat (script batch Windows)
+- FrontEnd/CATEGORY_DATABASE_INTEGRATION.md
+- FrontEnd/SEED_CATEGORYGRID_MAPPING.md
+- FrontEnd/SEED_EXECUTION_GUIDE.md
 
-📝 Arquivos modificados:
-- prisma/schema.prisma
-- components/header/user/UserAccountBox.tsx
-- locales/br.ts
-- locales/en.ts
+✏️ Arquivos modificados:
+- FrontEnd/components/category/Category.tsx
+- FrontEnd/mock/category-lg.js
+
+🔄 Fluxo:
+MongoDB (seed) → API /api/content/categories → Hook useCategoryGrid → Componente → Tela
+
+7 categorias inseridas com sucesso:
+✓ digital (span 3 / span 12)
+✓ fashion (span 3 / span 3)
+✓ beauty (span 3 / span 3)
+✓ sport (span 3 / span 3 - row-reverse)
+✓ house (span 3 / span 6)
+✓ toy (span 3 / span 6 - column)
+✓ stationery (span 6 / span 6 - isCentered)"
 - locales/fa.ts"
 
 echo ""
