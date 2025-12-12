@@ -9,13 +9,13 @@ interface Props {
 }
 const ShowCounter: React.FC<Props> = ({ days, hours, minutes, seconds }) => {
   return (
-    <div className=" flex rtl:flex-row-reverse items-center absolute top-[60%] sm:top-3/4">
+    <div className="flex items-center absolute bottom-6 ltr:left-6 rtl:right-6 w-auto z-30">
       <DateTimeDisplay value={days} type={"days"} isDanger={days <= 3} />
-      <p className="font-bold text-lg text-palette-secondary">:</p>
+      <p className="font-bold text-base text-palette-secondary mx-2">:</p>
       <DateTimeDisplay value={hours} type={"hours"} isDanger={false} />
-      <p className="font-bold text-lg text-palette-secondary">:</p>
+      <p className="font-bold text-base text-palette-secondary mx-2">:</p>
       <DateTimeDisplay value={minutes} type={"mins"} isDanger={false} />
-      <p className="font-bold text-lg text-palette-secondary">:</p>
+      <p className="font-bold text-base text-palette-secondary mx-2">:</p>
       <DateTimeDisplay value={seconds} type={"seconds"} isDanger={false} />
     </div>
   );

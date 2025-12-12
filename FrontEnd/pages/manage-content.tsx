@@ -17,6 +17,7 @@ interface Banner {
   linkUrl?: string;
   isActive: boolean;
   order: number;
+  numberOfDiscountDate?: number;
 }
 
 interface CarouselImage {
@@ -85,6 +86,7 @@ const ManageContent = () => {
     buttonText: '',
     linkUrl: '',
     isActive: true,
+    numberOfDiscountDate: 0,
   });
 
   const [carouselForm, setCarouselForm] = useState({
@@ -234,7 +236,7 @@ const ManageContent = () => {
         toast.success('Banner criado com sucesso');
       }
 
-      setBannerForm({ title: '', description: '', imageUrl: '', buttonText: '', linkUrl: '', isActive: true });
+      setBannerForm({ title: '', description: '', imageUrl: '', buttonText: '', linkUrl: '', isActive: true, numberOfDiscountDate: 0 });
       setEditingId(null);
       setErrors({});
       await loadData();
@@ -544,6 +546,21 @@ const ManageContent = () => {
                     />
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-semibold text-palette-base mb-2">
+                      Dias para desconto
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={bannerForm.numberOfDiscountDate}
+                      onChange={(e) => setBannerForm({ ...bannerForm, numberOfDiscountDate: parseInt(e.target.value || '0') })}
+                      placeholder="Número de dias (ex: 7)"
+                      className="w-full px-4 py-2 border border-palette-primary rounded-lg bg-palette-fill text-palette-base placeholder-palette-mute focus:outline-none focus:ring-2 focus:ring-palette-primary transition"
+                    />
+                    <p className="text-xs text-palette-mute mt-1">Quantidade de dias usada pelo contador de desconto.</p>
+                  </div>
+
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -570,7 +587,7 @@ const ManageContent = () => {
                         type="button"
                         onClick={() => {
                           setEditingId(null);
-                          setBannerForm({ title: '', description: '', imageUrl: '', buttonText: '', linkUrl: '', isActive: true });
+                          setBannerForm({ title: '', description: '', imageUrl: '', buttonText: '', linkUrl: '', isActive: true, numberOfDiscountDate: 0 });
                         }}
                         className="flex-1 px-6 py-2 border border-palette-primary rounded-lg text-palette-base hover:bg-palette-card transition-colors font-semibold"
                       >
@@ -613,6 +630,7 @@ const ManageContent = () => {
                                   buttonText: banner.buttonText || '',
                                   linkUrl: banner.linkUrl || '',
                                   isActive: banner.isActive,
+                                  numberOfDiscountDate: banner.numberOfDiscountDate || 0,
                                 });
                               }}
                               className="text-blue-500 hover:text-blue-700 p-1"
