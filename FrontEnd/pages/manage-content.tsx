@@ -45,7 +45,27 @@ interface Brand {
   logo?: string;
 }
 
-type TabType = 'banners' | 'carousel' | 'offers' | 'brands';
+interface CategoryGrid {
+  id: string;
+  name: string;
+  title: string;
+  description?: string;
+  href?: string;
+  imgSrc?: string;
+  imgWidth: number;
+  imgHeight: number;
+  backgroundColor?: string;
+  flexDirection?: string;
+  paddingBlock?: string;
+  paddingInline?: string;
+  gridColumn?: string;
+  isCentered: boolean;
+  isSmall: boolean;
+  order: number;
+  isActive: boolean;
+}
+
+type TabType = 'banners' | 'carousel' | 'offers' | 'brands' | 'categories';
 
 const ManageContent = () => {
   const { t } = useLanguage();
@@ -73,6 +93,7 @@ const ManageContent = () => {
   const [carouselImages, setCarouselImages] = useState<CarouselImage[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [categories, setCategories] = useState<CategoryGrid[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingData, setLoadingData] = useState(false);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
@@ -109,6 +130,24 @@ const ManageContent = () => {
   const [uploading, setUploading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const [categoryForm, setCategoryForm] = useState({
+    name: '',
+    title: '',
+    description: '',
+    href: '',
+    imgSrc: '',
+    imgWidth: 190,
+    imgHeight: 240,
+    backgroundColor: '',
+    flexDirection: 'row',
+    paddingBlock: '1rem',
+    paddingInline: '1rem',
+    gridColumn: 'span 3 / span 3',
+    isCentered: false,
+    isSmall: false,
+    isActive: true,
+  });
 
   // Load data on mount
   useEffect(() => {
@@ -155,17 +194,19 @@ const ManageContent = () => {
     try {
       const headers = getAuthHeaders();
 
-      const [bannersRes, carouselRes, offersRes, brandsRes] = await Promise.all([
+      const [bannersRes, carouselRes, offersRes, brandsRes, categoriesRes] = await Promise.all([
         api.get('/content/banners', { headers }),
         api.get('/content/carousel', { headers }),
         api.get('/content/offers', { headers }),
         api.get('/brands', { headers }),
+        api.get('/content/categories', { headers }),
       ]);
 
       setBanners(bannersRes.data.items || []);
       setCarouselImages(carouselRes.data.items || []);
       setOffers(offersRes.data.items || []);
       setBrands(brandsRes.data.items || []);
+      setCategories(categoriesRes.data.items || []);
       
       await fetchProducts();
     } catch (error) {
@@ -376,6 +417,76 @@ const ManageContent = () => {
     }
   };
 
+  // ========== CATEGORIES HANDLERS ==========
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const newErrors: { [key: string]: string } = {};
+    if (!categoryForm.name.trim()) newErrors.name = 'Nome é obrigatório';
+    if (!categoryForm.title.trim()) newErrors.title = 'Título é obrigatório';
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) return;
+
+    setLoadingSubmit(true);
+    try {
+      const headers = getAuthHeaders();
+
+      if (editingId) {
+        await api.put(
+          '/content/categories',
+          { id: editingId, ...categoryForm },
+          { headers }
+        );
+        toast.success('Categoria atualizada com sucesso');
+      } else {
+        await api.post('/content/categories', categoryForm, { headers });
+        toast.success('Categoria criada com sucesso');
+      }
+
+      setCategoryForm({
+        name: '',
+        title: '',
+        description: '',
+        href: '',
+        imgSrc: '',
+        imgWidth: 190,
+        imgHeight: 240,
+        backgroundColor: '',
+        flexDirection: 'row',
+        paddingBlock: '1rem',
+        paddingInline: '1rem',
+        gridColumn: 'span 3 / span 3',
+        isCentered: false,
+        isSmall: false,
+        isActive: true,
+      });
+      setEditingId(null);
+      setErrors({});
+      await loadData();
+    } catch (error: any) {
+      console.error('Erro:', error);
+      toast.error(error.response?.data?.error || 'Erro ao salvar categoria');
+    } finally {
+      setLoadingSubmit(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (!confirm('Confirmar exclusão?')) return;
+
+    try {
+      const headers = getAuthHeaders();
+      
+      await api.delete('/content/categories', { data: { id }, headers });
+      toast.success('Categoria deletada com sucesso');
+      await loadData();
+    } catch (error: any) {
+      console.error('Erro:', error);
+      toast.error(error.response?.data?.error || 'Erro ao deletar categoria');
+    }
+  };
+
   return (
     <PrivateRoute requiredRole="ADMIN">
       <div className="min-h-screen bg-palette-fill p-4 md:p-8">
@@ -420,7 +531,7 @@ const ManageContent = () => {
 
           {/* Tabs */}
           <div className="flex gap-2 mb-8 border-b border-palette-primary overflow-x-auto">
-            {(['banners', 'carousel', 'offers', 'brands'] as TabType[]).map((tab) => (
+            {(['banners', 'carousel', 'offers', 'brands', 'categories'] as TabType[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => {
@@ -437,6 +548,7 @@ const ManageContent = () => {
                 {tab === 'carousel' && 'Carousel'}
                 {tab === 'offers' && 'Ofertas'}
                 {tab === 'brands' && 'Marcas'}
+                {tab === 'categories' && 'Categorias'}
               </button>
             ))}
           </div>
@@ -1061,6 +1173,172 @@ const ManageContent = () => {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* CATEGORIES TAB */}
+          {activeTab === 'categories' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Create/Edit Category Form */}
+              <div className="bg-palette-card rounded-lg p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-palette-base mb-4">
+                  {editingId ? 'Editar Categoria' : 'Criar Nova Categoria'}
+                </h2>
+
+                <form onSubmit={handleCreateCategory} className="space-y-3 max-h-96 overflow-y-auto">
+                  <div>
+                    <label className="block text-sm font-semibold text-palette-base mb-1">Nome *</label>
+                    <input type="text" value={categoryForm.name} onChange={(e) => setCategoryForm({...categoryForm, name: e.target.value})} placeholder="digital, fashion, etc" className="w-full px-3 py-2 border border-palette-primary rounded-lg bg-palette-fill text-palette-base placeholder-palette-mute focus:outline-none focus:ring-2 focus:ring-palette-primary transition" />
+                    {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-palette-base mb-1">Título (chave i18n) *</label>
+                    <input type="text" value={categoryForm.title} onChange={(e) => setCategoryForm({...categoryForm, title: e.target.value})} placeholder="digitalCategoryTitle" className="w-full px-3 py-2 border border-palette-primary rounded-lg bg-palette-fill text-palette-base placeholder-palette-mute focus:outline-none focus:ring-2 focus:ring-palette-primary transition" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-palette-base mb-1">Descrição (chave i18n)</label>
+                    <input type="text" value={categoryForm.description} onChange={(e) => setCategoryForm({...categoryForm, description: e.target.value})} placeholder="digitalCategoryDescription" className="w-full px-3 py-2 border border-palette-primary rounded-lg bg-palette-fill text-palette-base placeholder-palette-mute focus:outline-none focus:ring-2 focus:ring-palette-primary transition" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-palette-base mb-1">URL</label>
+                    <input type="text" value={categoryForm.href} onChange={(e) => setCategoryForm({...categoryForm, href: e.target.value})} placeholder="/digital" className="w-full px-3 py-2 border border-palette-primary rounded-lg bg-palette-fill text-palette-base placeholder-palette-mute focus:outline-none focus:ring-2 focus:ring-palette-primary transition" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-palette-base mb-1">URL Imagem</label>
+                    <input type="text" value={categoryForm.imgSrc} onChange={(e) => setCategoryForm({...categoryForm, imgSrc: e.target.value})} placeholder="/images/category-img/digital-category.webp" className="w-full px-3 py-2 border border-palette-primary rounded-lg bg-palette-fill text-palette-base placeholder-palette-mute focus:outline-none focus:ring-2 focus:ring-palette-primary transition" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-palette-base mb-1">Largura Img</label>
+                      <input type="number" value={categoryForm.imgWidth} onChange={(e) => setCategoryForm({...categoryForm, imgWidth: parseInt(e.target.value) || 190})} className="w-full px-3 py-2 border border-palette-primary rounded-lg bg-palette-fill text-palette-base focus:outline-none focus:ring-2 focus:ring-palette-primary transition" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-palette-base mb-1">Altura Img</label>
+                      <input type="number" value={categoryForm.imgHeight} onChange={(e) => setCategoryForm({...categoryForm, imgHeight: parseInt(e.target.value) || 240})} className="w-full px-3 py-2 border border-palette-primary rounded-lg bg-palette-fill text-palette-base focus:outline-none focus:ring-2 focus:ring-palette-primary transition" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-palette-base mb-1">Cor de Fundo</label>
+                    <input type="text" value={categoryForm.backgroundColor} onChange={(e) => setCategoryForm({...categoryForm, backgroundColor: e.target.value})} placeholder="var(--digital-category-bgc)" className="w-full px-3 py-2 border border-palette-primary rounded-lg bg-palette-fill text-palette-base placeholder-palette-mute focus:outline-none focus:ring-2 focus:ring-palette-primary transition" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-palette-base mb-1">Direção Flex</label>
+                    <select value={categoryForm.flexDirection} onChange={(e) => setCategoryForm({...categoryForm, flexDirection: e.target.value})} className="w-full px-3 py-2 border border-palette-primary rounded-lg bg-palette-fill text-palette-base focus:outline-none focus:ring-2 focus:ring-palette-primary transition">
+                      <option>row</option>
+                      <option>row-reverse</option>
+                      <option>column</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-palette-base mb-1">Padding Block</label>
+                      <input type="text" value={categoryForm.paddingBlock} onChange={(e) => setCategoryForm({...categoryForm, paddingBlock: e.target.value})} className="w-full px-3 py-2 border border-palette-primary rounded-lg bg-palette-fill text-palette-base focus:outline-none focus:ring-2 focus:ring-palette-primary transition" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-palette-base mb-1">Padding Inline</label>
+                      <input type="text" value={categoryForm.paddingInline} onChange={(e) => setCategoryForm({...categoryForm, paddingInline: e.target.value})} className="w-full px-3 py-2 border border-palette-primary rounded-lg bg-palette-fill text-palette-base focus:outline-none focus:ring-2 focus:ring-palette-primary transition" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-palette-base mb-1">Grid Column</label>
+                    <input type="text" value={categoryForm.gridColumn} onChange={(e) => setCategoryForm({...categoryForm, gridColumn: e.target.value})} placeholder="span 3 / span 3" className="w-full px-3 py-2 border border-palette-primary rounded-lg bg-palette-fill text-palette-base placeholder-palette-mute focus:outline-none focus:ring-2 focus:ring-palette-primary transition" />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={categoryForm.isCentered} onChange={(e) => setCategoryForm({...categoryForm, isCentered: e.target.checked})} className="w-4 h-4" />
+                      <span className="text-sm font-semibold text-palette-base">Centralizado</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={categoryForm.isSmall} onChange={(e) => setCategoryForm({...categoryForm, isSmall: e.target.checked})} className="w-4 h-4" />
+                      <span className="text-sm font-semibold text-palette-base">Pequeno</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={categoryForm.isActive} onChange={(e) => setCategoryForm({...categoryForm, isActive: e.target.checked})} className="w-4 h-4" />
+                      <span className="text-sm font-semibold text-palette-base">Ativo</span>
+                    </label>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <button type="submit" disabled={loadingSubmit} className="flex-1 px-4 py-2 bg-palette-primary text-palette-side rounded-lg font-semibold hover:opacity-90 transition disabled:opacity-50">
+                      {loadingSubmit ? 'Salvando...' : editingId ? 'Atualizar' : 'Criar'}
+                    </button>
+                    {editingId && (
+                      <button type="button" onClick={() => {setEditingId(null); setCategoryForm({name: '', title: '', description: '', href: '', imgSrc: '', imgWidth: 190, imgHeight: 240, backgroundColor: '', flexDirection: 'row', paddingBlock: '1rem', paddingInline: '1rem', gridColumn: 'span 3 / span 3', isCentered: false, isSmall: false, isActive: true}); setErrors({});}} className="flex-1 px-4 py-2 border border-palette-primary rounded-lg text-palette-base hover:bg-palette-card transition font-semibold">
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              {/* Categories List */}
+              <div className="bg-palette-card rounded-lg p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-palette-base mb-4">
+                  Categorias Existentes ({categories.length})
+                </h2>
+                {categories.length === 0 ? (
+                  <p className="text-palette-mute text-sm">Nenhuma categoria encontrada</p>
+                ) : (
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {categories.map((category) => (
+                      <div key={category.id} className="flex flex-col p-3 bg-palette-fill rounded-lg">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <p className="font-semibold text-palette-base">{category.name}</p>
+                            <p className="text-xs text-palette-mute">{category.title} • Grid: {category.gridColumn}</p>
+                            <p className={`text-xs ${category.isActive ? 'text-green-600' : 'text-gray-500'}`}>
+                              {category.isActive ? 'Ativa' : 'Inativa'}
+                            </p>
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => {
+                                setEditingId(category.id);
+                                setCategoryForm({
+                                  name: category.name,
+                                  title: category.title,
+                                  description: category.description || '',
+                                  href: category.href || '',
+                                  imgSrc: category.imgSrc || '',
+                                  imgWidth: category.imgWidth,
+                                  imgHeight: category.imgHeight,
+                                  backgroundColor: category.backgroundColor || '',
+                                  flexDirection: category.flexDirection || 'row',
+                                  paddingBlock: category.paddingBlock || '1rem',
+                                  paddingInline: category.paddingInline || '1rem',
+                                  gridColumn: category.gridColumn || 'span 3 / span 3',
+                                  isCentered: category.isCentered,
+                                  isSmall: category.isSmall,
+                                  isActive: category.isActive,
+                                });
+                              }}
+                              className="text-blue-500 hover:text-blue-700 p-1"
+                            >
+                              <MdEdit size={18} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCategory(category.id)}
+                              className="text-red-500 hover:text-red-700 p-1"
+                            >
+                              <MdDelete size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

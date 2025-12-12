@@ -13,9 +13,9 @@ interface Props {
     paddingInline: string;
     paddingBlock: string;
     textAlign?: string;
-    gridRow: string;
     gridColumn: string;
   };
+  isCentered?: boolean;
   href: string;
   imgSrc: string;
   imgWidth: number;
@@ -26,6 +26,7 @@ const CategoryLgBox: React.FC<Props> = ({
   title,
   description,
   styles,
+  isCentered,
   href,
   imgSrc,
   imgWidth,
@@ -36,14 +37,14 @@ const CategoryLgBox: React.FC<Props> = ({
   return (
     <div
       key={title}
-      className={`flex justify-around items-center rounded-md shadow-lg overflow-hidden`}
+      className={`flex ${isCentered ? 'justify-center' : 'justify-around'} items-center rounded-lg shadow-lg overflow-hidden h-full min-h-40`}
       style={styles as React.CSSProperties}
     >
-      <div className="mx-[0.5rem]">
-        <h3 className="text-xl 2xl:text-2xl font-[500]">{t[`${title}`]}</h3>
-        <p className="text-sm mt-2">{t[`${description}`]}</p>
+      <div className={`${isCentered ? 'text-center' : 'flex-1'}`}>
+        <h3 className="text-lg lg:text-xl 2xl:text-2xl font-bold">{t[`${title}`]}</h3>
+        <p className="text-sm mt-2 opacity-90">{t[`${description}`]}</p>
         <Link href={href}>
-          <a className="inline-block py-3 px-2 2xl:px-4 mt-4 bg-palette-primary hover:scale-105 transition-transform duration-300 shadow-xl ltr:text-sm rtl:text-xs text-palette-side rounded-lg">
+          <a className="inline-block py-2 px-4 2xl:px-6 mt-4 bg-palette-primary hover:scale-105 transition-transform duration-300 shadow-xl text-sm 2xl:text-base text-palette-side rounded-lg font-semibold">
             {t.seeAllProducts}
           </a>
         </Link>
@@ -53,7 +54,7 @@ const CategoryLgBox: React.FC<Props> = ({
         alt={name}
         width={imgWidth}
         height={imgHeight}
-        className="drop-shadow-lg hover:scale-95 transition-transform duration-300 "
+        className="drop-shadow-lg hover:scale-95 transition-transform duration-300 flex-shrink-0"
       />
     </div>
   );

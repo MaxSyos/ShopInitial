@@ -26,7 +26,7 @@ const Category = () => {
       </div>
 
       {/* 💻lg break point */}
-      <div className="hidden lg:grid  gap-4 grid-rows-9 grid-cols-2 md:grid-cols-9 w-full xl:max-w-[2100px] mx-auto">
+      <div className="hidden lg:grid gap-4 grid-cols-12 w-full xl:max-w-[2100px] mx-auto">
         {categoryLgContent.map(
           ({
             name,

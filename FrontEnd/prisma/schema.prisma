@@ -221,6 +221,28 @@ model Offer {
   updatedAt   DateTime  @updatedAt
 }
 
+model CategoryGrid {
+  id          String    @id @map("_id") @default(auto()) @db.ObjectId
+  name        String    @unique
+  title       String
+  description String?
+  href        String?
+  imgSrc      String?
+  imgWidth    Int       @default(190)
+  imgHeight   Int       @default(240)
+  backgroundColor String?
+  flexDirection String?
+  paddingBlock String?
+  paddingInline String?
+  gridColumn  String?
+  isCentered  Boolean   @default(false)
+  isSmall     Boolean   @default(false)
+  order       Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
 enum PaymentMethod {
   PIX
 }
