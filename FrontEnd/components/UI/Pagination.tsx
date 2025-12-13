@@ -19,7 +19,8 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
       <ul className="inline-flex -space-x-px">
         <li>
           <button
-            className="px-3 py-2 ml-0 leading-tight text-gray-500 bg-white border border-gray-300 rounded-l-lg hover:bg-gray-100 hover:text-gray-700"
+            aria-label="previous page"
+            className="px-3 py-2 ml-0 leading-tight text-gray-500 bg-white border border-gray-300 rounded-l-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
             onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage === 1}
           >
@@ -29,10 +30,10 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
         {pages.map((page) => (
           <li key={page}>
             <button
-              className={`px-3 py-2 leading-tight border border-gray-300  ${
+              className={`px-3 py-2 leading-tight border  ${
                 page === currentPage
-                  ? 'bg-palette-primary text-white'
-                  : 'bg-white text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                  ? 'border-gray-300 bg-palette-primary text-white dark:border-transparent dark:bg-palette-primary'
+                  : 'border-gray-300 bg-white text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white'
               }`}
               onClick={() => onPageChange(page)}
               disabled={page === currentPage}
@@ -43,7 +44,8 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
         ))}
         <li>
           <button
-            className="px-3 py-2 leading-tight text-gray-500 bg-white border border-gray-300 rounded-r-lg hover:bg-gray-100 hover:text-gray-700"
+            aria-label="next page"
+            className="px-3 py-2 leading-tight text-gray-500 bg-white border border-gray-300 rounded-r-lg hover:bg-gray-100 hover:text-gray-700 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white"
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
           >

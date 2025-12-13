@@ -21,7 +21,8 @@ const ProductsPage: React.FC<{ initialProducts?: any }> = ({ initialProducts }) 
     loadProducts 
   } = useProducts();
 
-  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 16;
+  const [currentPage, setCurrentPage] = useState(initialProducts?.page || 1);
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filters, setFilters] = useState({
@@ -32,9 +33,9 @@ const ProductsPage: React.FC<{ initialProducts?: any }> = ({ initialProducts }) 
   });
 
   useEffect(() => {
-    // Chama o backend SEM filtros, paginação ou ordenação, pois o backend não suporta
-    loadProducts();
-  }, []);
+    // Carrega produtos com paginação e ordenação
+    loadProducts({ page: currentPage, limit: PAGE_SIZE, sortBy, sortOrder, ...filters });
+  }, [currentPage, sortBy, sortOrder, filters]);
 
   useEffect(() => {
     if (error) {
@@ -98,7 +99,7 @@ const ProductsPage: React.FC<{ initialProducts?: any }> = ({ initialProducts }) 
           <div className="mt-8">
             <Pagination
               currentPage={currentPage}
-              totalPages={Math.ceil(total / limit)}
+              totalPages={Math.max(1, Math.ceil(total / PAGE_SIZE))}
               onPageChange={handlePageChange}
             />
           </div>
@@ -122,7 +123,7 @@ export async function getServerSideProps() {
     const prisma = (prismaModule as any).default || (prismaModule as any).prisma;
 
     const page = 1;
-    const limit = 20;
+    const limit = 16;
     const skip = (page - 1) * limit;
 
     const [items, total] = await Promise.all([

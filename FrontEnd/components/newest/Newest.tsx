@@ -116,9 +116,9 @@ const Newest: React.FC = () => {
       </div>
 
       <div className="text-center">
-        <Link href="/newestProducts">
+        <Link href="/products">
           <a className="inline-block py-3 px-8 md:px-12 mt-4 text-sm md:text-base bg-palette-primary text-palette-side rounded-xl shadow-lg">
-            {t.seeAllNewProducts}
+            {t.seeAllProducts}
           </a>
         </Link>
       </div>
