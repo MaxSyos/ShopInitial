@@ -243,6 +243,23 @@ model CategoryGrid {
   updatedAt   DateTime  @updatedAt
 }
 
+// Configurações simples em formato key-value (ex: whatsapp number, site settings)
+model Setting {
+  id        String   @id @map("_id") @default(auto()) @db.ObjectId
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Emails registrados no footer
+model Email {
+  id        String   @id @map("_id") @default(auto()) @db.ObjectId
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 enum PaymentMethod {
   PIX
 }

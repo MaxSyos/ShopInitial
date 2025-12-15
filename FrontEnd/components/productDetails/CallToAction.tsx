@@ -56,7 +56,7 @@ const CallToAction: React.FC<Props> = ({ product }) => {
     <div className="flex flex-col items-center flex-grow sticky top-10 md:top-36 max-w-[350px] mt-8 rtl:mr-auto ltr:ml-auto xl:rtl:ml-2 px-6 py-4 sm:p-4 xl:p-6 border-2 shadow-lg">
       <div className="flex flex-col w-full ">
         <p className="text-lg">{t.price}</p>
-  <ProductPrice price={price} discount={discount ?? undefined} isLargeSize={true} />
+        <ProductPrice price={price * counter} discount={discount ?? undefined} isLargeSize={true} />
       </div>
       <div className="flex items-center justify-between mt-6 cursor-pointer">
         <div className="p-2" onClick={increment}>

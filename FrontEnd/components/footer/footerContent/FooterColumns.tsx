@@ -16,9 +16,9 @@ const FooterColumns = () => {
             <div className="flex flex-col mt-2">
               {item.subtitles.map((subItem) => {
                 return (
-                  <Link href={subItem.href} key={subItem.text}>
+                  <Link href={subItem.href} key={subItem.title}>
                     <a className="text-sm text-palette-base/90 px-4 py-2 hover:text-palette-base/100">
-                      {t[subItem.text]}
+                      {t[subItem.title] || subItem.title}
                     </a>
                   </Link>
                 );

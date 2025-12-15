@@ -4,37 +4,59 @@ import prisma from '../../../lib/prisma';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'change_this_in_prod';
 
+// Log para debug (remover em produção se necessário)
+if (!process.env.JWT_SECRET) {
+  console.warn('⚠️ JWT_SECRET não configurado no .env, usando valor padrão (inseguro!)');
+}
+
 export function signToken(payload: object, expiresIn = '1h') {
   return jwt.sign(payload, JWT_SECRET, { expiresIn });
 }
 
 export function verifyToken(token: string) {
   try {
-    return jwt.verify(token, JWT_SECRET);
-  } catch (err) {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    return decoded;
+  } catch (err: any) {
+    console.error('verifyToken error:', err.message);
     return null;
   }
 }
 
 export async function getUserFromRequest(req: NextApiRequest) {
   const auth = req.headers.authorization || '';
-  // debug: mostrar se header Authorization está presente (útil em ambiente de dev)
   console.log('getUserFromRequest -> Authorization header present:', !!auth);
+  
   const token = auth.startsWith('Bearer ') ? auth.substring(7) : null;
   if (!token) {
     console.log('getUserFromRequest -> no Bearer token found');
     return null;
   }
 
+  console.log('getUserFromRequest -> token received (first 50 chars):', token.substring(0, 50));
+
   const decoded: any = verifyToken(token);
-  if (!decoded?.id) {
-    console.log('getUserFromRequest -> token invalid or missing id (decoded):', decoded);
+  
+  if (!decoded) {
+    console.log('getUserFromRequest -> token verification failed (returned null)');
     return null;
   }
+
+  if (!decoded?.id) {
+    console.log('getUserFromRequest -> token valid but missing id field:', decoded);
+    return null;
+  }
+
+  console.log('getUserFromRequest -> token valid, user id:', decoded.id);
 
   const user = await prisma.user.findUnique({
     where: { id: decoded.id },
   });
+
+  if (!user) {
+    console.log('getUserFromRequest -> user not found in database with id:', decoded.id);
+    return null;
+  }
 
   console.log('getUserFromRequest -> found user id:', user?.id ?? 'none');
 

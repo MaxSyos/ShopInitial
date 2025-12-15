@@ -65,7 +65,7 @@ interface CategoryGrid {
   isActive: boolean;
 }
 
-type TabType = 'banners' | 'carousel' | 'offers' | 'brands' | 'categories';
+type TabType = 'banners' | 'carousel' | 'offers' | 'brands' | 'categories' | 'whatsapp';
 
 const ManageContent = () => {
   const { t } = useLanguage();
@@ -149,6 +149,10 @@ const ManageContent = () => {
     isActive: true,
   });
 
+  // WhatsApp setting
+  const [whatsappNumber, setWhatsappNumber] = useState<string>('');
+  const [loadingWhatsapp, setLoadingWhatsapp] = useState(false);
+
   // Load data on mount
   useEffect(() => {
     loadData();
@@ -164,9 +168,9 @@ const ManageContent = () => {
       console.log('manage-content: products response', res && res.data);
       const items = res.data?.items || [];
       setProducts(items);
-      if (items.length > 0) {
+      /* if (items.length > 0) {
         toast.success(`${items.length} produtos carregados`);
-      }
+      } */
     } catch (err: any) {
       const msg = String(err?.message || err || 'Erro desconhecido');
       console.error('manage-content: error fetching products', err, err?.response?.status, err?.response?.data);
@@ -194,12 +198,13 @@ const ManageContent = () => {
     try {
       const headers = getAuthHeaders();
 
-      const [bannersRes, carouselRes, offersRes, brandsRes, categoriesRes] = await Promise.all([
+      const [bannersRes, carouselRes, offersRes, brandsRes, categoriesRes, whatsappRes] = await Promise.all([
         api.get('/content/banners', { headers }),
         api.get('/content/carousel', { headers }),
         api.get('/content/offers', { headers }),
         api.get('/brands', { headers }),
         api.get('/content/categories', { headers }),
+        api.get('/content/whatsapp', { headers }),
       ]);
 
       setBanners(bannersRes.data.items || []);
@@ -207,6 +212,7 @@ const ManageContent = () => {
       setOffers(offersRes.data.items || []);
       setBrands(brandsRes.data.items || []);
       setCategories(categoriesRes.data.items || []);
+      setWhatsappNumber(whatsappRes?.data?.item?.value || '');
       
       await fetchProducts();
     } catch (error) {
@@ -487,6 +493,40 @@ const ManageContent = () => {
     }
   };
 
+  // ========== WHATSAPP HANDLERS ==========
+  const handleSaveWhatsapp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setLoadingSubmit(true);
+    try {
+      const headers = getAuthHeaders();
+      await api.put('/content/whatsapp', { number: whatsappNumber }, { headers });
+      toast.success('Número do WhatsApp salvo com sucesso');
+      await loadData();
+    } catch (error: any) {
+      console.error('Erro ao salvar WhatsApp:', error);
+      toast.error(error.response?.data?.error || 'Erro ao salvar WhatsApp');
+    } finally {
+      setLoadingSubmit(false);
+    }
+  };
+
+  const handleDeleteWhatsapp = async () => {
+    if (!confirm('Remover número do WhatsApp?')) return;
+    setLoadingSubmit(true);
+    try {
+      const headers = getAuthHeaders();
+      await api.delete('/content/whatsapp', { headers });
+      toast.success('Número removido');
+      setWhatsappNumber('');
+      await loadData();
+    } catch (error: any) {
+      console.error('Erro ao remover WhatsApp:', error);
+      toast.error(error.response?.data?.error || 'Erro ao remover WhatsApp');
+    } finally {
+      setLoadingSubmit(false);
+    }
+  };
+
   return (
     <PrivateRoute requiredRole="ADMIN">
       <div className="min-h-screen bg-palette-fill p-4 md:p-8">
@@ -529,9 +569,48 @@ const ManageContent = () => {
             </div>
           )}
 
+          {/* WHATSAPP TAB */}
+          {activeTab === 'whatsapp' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="bg-palette-card rounded-lg p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-palette-base mb-4">Número de WhatsApp</h2>
+                <form onSubmit={handleSaveWhatsapp} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-palette-base mb-2">Número (inclua código do país)</label>
+                    <input
+                      type="text"
+                      value={whatsappNumber}
+                      onChange={(e) => setWhatsappNumber(e.target.value)}
+                      placeholder="+5511999999999"
+                      className="w-full px-4 py-2 border border-palette-primary rounded-lg bg-palette-fill text-palette-base placeholder-palette-mute focus:outline-none focus:ring-2 focus:ring-palette-primary transition"
+                    />
+                    <p className="text-xs text-palette-mute mt-1">Número usado no rodapé e páginas de contato.</p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button type="submit" disabled={loadingSubmit} className="px-6 py-2 bg-palette-primary text-white rounded-lg hover:opacity-90 transition disabled:opacity-50">
+                      {loadingSubmit ? 'Salvando...' : 'Salvar'}
+                    </button>
+                    <button type="button" onClick={handleDeleteWhatsapp} disabled={loadingSubmit} className="px-6 py-2 border border-palette-primary rounded-lg text-palette-base hover:bg-palette-card transition">
+                      Remover
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              <div className="bg-palette-card rounded-lg p-6 shadow-sm">
+                <h2 className="text-xl font-bold text-palette-base mb-4">Visualização</h2>
+                <p className="text-palette-mute">Número atual: <span className="font-semibold text-palette-base">{whatsappNumber || 'Não configurado'}</span></p>
+                <div className="mt-4">
+                  <p className="text-xs text-palette-mute">Use este número nos templates de contato ou no rodapé.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Tabs */}
           <div className="flex gap-2 mb-8 border-b border-palette-primary overflow-x-auto">
-            {(['banners', 'carousel', 'offers', 'brands', 'categories'] as TabType[]).map((tab) => (
+            {(['banners', 'carousel', 'offers', 'brands', 'categories', 'whatsapp'] as TabType[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => {

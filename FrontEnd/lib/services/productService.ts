@@ -105,11 +105,15 @@ class ProductService {
 
   async getNewestProducts(limit: number = 10): Promise<Product[]> {
     try {
-      console.log('🚀 getNewestProducts (using /products endpoint)', { limit });
-      // Use the same endpoint as the /products page to keep response shape consistent
-      const response = await axiosInstance.get(`/products?page=1&limit=${limit}`);
-      // response.data has shape { items, total, page, limit }
-      const items = response.data?.items || [];
+      // Use the dedicated newest endpoint which returns { items }
+      // Use fetch to avoid axios interceptors that add Authorization headers
+      const resp = await fetch(`/api/products/newest?limit=${limit}`, { method: 'GET', credentials: 'same-origin' });
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`getNewestProducts failed ${resp.status}: ${text}`);
+      }
+      const data = await resp.json();
+      const items = data?.items || [];
       console.log('✅ getNewestProducts items count:', items.length);
       return items;
     } catch (error: any) {

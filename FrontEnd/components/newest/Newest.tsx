@@ -34,7 +34,20 @@ const Newest: React.FC = () => {
         // para obter todos os produtos para renderização no componente.
         // Não requer autorização.
         const resp = await productService.getProducts({ page: 1, limit: 1000 });
-        const items = resp?.items || [];
+        let items = resp?.items || [];
+        console.log('Newest - productService.getProducts resp:', { resp });
+
+        // fallback: se a lista vier vazia por qualquer razão, tentar endpoint específico de newest
+        if ((!items || items.length === 0)) {
+          try {
+            console.warn('Newest - no items from getProducts, trying getNewestProducts fallback');
+            const fallback = await productService.getNewestProducts(100);
+            items = fallback || [];
+            console.log('Newest - fallback getNewestProducts items count:', items.length);
+          } catch (fbErr) {
+            console.warn('Newest - fallback getNewestProducts failed', fbErr);
+          }
+        }
         // fetch active offers and merge discount into products
         let offers: any[] = [];
         try {

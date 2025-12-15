@@ -34,6 +34,19 @@ const CartItem: React.FC<Props> = ({ product }) => {
       ? product.image[0]
       : "/images/default-product.jpg";
 
+  console.log('🛒 CartItem product:', {
+    name: product.name,
+    imageUrl,
+    images: product.image,
+    imageType: typeof product.image,
+    isArray: Array.isArray(product.image),
+  });
+
+  // Debug: imprimir o produto inteiro quando houver problemas
+  if (!imageUrl || imageUrl === '/images/default-product.jpg') {
+    console.warn('⚠️ CartItem - Sem imagem para produto:', product.name, product);
+  }
+
   function increment(product: IProduct) {
     setCounter((prev) => ++prev!);
     // atualizar local + persistir no backend quando autenticado
@@ -94,13 +107,22 @@ const CartItem: React.FC<Props> = ({ product }) => {
             <Link href={productUrl}>
               <a className="flex flex-wrap sm:flex-nowrap justify-center items-center flex-grow">
                 <div className="sm:min-w-[100px] md:min-w-[130px]">
-                  <Image
-                    src={imageUrl}
-                    width={200}
-                    height={200}
-                    alt={product.name}
-                    className="object-contain"
-                  />
+                  {typeof imageUrl === 'string' && imageUrl.startsWith('http') ? (
+                    <img
+                      src={imageUrl}
+                      alt={product.name}
+                      className="object-contain max-w-[150px] max-h-[150px]"
+                    />
+                  ) : (
+                    <Image
+                      src={imageUrl}
+                      width={150}
+                      height={150}
+                      alt={product.name}
+                      className="object-contain"
+                      style={{ maxWidth: '150px', maxHeight: '150px' }}
+                    />
+                  )}
                 </div>
                 <div
                   className="flex-grow text-sm font-normal mb-2 sm:mb-0 mx-2 w-full"

@@ -10,6 +10,7 @@ interface Props {
 }
 
 const Card: React.FC<Props> = ({ product }) => {
+  console.log('🎯 Card - product discount:', product.discount);
   const category = product.category && product.category.length > 0 ? product.category[0] : "categoria";
   const subCategory = product.subCategory ? product.subCategory : "all";
   const titleSlug = product.name ? product.name.replace(/\s+/g, "-").toLowerCase() : product.slug?.current || product.id;
@@ -22,10 +23,10 @@ const Card: React.FC<Props> = ({ product }) => {
     <div className="shadow-xl my-1 md:my-4 bg-palette-card rounded-xl flex flex-col relative min-h-[340px] min-w-[220px] max-w-[320px] max-h-[420px] w-full overflow-hidden">
       <Link href={productUrl}>
         <a className="flex flex-col items-center relative w-full h-full">
-          <div className="w-full relative bg-slate-400/30 px-1 md:px-6 py-2 rounded-t-xl flex flex-col justify-between items-center min-h-[300px] max-h-[300px]">
-            <div className="flex items-center h-full w-full justify-center min-h-[280px] max-h-[300px] relative">
+          <div className="w-full relative bg-slate-400/30 px-1 md:px-6 py-2 rounded-t-xl flex flex-col justify-between items-center min-h-[220px] max-h-[260px] md:min-h-[300px] md:max-h-[300px]">
+            <div className="flex items-center h-full w-full justify-center min-h-[200px] max-h-[260px] md:min-h-[280px] md:max-h-[300px] relative">
               {/* Badge de desconto: posicionado dentro do container da imagem para não vazar */}
-              {product?.discount ? (
+              {product?.discount !== null && product?.discount !== undefined && product?.discount > 0 ? (
                 <span className="absolute top-3 right-3 z-20 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center">
                   <Image
                     src="/images/discount-icon/discount.webp"

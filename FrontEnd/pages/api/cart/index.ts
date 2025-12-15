@@ -21,7 +21,10 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
       // Se o produto não existir mais no banco, removemos o cartItem (limpeza) e não o incluímos na resposta.
       const mappedItemsRaw = await Promise.all(
         cart.items.map(async (it) => {
-          const product = await prisma.product.findUnique({ where: { id: it.productId } });
+          const product = await prisma.product.findUnique({ 
+            where: { id: it.productId },
+            include: { images: true }  // Adicionar include para garantir que as imagens vêm
+          });
           if (!product) {
             // cleanup stale cartItem pointing to removed product
             try {
@@ -39,14 +42,21 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
             name: product.name,
             slug: { _type: 'slug', current: product.id },
             price: product.price,
-            discount: null,
+            discount: (product as any).discount || null,
             brand: product.brandId ? '' : '',
             category: product.categoryId ? [product.categoryId] : [],
+            subCategory: null,
             starRating: product.rating || 0,
             isOffer: product.isOffer || false,
             details: [],
             registerDate: product.createdAt ? new Date(product.createdAt).toISOString() : null,
           };
+
+          console.log(`[Cart API] Product ${product.name}:`, {
+            hasImages: Array.isArray(product.images),
+            imageCount: product.images?.length || 0,
+            images: product.images?.map((img: any) => img.url) || [],
+          });
 
           return {
             ...productMap,

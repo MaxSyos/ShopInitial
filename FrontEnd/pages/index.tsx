@@ -82,11 +82,11 @@ const Home: NextPage = () => {
     <div>
       <Carousel />
       <Benefits />
-      <Offers />
-      <Category />
+      {/* <Offers /> */}
+      {/* <Category /> */}
       <Newest />
       <Banners />
-      <Brands />
+      {/* <Brands /> */}
     </div>
   );
 };
