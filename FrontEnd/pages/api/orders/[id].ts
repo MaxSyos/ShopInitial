@@ -79,7 +79,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             quantity: it.quantity,
             unitPrice: it.unitPrice,
             total: it.total,
-            product: it.product || null
+            product: it.product ? {
+              id: it.product.id,
+              name: it.product.name,
+              image: it.product.image,
+              images: it.product.images
+            } : null
           }));
         }
       } catch (e) {
@@ -124,7 +129,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             quantity: it.quantity,
             unitPrice: it.unitPrice,
             total: it.total,
-            product: it.product || null
+            product: it.product ? {
+              id: it.product.id,
+              name: it.product.name,
+              image: it.product.image,
+              images: it.product.images
+            } : null
           }))
         }
       };

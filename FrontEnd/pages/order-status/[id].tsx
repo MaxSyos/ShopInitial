@@ -26,6 +26,13 @@ interface OrderData {
     price: number;
     unitPrice?: number | null;
     total?: number;
+    productId?: string;
+    product?: {
+      id: string;
+      name: string;
+      image?: string;
+      images?: Array<{ url: string }>;
+    } | null;
   }>;
   shippingAddress: {
     street: string;
@@ -126,7 +133,12 @@ const OrderStatusPage: React.FC = () => {
           price: (it.unitPrice ?? it.price ?? (it.total && it.quantity ? (it.total / it.quantity) : 0)),
           unitPrice: it.unitPrice ?? it.price ?? null,
           total: it.total ?? ((it.unitPrice ?? it.price ?? 0) * (it.quantity ?? 0)),
-          product: it.product || null
+          product: it.product ? {
+            id: it.product.id,
+            name: it.product.name,
+            image: it.product.image,
+            images: it.product.images
+          } : null
         })),
         shippingAddress: resolvedOrder?.shippingAddress || {},
         payment: {
@@ -448,17 +460,48 @@ const OrderStatusPage: React.FC = () => {
               <div className="bg-palette-card p-6 rounded-lg shadow-md">
                 <h2 className="text-xl font-semibold mb-4">Produtos</h2>
                   <div className="space-y-4">
-                  {(orderData.items || []).map((item) => (
-                    <div key={item.id} className="flex items-center justify-between border-b pb-4">
-                      <div className="flex-1">
-                        <p className="font-medium">{item.productName}</p>
-                        <p className="text-sm text-palette-mute">Quantidade: {item.quantity}</p>
-                        {/* mostrar preço unitário se disponível */}
-                        <p className="text-sm text-palette-mute">Preço unitário: R$ {Number(item.price ?? item.unitPrice ?? 0).toFixed(2)}</p>
+                  {(orderData.items || []).map((item) => {
+                    // Extrair URL da imagem (pode estar em product.image ou product.images[0])
+                    let imageUrl: string | null = null;
+                    if (item.product?.image) {
+                      imageUrl = item.product.image;
+                    } else if (item.product?.images && Array.isArray(item.product.images) && item.product.images.length > 0) {
+                      imageUrl = item.product.images[0].url;
+                    }
+
+                    return (
+                      <div key={item.id} className="flex items-center gap-4 border-b pb-4">
+                        {/* Miniatura da imagem */}
+                        <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
+                          {imageUrl ? (
+                            <img 
+                              src={imageUrl}
+                              alt={item.productName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs text-center px-1">
+                              Sem imagem
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Informações do produto */}
+                        <div className="flex-1">
+                          <p className="font-medium">{item.productName}</p>
+                          <p className="text-sm text-palette-mute">Quantidade: {item.quantity}</p>
+                          {/* mostrar preço unitário se disponível */}
+                          <p className="text-sm text-palette-mute">Preço unitário: R$ {Number(item.price ?? item.unitPrice ?? 0).toFixed(2)}</p>
+                        </div>
+
+                        {/* Preço total do item */}
+                        <p className="font-medium whitespace-nowrap">R$ {Number((item.price ?? item.unitPrice ?? 0) * (item.quantity ?? 0)).toFixed(2)}</p>
                       </div>
-                      <p className="font-medium">R$ {Number((item.price ?? item.unitPrice ?? 0) * (item.quantity ?? 0)).toFixed(2)}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="border-t pt-4 mt-4">
                   <div className="flex justify-between font-bold text-lg">

@@ -5,6 +5,7 @@ import { useLanguage } from '../hooks/useLanguage';
 import { IUserInfoRootState } from '../lib/types/user';
 import { toast } from 'react-toastify';
 import api from '../lib/axiosClient';
+import tokenStore from '../lib/tokenStore';
 import Breadcrumb from '../components/UI/Breadcrumb';
 import Benefits from '../components/Benefits';
 import PrivateRoute from '../components/auth/PrivateRoute';
@@ -74,18 +75,27 @@ const ManageOrdersPage: React.FC = () => {
       return;
     }
 
-    fetchOrders();
+    // ✅ Adicionar delay pequeno para garantir que o token está pronto no tokenStore
+    const timer = setTimeout(() => {
+      fetchOrders();
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [userInfo]);
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
+      const token = tokenStore.getToken();
+      console.log('[ManageOrders] Token in tokenStore:', token ? `present (${token.substring(0, 20)}...)` : 'MISSING');
+      console.log('[ManageOrders] Fetching orders from /admin/orders...');
       const response = await api.get('/admin/orders');
+      console.log('[ManageOrders] Orders fetched successfully:', response.data?.length || 0, 'orders');
       const data = Array.isArray(response.data) ? response.data : response.data.orders || [];
       setOrders(data);
     } catch (error: any) {
-      console.error('Erro ao buscar pedidos:', error);
-      toast.error('Erro ao carregar pedidos');
+      console.error('[ManageOrders] Error fetching orders:', error?.response?.status, error?.response?.data || error?.message);
+      toast.error('Erro ao carregar pedidos: ' + (error?.response?.data?.error || error?.message));
     } finally {
       setLoading(false);
     }

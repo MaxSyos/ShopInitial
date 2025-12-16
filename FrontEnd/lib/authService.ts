@@ -24,9 +24,11 @@ export const authService = {
         accessToken: data.accessToken,
       };
       // Save accessToken in memory and userInfo in localStorage
+      console.log('[AuthService] login -> storing token:', data.accessToken.substring(0, 15) + '...');
       tokenStore.setToken(data.accessToken);
       if (typeof window !== 'undefined') {
         localStorage.setItem('userInfo', JSON.stringify(userData));
+        console.log('[AuthService] login -> saved userInfo to localStorage');
       }
 
       return { user: userData, accessToken: data.accessToken };
@@ -48,9 +50,11 @@ export const authService = {
       if (!res.ok) throw new Error(data?.message || 'Erro no registro');
 
       // Save accessToken in memory and userInfo in localStorage
+      console.log('[AuthService] register -> storing token:', data.accessToken.substring(0, 15) + '...');
       tokenStore.setToken(data.accessToken);
       if (typeof window !== 'undefined') {
         localStorage.setItem('userInfo', JSON.stringify({ _id: data.user.id, name: data.user.name, email: data.user.email, isAdmin: data.user.role === 'ADMIN', role: data.user.role, accessToken: data.accessToken }));
+        console.log('[AuthService] register -> saved userInfo to localStorage');
       }
       return data;
     } catch (err: any) {
@@ -73,6 +77,7 @@ export const authService = {
       if (!res.ok) throw new Error(data?.message || 'Erro ao atualizar token');
 
       // update in-memory access token and cached userInfo
+      console.log('[AuthService] refreshToken -> storing new token:', data.accessToken.substring(0, 15) + '...');
       tokenStore.setToken(data.accessToken);
       if (typeof window !== 'undefined') {
         const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');

@@ -26,10 +26,14 @@ export function verifyToken(token: string) {
 export async function getUserFromRequest(req: NextApiRequest) {
   const auth = req.headers.authorization || '';
   console.log('getUserFromRequest -> Authorization header present:', !!auth);
+  console.log('getUserFromRequest -> Authorization header value:', auth ? auth.substring(0, 20) + '...' : 'VAZIO');
+  console.log('getUserFromRequest -> All headers:', Object.keys(req.headers));
   
   const token = auth.startsWith('Bearer ') ? auth.substring(7) : null;
   if (!token) {
     console.log('getUserFromRequest -> no Bearer token found');
+    console.log('getUserFromRequest -> auth value:', auth);
+    console.log('getUserFromRequest -> auth.startsWith("Bearer "):', auth.startsWith('Bearer '));
     return null;
   }
 

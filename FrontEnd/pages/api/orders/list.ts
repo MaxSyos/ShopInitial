@@ -3,8 +3,19 @@ import { getUserFromRequest } from '../_utils/auth';
 import prisma from '../../../lib/prisma';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  console.log('===== [Orders List API] Request received =====');
+  console.log('[Orders List API] Method:', req.method);
+  console.log('[Orders List API] URL:', req.url);
+  console.log('[Orders List API] Authorization header:', req.headers.authorization ? `present (${req.headers.authorization.substring(0, 20)}...)` : '❌ missing');
+  console.log('[Orders List API] All headers keys:', Object.keys(req.headers).join(', '));
+  
   const user = await getUserFromRequest(req);
-  if (!user) return res.status(401).json({ error: 'Não autorizado' });
+  if (!user) {
+    console.error('[Orders List API] ❌ User not authenticated - returning 401');
+    return res.status(401).json({ error: 'Não autorizado' });
+  }
+
+  console.log('[Orders List API] ✅ User authenticated:', user.id);
 
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Método não permitido' });
@@ -55,7 +66,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         quantity: it.quantity,
         unitPrice: it.unitPrice,
         total: it.total,
-        product: it.product || null
+        product: it.product ? {
+          id: it.product.id,
+          name: it.product.name,
+          image: it.product.image,
+          images: it.product.images
+        } : null
       }))
     }));
 

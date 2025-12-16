@@ -11,6 +11,8 @@ import { getError } from "../utilities/error";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { authService } from "../lib/authService";
+import tokenStore from "../lib/tokenStore";
+
 const Login: NextPage = () => {
   const dispatch = useDispatch();
   const router = useRouter();
@@ -25,6 +27,15 @@ const Login: NextPage = () => {
   }, [userInfo, router]);
   async function LoginHandler(userData: IUser) {
     try {
+      // ✅ Armazenar token no tokenStore para que o axiosClient consiga acessar
+      if (userData.accessToken) {
+        console.log('[Login Page] LoginHandler -> storing token:', userData.accessToken.substring(0, 15) + '...');
+        tokenStore.setToken(userData.accessToken);
+        console.log('[Login Page] Token stored in tokenStore');
+      } else {
+        console.warn('[Login Page] ⚠️ userData.accessToken is empty!');
+      }
+
       // Atualiza estado de usuário e cache local
       dispatch(userInfoActions.userLogin(userData));
       jsCookie.set("userInfo", JSON.stringify(userData));

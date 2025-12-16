@@ -5,6 +5,7 @@ import { useLanguage } from '../../hooks/useLanguage';
 import { IUserInfoRootState } from '../../lib/types/user';
 import { toast } from 'react-toastify';
 import api from '../../lib/axiosClient';
+import tokenStore from '../../lib/tokenStore';
 
 interface Order {
   id: string;
@@ -54,19 +55,30 @@ const Orders: React.FC = () => {
       return;
     }
 
-    fetchOrders(currentPage);
-
-    // Polling automático a cada 30 segundos para refletir mudanças feitas no admin
-    const pollInterval = setInterval(() => {
+    // ✅ Adicionar delay pequeno para garantir que o token está pronto no tokenStore
+    const timer = setTimeout(() => {
       fetchOrders(currentPage);
-    }, 30000);
 
-    return () => clearInterval(pollInterval);
+      // Polling automático a cada 30 segundos para refletir mudanças feitas no admin
+      const pollInterval = setInterval(() => {
+        fetchOrders(currentPage);
+      }, 30000);
+
+      return () => clearInterval(pollInterval);
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [userInfo, currentPage]);
 
   const fetchOrders = async (page: number) => {
     setLoading(true);
     try {
+      const token = tokenStore.getToken();
+      console.log('===== [Orders Component] fetchOrders called =====');
+      console.log('[Orders Component] Current page:', page);
+      console.log('[Orders Component] Token in tokenStore:', token ? `present (${token.substring(0, 20)}...)` : '❌ MISSING');
+      console.log('[Orders Component] UserInfo:', userInfo ? `present (id: ${userInfo._id})` : '❌ MISSING');
+      console.log('[Orders Component] Fetching from /orders/list...');
       const response = await api.get('/orders/list', {
         params: {
           page,
@@ -74,19 +86,22 @@ const Orders: React.FC = () => {
         }
       });
 
+      console.log('[Orders Component] ✅ Orders fetched successfully');
       const data = response.data || {};
       setOrders(data.orders || []);
       setPagination(data.pagination || null);
       try {
         const debugArr = (data.orders || []).map((o: { id: string; status: string; paymentStatus: string; isDelivered?: boolean }) => ({ id: o.id, status: o.status, paymentStatus: o.paymentStatus, isDelivered: o.isDelivered }));
-        // eslint-disable-next-line no-console
         console.debug('DEBUG: fetched orders:', debugArr);
       } catch (e) {
         // ignore
       }
     } catch (error: any) {
-      console.error('Erro ao buscar pedidos:', error);
-      toast.error('Erro ao carregar seus pedidos');
+      console.error('===== [Orders Component] ❌ Error fetching orders =====');
+      console.error('[Orders Component] Error status:', error?.response?.status);
+      console.error('[Orders Component] Error data:', error?.response?.data);
+      console.error('[Orders Component] Error message:', error?.message);
+      toast.error('Erro ao carregar seus pedidos: ' + (error?.response?.data?.error || error?.message));
       setOrders([]);
     } finally {
       setLoading(false);

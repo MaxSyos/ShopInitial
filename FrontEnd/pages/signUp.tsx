@@ -9,6 +9,8 @@ import { getError } from "../utilities/error";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { IUserInfoRootState } from "../lib/types/user";
+import tokenStore from "../lib/tokenStore";
+
 const SignUp: NextPage = () => {
   const dispatch = useDispatch();
   const router = useRouter();
@@ -23,28 +25,18 @@ const SignUp: NextPage = () => {
     }
   }, [userInfo, redirect, router]);
   async function signUpHandler(user: IUser) {
-    // return null;
-    // const { name, email, password } = user;
-    // try {
-    //   const { data } = await axios.post("/api/users/register", {
-    //     name,
-    //     email,
-    //     password,
-    //   });
-    //   console.log("chegando aqui", data);
-    //   dispatch(userInfoActions.userLogin(data));
-    //   jsCookie.set("userInfo", JSON.stringify(data));
-    //   router.push("/");
-    // } catch (err: any) {
-    //   /* sanity.io is boycott for the people from Iran so I set cookies for whom don't use VPN in Iran*/
-    //   if (err.response.data.status == 500) {
-    //     dispatch(userInfoActions.userLogin(user));
-    //     jsCookie.set("userInfo", JSON.stringify(user));
-    //   }
-    //   setErrorMessage(getError(err));
-    //   console.log(getError(err));
-    //   // router.push("/");
-    // }
+    // ✅ Armazenar token no tokenStore para que o axiosClient consiga acessar
+    if (user.accessToken) {
+      console.log('[SignUp Page] signUpHandler -> storing token:', user.accessToken.substring(0, 15) + '...');
+      tokenStore.setToken(user.accessToken);
+      console.log('[SignUp Page] Token stored in tokenStore');
+    } else {
+      console.warn('[SignUp Page] ⚠️ user.accessToken is empty!');
+    }
+
+    // Atualiza estado de usuário e cache local
+    dispatch(userInfoActions.userLogin(user));
+    jsCookie.set("userInfo", JSON.stringify(user));
   }
   return (
     <EnteringBox

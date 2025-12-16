@@ -2,6 +2,27 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getUserFromRequest } from './_utils/auth';
 import prisma from '../../lib/prisma';
 
+// Helper para formatar order com dados de imagem dos produtos
+function formatOrderWithImages(order: any) {
+  return {
+    ...order,
+    items: (order.items || []).map((it: any) => ({
+      id: it.id,
+      productId: it.productId,
+      productName: it.product?.name || it.productName || '',
+      quantity: it.quantity,
+      unitPrice: it.unitPrice,
+      total: it.total,
+      product: it.product ? {
+        id: it.product.id,
+        name: it.product.name,
+        image: it.product.image,
+        images: it.product.images
+      } : null
+    }))
+  };
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // autenticação via token Bearer (helper local)
   const user = await getUserFromRequest(req);
@@ -94,7 +115,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
   // Recuperar pedido local com items para retornar ao frontend
-  const localOrder = await prisma.order.findUnique({ where: { id: createdOrder.id }, include: { items: true } });
+  const localOrder = await prisma.order.findUnique({ where: { id: createdOrder.id }, include: { items: { include: { product: true } } } });
+  const formattedOrder = formatOrderWithImages(localOrder);
 
       // Forward para API upstream — somente se a variável de ambiente apontar para um serviço externo
       const upstream = process.env.NEXT_PUBLIC_API_URL || '';
@@ -118,7 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const text = await response.text().catch(() => null);
             console.error('Erro ao criar pedido (upstream):', text);
             // Retornar o pedido local criado para o frontend, mas sinalizar que upstream falhou
-            return res.status(200).json({ id: localOrder?.id || createdOrder.id, localOrder, warning: 'Pedido criado localmente, mas falha ao criar no serviço upstream' });
+            return res.status(200).json({ id: formattedOrder?.id || createdOrder.id, localOrder: formattedOrder, warning: 'Pedido criado localmente, mas falha ao criar no serviço upstream' });
           }
 
           const data = await response.json();
@@ -131,15 +153,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
 
           // Retornar ambos: id (preferindo external.id), dados upstream e o pedido local completo
-          return res.status(200).json({ id: data?.id || localOrder?.id || createdOrder.id, external: data, localOrder });
+          return res.status(200).json({ id: data?.id || formattedOrder?.id || createdOrder.id, external: data, localOrder: formattedOrder });
         } catch (e) {
           console.error('Erro ao conectar com upstream:', e);
-          return res.status(200).json({ id: localOrder?.id || createdOrder.id, localOrder, warning: 'Pedido criado localmente; falha ao conectar com upstream' });
+          return res.status(200).json({ id: formattedOrder?.id || createdOrder.id, localOrder: formattedOrder, warning: 'Pedido criado localmente; falha ao conectar com upstream' });
         }
       }
 
       // Se não vamos encaminhar para upstream (ambiente local), apenas retornar o pedido local
-      return res.status(200).json({ id: localOrder?.id || createdOrder.id, localOrder, info: 'Pedido criado localmente (sem forward para upstream em ambiente local)'});
+      return res.status(200).json({ id: formattedOrder?.id || createdOrder.id, localOrder: formattedOrder, info: 'Pedido criado localmente (sem forward para upstream em ambiente local)'});
     } catch (error) {
       console.error('Error:', error);
       res.status(500).json({ error: 'Erro interno do servidor' });
