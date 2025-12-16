@@ -21,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // @ts-ignore prisma typings
     const order = await prisma.order.findFirst({
       where: { AND: [{ userId: user.id }, whereClause] },
-      include: { items: { include: { product: true } } }
+      include: { items: { include: { product: { include: { images: true } } } } }
     });
     return order;
   };
@@ -70,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
       // tentar incluir items se existirem
       try {
-        const refreshed = await prisma.order.findUnique({ where: { id: updated.id }, include: { items: { include: { product: true } } } });
+        const refreshed = await prisma.order.findUnique({ where: { id: updated.id }, include: { items: { include: { product: { include: { images: true } } } } } });
         if (refreshed) {
           response.order.items = (refreshed.items || []).map((it: any) => ({
             id: it.id,
@@ -82,7 +82,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             product: it.product ? {
               id: it.product.id,
               name: it.product.name,
-              image: it.product.image,
+              image: it.product.images && it.product.images.length > 0 ? it.product.images[0].url : null,
               images: it.product.images
             } : null
           }));
@@ -132,7 +132,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             product: it.product ? {
               id: it.product.id,
               name: it.product.name,
-              image: it.product.image,
+              image: it.product.images && it.product.images.length > 0 ? it.product.images[0].url : null,
               images: it.product.images
             } : null
           }))

@@ -307,6 +307,9 @@ const PaymentPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Erro ao verificar status do pagamento:', error);
+    } finally {
+      // Sempre fazer refresh da página após verificar o status
+      router.reload();
     }
   };
 
@@ -398,7 +401,7 @@ const PaymentPage: React.FC = () => {
                           type="text"
                           value={paymentData.pixCode}
                           readOnly
-                          className="flex-1 p-3 border border-gray-300 rounded-lg bg-gray-50 text-sm"
+                          className="flex-1 p-3 border border-gray-300 rounded-lg bg-palette-fill text-sm dark:border-gray-600 dark:text-gray-300"
                         />
                         <button
                           onClick={copyPixCode}

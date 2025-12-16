@@ -17,7 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const orders = await prisma.order.findMany({
         include: {
           user: { select: { id: true, name: true, email: true } },
-          items: { include: { product: true } }
+          items: { include: { product: { include: { images: true } } } }
         },
         orderBy: { createdAt: 'desc' }
       });
@@ -92,7 +92,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         data: updateData,
         include: {
           user: { select: { id: true, name: true, email: true } },
-          items: { include: { product: true } }
+          items: { include: { product: { include: { images: true } } } }
         }
       });
 

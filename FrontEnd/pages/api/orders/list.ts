@@ -30,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Buscar ordens do usuário com paginação
     const orders = await prisma.order.findMany({
       where: { userId: user.id },
-      include: { items: { include: { product: true } } },
+      include: { items: { include: { product: { include: { images: true } } } } },
       orderBy: { createdAt: 'desc' },
       skip,
       take: limit
@@ -69,7 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         product: it.product ? {
           id: it.product.id,
           name: it.product.name,
-          image: it.product.image,
+          image: it.product.images && it.product.images.length > 0 ? it.product.images[0].url : null,
           images: it.product.images
         } : null
       }))
