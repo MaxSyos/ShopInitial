@@ -50,18 +50,18 @@ const Card: React.FC<Props> = ({ product }) => {
 
           <div className="flex flex-col justify-between flex-grow w-full px-1 md:px-3 py-2 md:py-4">
             <div className="flex justify-center flex-col flex-grow overflow-hidden">
-              {/* <div className="self-center">
+              <div className="self-center">
                 <div className="flex items-center">
                   {[...Array(5)].map((_, index) => (
                     <span
                       key={index}
-                      className={`text-xl ${index < (product.starRating || 0) ? "text-yellow-400" : "text-gray-300"}`}
+                      className="text-xl text-yellow-400"
                     >
                       ★
                     </span>
                   ))}
                 </div>
-              </div> */}
+              </div>
 
               <h3 className="text-base sm:text-sm md:text-lg text-center text-palette-mute font-medium truncate">
                 {product.name}
