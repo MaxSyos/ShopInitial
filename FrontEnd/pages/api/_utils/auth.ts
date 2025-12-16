@@ -24,46 +24,58 @@ export function verifyToken(token: string) {
 }
 
 export async function getUserFromRequest(req: NextApiRequest) {
-  const auth = req.headers.authorization || '';
-  console.log('getUserFromRequest -> Authorization header present:', !!auth);
-  console.log('getUserFromRequest -> Authorization header value:', auth ? auth.substring(0, 20) + '...' : 'VAZIO');
-  console.log('getUserFromRequest -> All headers:', Object.keys(req.headers));
-  
-  const token = auth.startsWith('Bearer ') ? auth.substring(7) : null;
-  if (!token) {
-    console.log('getUserFromRequest -> no Bearer token found');
-    console.log('getUserFromRequest -> auth value:', auth);
-    console.log('getUserFromRequest -> auth.startsWith("Bearer "):', auth.startsWith('Bearer '));
-    return null;
+  const anyReq: any = req;
+
+  // Retornar user já resolvido nesta mesma requisição (evita múltiplas verificações)
+  if (anyReq._cachedUser) {
+    if (process.env.DEBUG_AUTH) console.log('getUserFromRequest -> returning cached user id:', anyReq._cachedUser.id);
+    return anyReq._cachedUser;
   }
 
-  console.log('getUserFromRequest -> token received (first 50 chars):', token.substring(0, 50));
+  const auth = req.headers.authorization || '';
+  const debug = !!process.env.DEBUG_AUTH;
+  if (debug) {
+    console.log('getUserFromRequest -> Authorization header present:', !!auth);
+    console.log('getUserFromRequest -> Authorization header value:', auth ? auth.substring(0, 20) + '...' : 'VAZIO');
+    console.log('getUserFromRequest -> All headers:', Object.keys(req.headers));
+  } else {
+    console.log('getUserFromRequest -> Authorization header present:', !!auth);
+  }
+
+  const token = auth.startsWith('Bearer ') ? auth.substring(7) : null;
+  if (!token) {
+    if (debug) {
+      console.log('getUserFromRequest -> no Bearer token found');
+      console.log('getUserFromRequest -> auth value:', auth);
+      console.log('getUserFromRequest -> auth.startsWith("Bearer "):', auth.startsWith('Bearer '));
+    }
+    return null;
+  }
+  if (debug) console.log('getUserFromRequest -> token received (first 50 chars):', token.substring(0, 50));
 
   const decoded: any = verifyToken(token);
-  
   if (!decoded) {
-    console.log('getUserFromRequest -> token verification failed (returned null)');
+    if (debug) console.log('getUserFromRequest -> token verification failed (returned null)');
     return null;
   }
 
   if (!decoded?.id) {
-    console.log('getUserFromRequest -> token valid but missing id field:', decoded);
+    if (debug) console.log('getUserFromRequest -> token valid but missing id field:', decoded);
     return null;
   }
 
-  console.log('getUserFromRequest -> token valid, user id:', decoded.id);
+  if (debug) console.log('getUserFromRequest -> token valid, user id:', decoded.id);
 
-  const user = await prisma.user.findUnique({
-    where: { id: decoded.id },
-  });
-
+  const user = await prisma.user.findUnique({ where: { id: decoded.id } });
   if (!user) {
-    console.log('getUserFromRequest -> user not found in database with id:', decoded.id);
+    if (debug) console.log('getUserFromRequest -> user not found in database with id:', decoded.id);
     return null;
   }
 
-  console.log('getUserFromRequest -> found user id:', user?.id ?? 'none');
+  if (debug) console.log('getUserFromRequest -> found user id:', user?.id ?? 'none');
 
+  // cache no objeto req para reuso durante o mesmo ciclo da requisição
+  anyReq._cachedUser = user;
   return user;
 }
 

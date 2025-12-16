@@ -33,6 +33,7 @@ const PaymentPage: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [orderId, setOrderId] = useState<string>('');
   const [shippingAddress, setShippingAddress] = useState<any>(null);
+  const isCheckingPaymentRef = React.useRef<boolean>(false);
 
   const userInfo = useSelector(
     (state: IUserInfoRootState) => state.userInfo.userInformation
@@ -117,9 +118,10 @@ const PaymentPage: React.FC = () => {
     let statusInterval: NodeJS.Timeout;
     
     if (paymentData?.id && paymentData.status === 'WAITING_PAYMENT') {
+      // verificar a cada 15 segundos em vez de 5s para reduzir chamadas API
       statusInterval = setInterval(() => {
         checkPaymentStatus();
-      }, 5000); // Verificar a cada 5 segundos
+      }, 15000);
     }
 
     return () => {
@@ -291,11 +293,10 @@ const PaymentPage: React.FC = () => {
   };
 
   const checkPaymentStatus = async () => {
-    if (!paymentData?.id) return;
+    if (!paymentData?.id || isCheckingPaymentRef.current) return;
 
+    isCheckingPaymentRef.current = true;
     try {
-      // Prefer in-memory token when checking status
-      const statusToken = tokenStore.getToken() || localStorage.getItem('token') || '';
       const response = await api.get(`/payments/${paymentData.id}/pix-status`);
 
       if (response.data.status === 'COMPLETED') {
@@ -308,8 +309,7 @@ const PaymentPage: React.FC = () => {
     } catch (error) {
       console.error('Erro ao verificar status do pagamento:', error);
     } finally {
-      // Sempre fazer refresh da página após verificar o status
-      router.reload();
+      isCheckingPaymentRef.current = false;
     }
   };
 

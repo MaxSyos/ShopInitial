@@ -34,18 +34,14 @@ const PaymentByIdPage: React.FC = () => {
   const [orderId, setOrderId] = useState<string>('');
   const [shippingAddress, setShippingAddress] = useState<any>(null);
   const [orderSummary, setOrderSummary] = useState<any | null>(null);
+  const lastFetchOrderRef = React.useRef<number>(0);
+  const isCheckingPaymentRef = React.useRef<boolean>(false);
 
   const userInfo = useSelector((state: IUserInfoRootState) => state.userInfo.userInformation);
   const cartItems = useSelector((state: ICartRootState) => state.cart.items);
   const totalAmount = useSelector((state: ICartRootState) => state.cart.totalAmount);
 
   useEffect(() => {
-    if (!userInfo) {
-      // redirecionar para login mantendo a rota atual
-      router.push(`/login?redirect=/payment/${id || ''}`);
-      return;
-    }
-
     // Recuperar endereço selecionado (pode ter sido salvo antes)
     const savedAddress = localStorage.getItem('selectedShippingAddress');
     if (savedAddress) setShippingAddress(JSON.parse(savedAddress));
@@ -124,9 +120,10 @@ const PaymentByIdPage: React.FC = () => {
     let statusInterval: NodeJS.Timeout;
 
     if (paymentData?.id && paymentData.status === 'WAITING_PAYMENT') {
+      // verificar a cada 15 segundos em vez de 5s para reduzir chamadas API
       statusInterval = setInterval(() => {
         checkPaymentStatus();
-      }, 5000);
+      }, 15000);
     }
 
     return () => {
@@ -233,6 +230,14 @@ const PaymentByIdPage: React.FC = () => {
   };
 
   const fetchOrderSummary = async (idToFetch: string) => {
+    // evitar chamadas duplicadas em menos de 5 segundos
+    const now = Date.now();
+    if (now - lastFetchOrderRef.current < 5000) {
+      console.log('Pulando fetchOrderSummary — chamada recente');
+      return;
+    }
+    lastFetchOrderRef.current = now;
+    
     try {
       const res = await api.get(`/orders/${idToFetch}`);
       const payload = res.data || {};
@@ -296,8 +301,9 @@ const PaymentByIdPage: React.FC = () => {
   };
 
   const checkPaymentStatus = async () => {
-    if (!paymentData?.id) return;
-
+    if (!paymentData?.id || isCheckingPaymentRef.current) return;
+    
+    isCheckingPaymentRef.current = true;
     try {
       const response = await api.get(`/payments/${paymentData.id}/pix-status`);
 
@@ -311,8 +317,7 @@ const PaymentByIdPage: React.FC = () => {
     } catch (error) {
       console.error('Erro ao verificar status do pagamento:', error);
     } finally {
-      // Sempre fazer refresh da página após verificar o status
-      router.reload();
+      isCheckingPaymentRef.current = false;
     }
   };
 

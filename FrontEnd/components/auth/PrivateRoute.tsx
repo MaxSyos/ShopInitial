@@ -23,7 +23,8 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({
       console.log('PrivateRoute: redirecting to', redirectTo, '(not authenticated)');
       router.replace({
         pathname: redirectTo,
-        query: { redirect: router.pathname }
+        // usar asPath para preservar params e query reais (ex: /payment/123)
+        query: { redirect: router.asPath }
       });
     }
 

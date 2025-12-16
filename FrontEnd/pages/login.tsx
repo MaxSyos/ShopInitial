@@ -22,7 +22,11 @@ const Login: NextPage = () => {
   });
   useEffect(() => {
     if (userInfo) {
-      router.push("/");
+      const rawRedirect = (router.query.redirect as string) || '/';
+      // Se o redirect vier como uma rota dinâmica template (ex: /payment/[id])
+      // não tentar interpolar — fallback para raiz
+      const redirect = rawRedirect.includes('[') || rawRedirect.includes(']') ? '/' : rawRedirect;
+      router.push(redirect);
     }
   }, [userInfo, router]);
   async function LoginHandler(userData: IUser) {
@@ -50,7 +54,9 @@ const Login: NextPage = () => {
         console.warn('fetchCart after login falhou:', e);
       }
 
-      await router.push("/");
+      const rawRedirect = (router.query.redirect as string) || '/';
+      const redirect = rawRedirect.includes('[') || rawRedirect.includes(']') ? '/' : rawRedirect;
+      await router.push(redirect);
     } catch (err: any) {
       setErrorMessage(getError(err));
       console.log(getError(err));
