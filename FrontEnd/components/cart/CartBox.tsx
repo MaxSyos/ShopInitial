@@ -48,7 +48,7 @@ const CartBox = () => {
           </span>
         </header>
         <hr className="mt-2" />
-        <div>
+        <div className="max-h-[20rem] overflow-y-auto">
           <>
             {cartItems.length ? (
               cartItems.map((item) => {

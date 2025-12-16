@@ -105,30 +105,29 @@ const CartItem: React.FC<Props> = ({ product }) => {
         return (
           <div className="lg:w-1/2 sm:min-w-[290px]">
             <Link href={productUrl}>
-              <a className="flex flex-wrap sm:flex-nowrap justify-center items-center flex-grow">
-                <div className="sm:min-w-[100px] md:min-w-[130px]">
+              <a className="flex items-center gap-3 p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
+                <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
                   {typeof imageUrl === 'string' && imageUrl.startsWith('http') ? (
                     <img
                       src={imageUrl}
                       alt={product.name}
-                      className="object-contain max-w-[150px] max-h-[150px]"
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <Image
                       src={imageUrl}
-                      width={150}
-                      height={150}
+                      width={96}
+                      height={96}
                       alt={product.name}
-                      className="object-contain"
-                      style={{ maxWidth: '150px', maxHeight: '150px' }}
+                      className="w-full h-full object-cover"
                     />
                   )}
                 </div>
                 <div
-                  className="flex-grow text-sm font-normal mb-2 sm:mb-0 mx-2 w-full"
+                  className="flex-grow text-sm font-normal min-w-0"
                   style={{ direction: "ltr" }}
                 >
-                  {product.name}
+                  <p className="truncate text-gray-900 dark:text-gray-100">{product.name}</p>
                 </div>
               </a>
             </Link>
