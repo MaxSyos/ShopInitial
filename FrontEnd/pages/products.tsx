@@ -6,11 +6,13 @@ import Breadcrumb from '../components/UI/Breadcrumb';
 import ProductCard from '../components/UI/card/Card';
 import { mapBackendProductsToIProducts } from '../utilities/mapBackendProduct';
 import Pagination from '../components/UI/Pagination';
+import { useDispatch } from 'react-redux';
 /* import SortSelect from '../components/UI/SortSelect'; */
 /* import FilterSidebar from '../components/UI/FilterSidebar'; */
 
 const ProductsPage: React.FC<{ initialProducts?: any }> = ({ initialProducts }) => {
   const { t } = useLanguage();
+  const dispatch = useDispatch();
   const { 
     products, 
     total, 
@@ -31,6 +33,7 @@ const ProductsPage: React.FC<{ initialProducts?: any }> = ({ initialProducts }) 
     categoryId: undefined,
     brandId: undefined,
   });
+  const [productsWithOffers, setProductsWithOffers] = useState<any[]>([]);
 
   useEffect(() => {
     // Carrega produtos com paginação e ordenação
@@ -42,6 +45,49 @@ const ProductsPage: React.FC<{ initialProducts?: any }> = ({ initialProducts }) 
       toast.error(error);
     }
   }, [error]);
+
+  // Buscar ofertas e aplicar descontos aos produtos
+  useEffect(() => {
+    const mergeOffers = async () => {
+      const itemsToProcess = Array.isArray(products?.items) && products.items.length > 0 
+        ? products.items 
+        : (initialProducts?.items || []);
+      
+      if (!Array.isArray(itemsToProcess) || itemsToProcess.length === 0) return;
+
+      try {
+        let offers: any[] = [];
+        try {
+          const offResp = await fetch('/api/content/offers');
+          if (offResp.ok) {
+            const offJson = await offResp.json();
+            offers = offJson?.items || [];
+          }
+        } catch (e) {
+          console.warn('ProductsPage - could not fetch offers', e);
+        }
+
+        const now = new Date();
+        const itemsWithOffers = (itemsToProcess as any[]).map((p) => {
+          const offer = offers.find((o: any) => o.productId === p.id && o.isActive);
+          if (offer) {
+            const start = offer.startDate ? new Date(offer.startDate) : null;
+            const end = offer.endDate ? new Date(offer.endDate) : null;
+            const valid = (!start || start <= now) && (!end || end >= now);
+            if (valid) return { ...p, discount: offer.discount, isOffer: true };
+          }
+          return { ...p, discount: (p as any).discount ?? null, isOffer: (p as any).isOffer ?? false };
+        });
+
+        setProductsWithOffers(itemsWithOffers);
+      } catch (err) {
+        console.error('ProductsPage - error merging offers:', err);
+        setProductsWithOffers(itemsToProcess);
+      }
+    };
+
+    mergeOffers();
+  }, [products?.items, initialProducts?.items]);
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
@@ -60,11 +106,12 @@ const ProductsPage: React.FC<{ initialProducts?: any }> = ({ initialProducts }) 
   };
 
   // Mapeia os produtos do backend para o formato do frontend
-  // Se não houver produtos no state (first load), usa initialProducts trazido do servidor
-  const backendItems = Array.isArray(products?.items) && products.items.length > 0 ? products.items : (initialProducts?.items || []);
-  const mappedProducts = Array.isArray(backendItems) ? mapBackendProductsToIProducts(backendItems) : [];
+  // Usa os produtos com ofertas já mescladas
+  const mappedProducts = Array.isArray(productsWithOffers) && productsWithOffers.length > 0 
+    ? mapBackendProductsToIProducts(productsWithOffers)
+    : [];
 
-  console.log('Produtos recebidos no componente:', products);
+  console.log('ProductsPage - produtos com ofertas:', productsWithOffers);
 
   if (loading && (!products?.items || products.items.length === 0)) {
     return (

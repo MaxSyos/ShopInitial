@@ -13,6 +13,7 @@ const SearchPage: React.FC = () => {
   const { q } = router.query;
 
   const [products, setProducts] = useState<any[]>([]);
+  const [productsWithOffers, setProductsWithOffers] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -56,13 +57,54 @@ const SearchPage: React.FC = () => {
     }
   }, [error]);
 
+  // Buscar ofertas e aplicar descontos aos produtos
+  useEffect(() => {
+    const mergeOffers = async () => {
+      if (!Array.isArray(products) || products.length === 0) return;
+
+      try {
+        let offers: any[] = [];
+        try {
+          const offResp = await fetch('/api/content/offers');
+          if (offResp.ok) {
+            const offJson = await offResp.json();
+            offers = offJson?.items || [];
+          }
+        } catch (e) {
+          console.warn('SearchPage - could not fetch offers', e);
+        }
+
+        const now = new Date();
+        const itemsWithOffers = (products as any[]).map((p) => {
+          const offer = offers.find((o: any) => o.productId === p.id && o.isActive);
+          if (offer) {
+            const start = offer.startDate ? new Date(offer.startDate) : null;
+            const end = offer.endDate ? new Date(offer.endDate) : null;
+            const valid = (!start || start <= now) && (!end || end >= now);
+            if (valid) return { ...p, discount: offer.discount, isOffer: true };
+          }
+          return { ...p, discount: (p as any).discount ?? null, isOffer: (p as any).isOffer ?? false };
+        });
+
+        setProductsWithOffers(itemsWithOffers);
+      } catch (err) {
+        console.error('SearchPage - error merging offers:', err);
+        setProductsWithOffers(products);
+      }
+    };
+
+    mergeOffers();
+  }, [products]);
+
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
     window.scrollTo(0, 0);
   };
 
-  // Mapeia os produtos
-  const mappedProducts = mapBackendProductsToIProducts(products);
+  // Mapeia os produtos com ofertas já aplicadas
+  const mappedProducts = mapBackendProductsToIProducts(productsWithOffers);
+
+  console.log('SearchPage - produtos com ofertas:', productsWithOffers);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">

@@ -36,7 +36,7 @@ const CallToAction: React.FC<Props> = ({ product }) => {
   }
 
   function increment() {
-    if (counter < 10) {
+    if (counter < 100) {
       setCounter((prev) => prev + 1);
     }
   }
@@ -47,7 +47,7 @@ const CallToAction: React.FC<Props> = ({ product }) => {
   }
 
   function onInputNumberChangeHandler(e: React.ChangeEvent<HTMLInputElement>) {
-    if (+e.currentTarget.value >= 1 && +e.currentTarget.value <= 10) {
+    if (+e.currentTarget.value >= 1 && +e.currentTarget.value <= 100) {
       setCounter(+e.currentTarget.value);
     }
   }
@@ -66,7 +66,7 @@ const CallToAction: React.FC<Props> = ({ product }) => {
           className="inline-block w-[70px] rtl:pr-8 ltr:pl-7 py-2 mx-1 sm:mx-4 border-[1px] border-gray-400"
           type="number"
           min={1}
-          max={10}
+          max={100}
           value={counter}
           onChange={onInputNumberChangeHandler}
         />
