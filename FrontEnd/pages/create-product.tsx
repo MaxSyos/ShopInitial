@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLanguage } from '../hooks/useLanguage';
-import ProductForm from '../components/productForm/ProductForm';
+import ProductFormTabs from '../components/productForm/ProductFormTabs';
 import Breadcrumb from '../components/UI/Breadcrumb';
 import Benefits from '../components/Benefits';
 import PrivateRoute from '../components/auth/PrivateRoute';
@@ -22,12 +22,12 @@ const CreateProductPage: React.FC = () => {
               {t.createNewProduct}
             </h1>
             <p className="text-palette-mute">
-              {t.fillProductFields}
+              Crie novos produtos ou edite os existentes
             </p>
           </div>
 
-          {/* Formulário */}
-          <ProductForm />
+          {/* Formulário com abas */}
+          <ProductFormTabs />
         </div>
 
         {/* Benefits */}

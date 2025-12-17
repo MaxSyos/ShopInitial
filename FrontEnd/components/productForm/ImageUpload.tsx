@@ -2,13 +2,15 @@ import React, { useState, useRef } from 'react';
 import { uploadImageToImgBB } from '../../lib/services/imgbbService';
 import { useLanguage } from '../../hooks/useLanguage';
 import { toast } from 'react-toastify';
-import { MdDelete, MdAdd } from 'react-icons/md';
+import { MdDelete, MdAdd, MdArrowUpward, MdArrowDownward } from 'react-icons/md';
 
 interface ImagePreview {
   url: string;
   file?: File;
   alt?: string;
   isUploading?: boolean;
+  id?: string;
+  order?: number;
 }
 
 interface ImageUploadProps {
@@ -128,6 +130,20 @@ const ImageUploadComponent: React.FC<ImageUploadProps> = ({
     onImagesChange(updatedImages);
   };
 
+  const handleMoveImage = (index: number, direction: 'up' | 'down') => {
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+
+    if (newIndex < 0 || newIndex >= images.length) return;
+
+    const updatedImages = [...images];
+    [updatedImages[index], updatedImages[newIndex]] = [
+      updatedImages[newIndex],
+      updatedImages[index],
+    ];
+
+    onImagesChange(updatedImages);
+  };
+
   return (
     <div className="w-full">
       <div className="mb-6">
@@ -174,6 +190,11 @@ const ImageUploadComponent: React.FC<ImageUploadProps> = ({
               key={index}
               className="relative group border border-palette-primary rounded-lg overflow-hidden bg-palette-card"
             >
+              {/* Número da imagem */}
+              <div className="absolute top-2 left-2 bg-palette-primary text-white text-xs font-bold px-2 py-1 rounded z-10">
+                #{index + 1}
+              </div>
+
               {/* Imagem */}
               <div className="relative w-full aspect-square overflow-hidden bg-gray-100">
                 {image.isUploading ? (
@@ -190,14 +211,32 @@ const ImageUploadComponent: React.FC<ImageUploadProps> = ({
 
                 {/* Overlay com opções */}
                 {!image.isUploading && (
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleMoveImage(index, 'up')}
+                      disabled={index === 0}
+                      className="p-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-30 disabled:cursor-not-allowed rounded-full text-white transition-colors"
+                      title="Mover para cima"
+                    >
+                      <MdArrowUpward size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMoveImage(index, 'down')}
+                      disabled={index === images.length - 1}
+                      className="p-2 bg-blue-500 hover:bg-blue-600 disabled:opacity-30 disabled:cursor-not-allowed rounded-full text-white transition-colors"
+                      title="Mover para baixo"
+                    >
+                      <MdArrowDownward size={16} />
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleRemoveImage(index)}
                       className="p-2 bg-red-500 hover:bg-red-600 rounded-full text-white transition-colors"
                       title={t.removeImage}
                     >
-                      <MdDelete size={20} />
+                      <MdDelete size={16} />
                     </button>
                   </div>
                 )}
@@ -208,7 +247,7 @@ const ImageUploadComponent: React.FC<ImageUploadProps> = ({
                 <div className="p-2">
                   <input
                     type="text"
-                    placeholder={t.imageDescription}
+                    placeholder="Descrição da imagem"
                     value={image.alt || ''}
                     onChange={(e) => handleAltChange(index, e.target.value)}
                     className="w-full text-xs px-2 py-1 border border-palette-primary rounded bg-palette-fill text-palette-base placeholder-palette-mute focus:outline-none focus:ring-1 focus:ring-palette-primary"
