@@ -13,6 +13,8 @@ import Input from '../components/UI/Input';
 import Benefits from '../components/Benefits';
 import OrderTracking from '../components/cart/OrderTracking';
 import PrivateRoute from '../components/auth/PrivateRoute';
+import api from '../lib/axiosClient';
+import { maskCPF, maskWhatsApp, isValidCPFFormat, isValidWhatsAppFormat } from '../utilities/masks';
 
 const ShippingAddressPage: React.FC = () => {
   const { t } = useLanguage();
@@ -33,6 +35,12 @@ const ShippingAddressPage: React.FC = () => {
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
+  // Estados para campos faltando do perfil
+  const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
+  const [profileFieldValues, setProfileFieldValues] = useState({ name: '', cpf: '', whatsapp: '' });
+  const [savingProfileFields, setSavingProfileFields] = useState(false);
+  const [profileFieldErrors, setProfileFieldErrors] = useState<{ [key: string]: string }>({});
+
   const userInfo = useSelector(
     (state: IUserInfoRootState) => state.userInfo.userInformation
   );
@@ -50,6 +58,21 @@ const ShippingAddressPage: React.FC = () => {
       router.push('/cart');
       return;
     }
+
+    // Verificar quais campos do perfil estão faltando
+    const missing: string[] = [];
+    if (!userInfo.name || userInfo.name.trim() === '') missing.push('name');
+    if (!userInfo.cpf) missing.push('cpf');
+    if (!userInfo.whatsapp) missing.push('whatsapp');
+    
+    setMissingProfileFields(missing);
+    
+    // Inicializar valores dos campos com dados existentes
+    setProfileFieldValues({
+      name: userInfo.name || '',
+      cpf: userInfo.cpf || '',
+      whatsapp: userInfo.whatsapp || ''
+    });
 
     dispatch(fetchUserAddresses());
   }, [userInfo, cartItems, dispatch, router]);
@@ -86,6 +109,86 @@ const ShippingAddressPage: React.FC = () => {
       if (selectedAddressIndex === index) setSelectedAddressIndex(-1);
     } catch (err: any) {
       toast.error(err?.message || 'Erro ao deletar endereço');
+    }
+  };
+
+  const handleProfileFieldChange = (field: 'name' | 'cpf' | 'whatsapp', value: string) => {
+    let formattedValue = value;
+    
+    if (field === 'cpf') {
+      formattedValue = maskCPF(value);
+    } else if (field === 'whatsapp') {
+      formattedValue = maskWhatsApp(value, true);
+    }
+    
+    setProfileFieldValues(prev => ({
+      ...prev,
+      [field]: formattedValue
+    }));
+    setProfileFieldErrors(prev => ({ ...prev, [field]: '' }));
+  };
+
+  const validateProfileFields = () => {
+    const errors: { [key: string]: string } = {};
+    
+    if (missingProfileFields.includes('name')) {
+      if (!profileFieldValues.name || profileFieldValues.name.trim() === '') {
+        errors.name = 'Nome é obrigatório';
+      }
+    }
+    
+    if (missingProfileFields.includes('cpf')) {
+      if (!profileFieldValues.cpf) {
+        errors.cpf = 'CPF é obrigatório';
+      } else if (!isValidCPFFormat(profileFieldValues.cpf)) {
+        errors.cpf = 'CPF inválido. Deve conter 11 dígitos';
+      }
+    }
+    
+    if (missingProfileFields.includes('whatsapp')) {
+      if (!profileFieldValues.whatsapp) {
+        errors.whatsapp = 'WhatsApp é obrigatório';
+      } else if (!isValidWhatsAppFormat(profileFieldValues.whatsapp)) {
+        errors.whatsapp = 'WhatsApp inválido. Deve conter 11 ou 13 dígitos';
+      }
+    }
+    
+    return errors;
+  };
+
+  const handleSaveProfileFields = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const errors = validateProfileFields();
+    if (Object.keys(errors).length > 0) {
+      setProfileFieldErrors(errors);
+      toast.error('Preencha todos os campos obrigatórios corretamente.');
+      return;
+    }
+    
+    setSavingProfileFields(true);
+    try {
+      const updateData: any = {};
+      
+      if (missingProfileFields.includes('name')) {
+        updateData.name = profileFieldValues.name;
+      }
+      if (missingProfileFields.includes('cpf')) {
+        updateData.cpf = profileFieldValues.cpf;
+      }
+      if (missingProfileFields.includes('whatsapp')) {
+        updateData.whatsapp = profileFieldValues.whatsapp;
+      }
+      
+      await api.put('/auth/update', updateData);
+      toast.success('Dados do perfil atualizados com sucesso!');
+      setMissingProfileFields([]); // Limpar campos faltando após salvar
+    } catch (error: any) {
+      const errorMsg = error?.response?.data?.message || 'Erro ao salvar dados do perfil';
+      toast.error(errorMsg);
+      console.error('Erro ao atualizar perfil:', error);
+    } finally {
+      setSavingProfileFields(false);
     }
   };
 
@@ -254,6 +357,87 @@ const ShippingAddressPage: React.FC = () => {
         
         <div className="mt-8">
           <h1 className="text-3xl font-bold mb-8 text-center">Endereço de Entrega</h1>
+          
+          {/* Seção de campos faltando do perfil */}
+          {missingProfileFields.length > 0 && (
+            <div className="mb-8 p-6 bg-blue-50 dark:bg-slate-800 border-l-4 border-blue-500 dark:border-blue-400 rounded-lg shadow-md dark:shadow-lg">
+              <h2 className="text-xl font-semibold text-blue-900 dark:text-blue-300 mb-4">
+                ⚠️ Campos do Perfil Incompletos
+              </h2>
+              <p className="text-blue-800 dark:text-blue-200 mb-4">
+                Para continuar, preencha os seguintes campos:
+              </p>
+              
+              <form onSubmit={handleSaveProfileFields} className="space-y-4">
+                {/* Campo Nome */}
+                {missingProfileFields.includes('name') && (
+                  <div>
+                    <label className="block text-sm font-medium text-palette-text mb-2">
+                      Nome *
+                    </label>
+                    <input
+                      type="text"
+                      value={profileFieldValues.name}
+                      onChange={(e) => handleProfileFieldChange('name', e.target.value)}
+                      placeholder="Digite seu nome"
+                      className="w-full px-4 py-2 border border-palette-border bg-palette-card text-palette-text rounded-lg focus:outline-none focus:ring-2 focus:ring-palette-primary"
+                    />
+                    {profileFieldErrors.name && (
+                      <p className="text-red-500 text-xs mt-1">{profileFieldErrors.name}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Campo CPF */}
+                {missingProfileFields.includes('cpf') && (
+                  <div>
+                    <label className="block text-sm font-medium text-palette-text mb-2">
+                      CPF *
+                    </label>
+                    <input
+                      type="tel"
+                      value={profileFieldValues.cpf}
+                      onChange={(e) => handleProfileFieldChange('cpf', e.target.value)}
+                      placeholder="XXX.XXX.XXX-XX"
+                      maxLength={14}
+                      className="w-full px-4 py-2 border border-palette-border bg-palette-card text-palette-text rounded-lg focus:outline-none focus:ring-2 focus:ring-palette-primary"
+                    />
+                    {profileFieldErrors.cpf && (
+                      <p className="text-red-500 text-xs mt-1">{profileFieldErrors.cpf}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Campo WhatsApp */}
+                {missingProfileFields.includes('whatsapp') && (
+                  <div>
+                    <label className="block text-sm font-medium text-palette-text mb-2">
+                      WhatsApp *
+                    </label>
+                    <input
+                      type="tel"
+                      value={profileFieldValues.whatsapp}
+                      onChange={(e) => handleProfileFieldChange('whatsapp', e.target.value)}
+                      placeholder="(+55) 11 99999-9999"
+                      maxLength={20}
+                      className="w-full px-4 py-2 border border-palette-border bg-palette-card text-palette-text rounded-lg focus:outline-none focus:ring-2 focus:ring-palette-primary"
+                    />
+                    {profileFieldErrors.whatsapp && (
+                      <p className="text-red-500 text-xs mt-1">{profileFieldErrors.whatsapp}</p>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={savingProfileFields}
+                  className="w-full bg-palette-primary text-palette-side font-medium py-2 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {savingProfileFields ? 'Salvando...' : 'Salvar e Continuar'}
+                </button>
+              </form>
+            </div>
+          )}
           
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Coluna principal - Endereços */}
