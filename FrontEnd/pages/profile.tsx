@@ -6,10 +6,13 @@ import PrivateRoute from '../components/auth/PrivateRoute';
 import Breadcrumb from '../components/UI/Breadcrumb';
 import Benefits from '../components/Benefits';
 import { MdDelete, MdEdit } from 'react-icons/md';
+import { maskCPF, maskWhatsApp, unmaskCPF, unmaskWhatsApp, isValidCPFFormat, isValidWhatsAppFormat } from '../utilities/masks';
 
 const ProfilePage: React.FC = () => {
   const { user } = useAuth(true, '/login');
   const [name, setName] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
   const [saving, setSaving] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -22,6 +25,10 @@ const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     if (user?.name) setName(user.name);
+    // @ts-ignore
+    if (user?.cpf) setCpf(maskCPF(user.cpf));
+    // @ts-ignore
+    if (user?.whatsapp) setWhatsapp(maskWhatsApp(user.whatsapp, true));
   }, [user]);
 
   useEffect(() => {
@@ -44,9 +51,24 @@ const ProfilePage: React.FC = () => {
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return toast.warn('Nome é obrigatório');
+    
+    // Validate CPF if provided
+    if (cpf && !isValidCPFFormat(cpf)) {
+      return toast.error('CPF inválido. Deve conter 11 dígitos');
+    }
+    
+    // Validate WhatsApp if provided
+    if (whatsapp && !isValidWhatsAppFormat(whatsapp)) {
+      return toast.error('WhatsApp inválido. Deve conter 11 ou 13 dígitos');
+    }
+    
     setSaving(true);
     try {
-      await api.put('/auth/update', { name });
+      await api.put('/auth/update', { 
+        name,
+        cpf: cpf ? unmaskCPF(cpf) : '',
+        whatsapp: whatsapp ? unmaskWhatsApp(whatsapp) : ''
+      });
       toast.success('Dados atualizados');
     } catch (err) {
       console.error(err);
@@ -118,6 +140,34 @@ const ProfilePage: React.FC = () => {
                   disabled
                   className="w-full px-4 py-3 border border-palette-border bg-palette-dark text-palette-mute rounded-lg cursor-not-allowed opacity-75"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-palette-text mb-2">CPF</label>
+                <input
+                  type="tel"
+                  value={cpf}
+                  onChange={(e) => setCpf(maskCPF(e.target.value))}
+                  placeholder="XXX.XXX.XXX-XX"
+                  maxLength={14}
+                  className="w-full px-4 py-3 border border-palette-border bg-palette-card text-palette-text rounded-lg focus:outline-none focus:ring-2 focus:ring-palette-primary"
+                />
+                {cpf && !isValidCPFFormat(cpf) && (
+                  <p className="text-red-500 text-xs mt-1">CPF inválido. Deve conter 11 dígitos</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-palette-text mb-2">WhatsApp</label>
+                <input
+                  type="tel"
+                  value={whatsapp}
+                  onChange={(e) => setWhatsapp(maskWhatsApp(e.target.value, true))}
+                  placeholder="(+55) 11 99999-9999"
+                  maxLength={20}
+                  className="w-full px-4 py-3 border border-palette-border bg-palette-card text-palette-text rounded-lg focus:outline-none focus:ring-2 focus:ring-palette-primary"
+                />
+                {whatsapp && !isValidWhatsAppFormat(whatsapp) && (
+                  <p className="text-red-500 text-xs mt-1">WhatsApp inválido. Deve conter 11 ou 13 dígitos</p>
+                )}
               </div>
               <div className="pt-2">
                 <button
