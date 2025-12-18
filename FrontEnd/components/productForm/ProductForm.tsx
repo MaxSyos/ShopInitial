@@ -25,7 +25,12 @@ interface Category {
   children?: Category[];
 }
 
-const ProductForm: React.FC = () => {
+interface ProductFormProps {
+  productId?: string | null;
+  onSaved?: () => void;
+}
+
+const ProductForm: React.FC<ProductFormProps> = ({ productId = null, onSaved }) => {
   const { t } = useLanguage();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -49,6 +54,49 @@ const ProductForm: React.FC = () => {
   useEffect(() => {
     loadBrandsAndCategories();
   }, []);
+
+  // Se productId for passado, carregar dados do produto para edição
+  useEffect(() => {
+    if (productId) {
+      loadProduct(productId);
+    } else {
+      // reset form when switching to create
+      setFormData({
+        name: '',
+        description: '',
+        price: '',
+        stock: '',
+        sku: '',
+        brandId: '',
+        categoryId: '',
+      });
+      setImages([]);
+      setErrors({});
+    }
+  }, [productId]);
+
+  const loadProduct = async (id: string) => {
+    try {
+      setLoading(true);
+      const res = await api.get(`/products/${id}`);
+      const p = res.data.product;
+      setFormData({
+        name: p.name || '',
+        description: p.description || '',
+        price: p.price != null ? String(p.price) : '',
+        stock: p.stock != null ? String(p.stock) : '',
+        sku: p.sku || '',
+        brandId: p.brand?.id || p.brandId || '',
+        categoryId: p.category?.id || p.categoryId || '',
+      });
+      setImages((p.images || []).map((img: any) => ({ url: img.url, alt: img.alt })));
+    } catch (err) {
+      console.error('Erro ao carregar produto:', err);
+      toast.error('Erro ao carregar produto para edição');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadBrandsAndCategories = async () => {
     try {
@@ -132,14 +180,22 @@ const ProductForm: React.FC = () => {
         })),
       };
 
-      const response = await api.post('/products/create', payload);
+      let response;
+      if (productId) {
+        response = await api.put(`/products/${productId}`, payload);
+        toast.success(t.productUpdatedSuccess || 'Produto atualizado com sucesso');
+      } else {
+        response = await api.post('/products/create', payload);
+        toast.success(t.productCreatedSuccess);
+      }
 
-      toast.success(t.productCreatedSuccess);
-      
-      // Redirecionar após sucesso
-      setTimeout(() => {
-        router.push('/products');
-      }, 1500);
+      if (onSaved) onSaved();
+      // Redirecionar para lista apenas quando criando
+      if (!productId) {
+        setTimeout(() => {
+          router.push('/products');
+        }, 1500);
+      }
     } catch (error: any) {
       console.error('Erro ao criar produto:', error);
       const message =
