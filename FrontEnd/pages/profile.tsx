@@ -24,11 +24,23 @@ const ProfilePage: React.FC = () => {
   const [loadingAddresses, setLoadingAddresses] = useState(false);
 
   useEffect(() => {
-    if (user?.name) setName(user.name);
-    // @ts-ignore
-    if (user?.cpf) setCpf(maskCPF(user.cpf));
-    // @ts-ignore
-    if (user?.whatsapp) setWhatsapp(maskWhatsApp(user.whatsapp, true));
+    const load = async () => {
+      try {
+        const resp = await api.get('/auth/me');
+        const serverUser = resp?.data?.user || user || {};
+        if (serverUser?.name) setName(serverUser.name);
+        if (serverUser?.cpf) setCpf(maskCPF(serverUser.cpf));
+        if (serverUser?.whatsapp) setWhatsapp(maskWhatsApp(serverUser.whatsapp, true));
+      } catch (err) {
+        // fallback para dados já presentes no `user`
+        if (user?.name) setName(user.name);
+        // @ts-ignore
+        if (user?.cpf) setCpf(maskCPF(user.cpf));
+        // @ts-ignore
+        if (user?.whatsapp) setWhatsapp(maskWhatsApp(user.whatsapp, true));
+      }
+    };
+    load();
   }, [user]);
 
   useEffect(() => {
