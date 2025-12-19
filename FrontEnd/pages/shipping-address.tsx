@@ -44,6 +44,11 @@ const ShippingAddressPage: React.FC = () => {
   const userInfo = useSelector(
     (state: IUserInfoRootState) => state.userInfo.userInformation
   );
+  const hasCpf = !!(userInfo && userInfo.cpf && String(userInfo.cpf).trim() !== '');
+  const hasWhatsapp = !!(userInfo && userInfo.whatsapp && String(userInfo.whatsapp).trim() !== '');
+  const showMissingProfileSection = missingProfileFields.length > 0 && !(hasCpf && hasWhatsapp);
+  // determinar se o nome realmente precisa ser solicitado (baseado no userInfo atual)
+  const requireName = !userInfo || !userInfo.name || String(userInfo.name).trim() === '';
   const cartItems = useSelector((state: ICartRootState) => state.cart.items);
   const totalAmount = useSelector((state: ICartRootState) => state.cart.totalAmount);
   const { shippingAddresses = [], loading, error } = useSelector((state: RootState) => state.order);
@@ -59,20 +64,38 @@ const ShippingAddressPage: React.FC = () => {
       return;
     }
 
-    // Verificar quais campos do perfil estão faltando
-    const missing: string[] = [];
-    if (!userInfo.name || userInfo.name.trim() === '') missing.push('name');
-    if (!userInfo.cpf) missing.push('cpf');
-    if (!userInfo.whatsapp) missing.push('whatsapp');
-    
-    setMissingProfileFields(missing);
-    
-    // Inicializar valores dos campos com dados existentes
-    setProfileFieldValues({
-      name: userInfo.name || '',
-      cpf: userInfo.cpf || '',
-      whatsapp: userInfo.whatsapp || ''
-    });
+    // Buscar dados mais recentes do usuário no backend para decidir quais campos faltam
+    const loadUser = async () => {
+      try {
+        const resp = await api.get('/auth/me');
+        const serverUser = resp?.data?.user || userInfo || {};
+        const missing: string[] = [];
+        if (!serverUser.name || String(serverUser.name).trim() === '') missing.push('name');
+        if (!serverUser.cpf) missing.push('cpf');
+        if (!serverUser.whatsapp) missing.push('whatsapp');
+
+        setMissingProfileFields(missing);
+        setProfileFieldValues({
+          name: serverUser.name || '',
+          cpf: serverUser.cpf || '',
+          whatsapp: serverUser.whatsapp || ''
+        });
+      } catch (err) {
+        // fallback para dados locais
+        const missing: string[] = [];
+        if (!userInfo.name || String(userInfo.name).trim() === '') missing.push('name');
+        if (!userInfo.cpf) missing.push('cpf');
+        if (!userInfo.whatsapp) missing.push('whatsapp');
+        setMissingProfileFields(missing);
+        setProfileFieldValues({
+          name: userInfo.name || '',
+          cpf: userInfo.cpf || '',
+          whatsapp: userInfo.whatsapp || ''
+        });
+      }
+    };
+
+    loadUser();
 
     dispatch(fetchUserAddresses());
   }, [userInfo, cartItems, dispatch, router]);
@@ -118,7 +141,8 @@ const ShippingAddressPage: React.FC = () => {
     if (field === 'cpf') {
       formattedValue = maskCPF(value);
     } else if (field === 'whatsapp') {
-      formattedValue = maskWhatsApp(value, true);
+      // Preferir máscara sem country code no input (começando pelo DDD)
+      formattedValue = maskWhatsApp(value, false);
     }
     
     setProfileFieldValues(prev => ({
@@ -128,58 +152,65 @@ const ShippingAddressPage: React.FC = () => {
     setProfileFieldErrors(prev => ({ ...prev, [field]: '' }));
   };
 
-  const validateProfileFields = () => {
+  // Valida apenas os campos que serão atualizados (se providedFields for informado)
+  const validateProfileFields = (providedFields?: string[]) => {
     const errors: { [key: string]: string } = {};
-    
-    if (missingProfileFields.includes('name')) {
+
+    const shouldValidate = (field: string) => {
+      if (!providedFields) return true; // validar tudo (fallback)
+      return providedFields.includes(field);
+    };
+
+    const requireName = !userInfo || !userInfo.name || String(userInfo.name).trim() === '';
+    if (requireName && shouldValidate('name')) {
       if (!profileFieldValues.name || profileFieldValues.name.trim() === '') {
         errors.name = 'Nome é obrigatório';
       }
     }
-    
-    if (missingProfileFields.includes('cpf')) {
+
+    if (shouldValidate('cpf')) {
       if (!profileFieldValues.cpf) {
         errors.cpf = 'CPF é obrigatório';
       } else if (!isValidCPFFormat(profileFieldValues.cpf)) {
         errors.cpf = 'CPF inválido. Deve conter 11 dígitos';
       }
     }
-    
-    if (missingProfileFields.includes('whatsapp')) {
+
+    if (shouldValidate('whatsapp')) {
       if (!profileFieldValues.whatsapp) {
         errors.whatsapp = 'WhatsApp é obrigatório';
       } else if (!isValidWhatsAppFormat(profileFieldValues.whatsapp)) {
         errors.whatsapp = 'WhatsApp inválido. Deve conter 11 ou 13 dígitos';
       }
     }
-    
+
     return errors;
   };
 
   const handleSaveProfileFields = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const errors = validateProfileFields();
+    // Construir payload: o endpoint exige `name`, então sempre enviar (usar userInfo.name quando não houver alteração)
+    const updateData: any = {};
+    // prefer profileFieldValues.name quando fornecido, senão usar userInfo.name (se existir)
+    updateData.name = (profileFieldValues.name && profileFieldValues.name.trim() !== '') ? profileFieldValues.name : (userInfo?.name || '');
+    if (missingProfileFields.includes('cpf')) {
+      updateData.cpf = profileFieldValues.cpf;
+    }
+    if (missingProfileFields.includes('whatsapp')) {
+      updateData.whatsapp = profileFieldValues.whatsapp;
+    }
+
+    // Validar somente os campos que vamos enviar
+    const errors = validateProfileFields(Object.keys(updateData));
     if (Object.keys(errors).length > 0) {
       setProfileFieldErrors(errors);
       toast.error('Preencha todos os campos obrigatórios corretamente.');
       return;
     }
-    
+
     setSavingProfileFields(true);
     try {
-      const updateData: any = {};
-      
-      if (missingProfileFields.includes('name')) {
-        updateData.name = profileFieldValues.name;
-      }
-      if (missingProfileFields.includes('cpf')) {
-        updateData.cpf = profileFieldValues.cpf;
-      }
-      if (missingProfileFields.includes('whatsapp')) {
-        updateData.whatsapp = profileFieldValues.whatsapp;
-      }
-      
       await api.put('/auth/update', updateData);
       toast.success('Dados do perfil atualizados com sucesso!');
       setMissingProfileFields([]); // Limpar campos faltando após salvar
@@ -257,12 +288,14 @@ const ShippingAddressPage: React.FC = () => {
 
   const handleSaveNewAddress = async (e: React.FormEvent) => {
     e.preventDefault();
+
     const validationErrors = validateAddress();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       toast.error('Preencha todos os campos obrigatórios corretamente.');
       return;
     }
+
     try {
       // Normalizar alguns campos antes do envio
       const cleanPostal = String(newAddress.postalCode).replace(/\D/g, '');
@@ -273,7 +306,6 @@ const ShippingAddressPage: React.FC = () => {
         complement: String(newAddress.complement || ''),
         city: String(newAddress.city),
         state: String(newAddress.state).toUpperCase(),
-        // padronizar país para código BR
         country: 'BR',
         postalCode: cleanPostal,
         isDefault: Boolean(newAddress.isDefault),
@@ -359,7 +391,7 @@ const ShippingAddressPage: React.FC = () => {
           <h1 className="text-3xl font-bold mb-8 text-center">Endereço de Entrega</h1>
           
           {/* Seção de campos faltando do perfil */}
-          {missingProfileFields.length > 0 && (
+          {showMissingProfileSection && (
             <div className="mb-8 p-6 bg-blue-50 dark:bg-slate-800 border-l-4 border-blue-500 dark:border-blue-400 rounded-lg shadow-md dark:shadow-lg">
               <h2 className="text-xl font-semibold text-blue-900 dark:text-blue-300 mb-4">
                 ⚠️ Campos do Perfil Incompletos
@@ -370,7 +402,7 @@ const ShippingAddressPage: React.FC = () => {
               
               <form onSubmit={handleSaveProfileFields} className="space-y-4">
                 {/* Campo Nome */}
-                {missingProfileFields.includes('name') && (
+                {(!userInfo || !userInfo.name || String(userInfo.name).trim() === '') && (
                   <div>
                     <label className="block text-sm font-medium text-palette-text mb-2">
                       Nome *
@@ -418,7 +450,7 @@ const ShippingAddressPage: React.FC = () => {
                       type="tel"
                       value={profileFieldValues.whatsapp}
                       onChange={(e) => handleProfileFieldChange('whatsapp', e.target.value)}
-                      placeholder="(+55) 11 99999-9999"
+                      placeholder="(11) 99999-9999"
                       maxLength={20}
                       className="w-full px-4 py-2 border border-palette-border bg-palette-card text-palette-text rounded-lg focus:outline-none focus:ring-2 focus:ring-palette-primary"
                     />

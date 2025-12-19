@@ -98,7 +98,7 @@ const Newest: React.FC = () => {
     return (
       <div className="mx-auto my-4 md:my-8 flex flex-col xl:max-w-[2130px]">
         <SectionTitle title="newest" />
-        <div className="grid gap-6 sm:gap-6" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+        <div className="grid gap-6 sm:gap-6 justify-items-center" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {Array.from({ length: numProductToShow }).map((_, i) => (
             <div key={i} className="animate-pulse bg-gray-700 h-64 rounded-lg" />
           ))}
@@ -122,7 +122,7 @@ const Newest: React.FC = () => {
     <div className="mx-auto my-4 md:my-8 flex flex-col xl:max-w-[2130px]">
       <SectionTitle title="newest" />
 
-      <div className="grid gap-6 sm:gap-6" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+      <div className="grid gap-6 sm:gap-6 justify-items-center" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
         {products.slice(0, numProductToShow).map((product: IProduct) => (
           <ProductCard key={product.slug?.current || product.id || product.name} product={product} />
         ))}
