@@ -15,13 +15,13 @@ interface Props {
 }
 const CallToAction: React.FC<Props> = ({ product }) => {
   const { price, discount } = product;
-  const [counter, setCounter] = useState(1);
+  const [counter, setCounter] = useState(10);
   const { t } = useLanguage();
   const { theme } = useTheme();
 
   useEffect(() => {
     return () => {
-      setCounter(1);
+      setCounter(10);
     };
   }, [product]);
 
@@ -47,9 +47,9 @@ const CallToAction: React.FC<Props> = ({ product }) => {
   }
 
   function onInputNumberChangeHandler(e: React.ChangeEvent<HTMLInputElement>) {
-    if (+e.currentTarget.value >= 1 && +e.currentTarget.value <= 100) {
-      setCounter(+e.currentTarget.value);
-    }
+    const raw = parseInt(e.currentTarget.value, 10) || 1;
+    const newVal = Math.max(1, Math.min(1000, raw));
+    setCounter(newVal);
   }
 
   return (

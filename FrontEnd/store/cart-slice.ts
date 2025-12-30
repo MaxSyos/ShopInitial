@@ -4,6 +4,8 @@ import { IProduct } from "../lib/types/products";
 import { calculateDiscountPercentage } from "../utilities/calculateDiscountPercentage";
 import * as cartApi from './cart-api';
 
+const MIN_TOTAL_QUANTITY = 10;
+
 const initialState: ICart = {
   items: [],
   totalQuantity: 0,
@@ -29,16 +31,18 @@ const cartSlice = createSlice({
       action: PayloadAction<{ product: IProduct; quantity: number }>
     ) {
       const newItem = action.payload.product;
+      // se não for passada quantidade, usa 10 como default inicial
+      const qty = (action.payload.quantity ?? 10);
 
       const existingItem = state.items.find(
         (item) => item.slug.current === newItem.slug.current
       );
 
-      state.totalQuantity = state.totalQuantity + action.payload.quantity;
+      state.totalQuantity = state.totalQuantity + qty;
 
       state.totalAmount =
         state.totalAmount +
-        action.payload.quantity *
+        qty *
           (action.payload.product.discount
             ? calculateDiscountPercentage(
                 action.payload.product.price,
@@ -50,15 +54,13 @@ const cartSlice = createSlice({
         const totalPrice =
           (newItem.discount
             ? calculateDiscountPercentage(newItem.price, newItem.discount)
-            : newItem.price) * action.payload.quantity;
+            : newItem.price) * qty;
 
         state.items.push(({
           ...newItem,
-          // garantir que discount não seja null (tipagem espera undefined quando ausente)
           discount: (newItem.discount ?? undefined),
-          // garantir que registerDate/nulls não quebrem a tipagem do ICartProduct em tempo de compilação
           registerDate: (newItem as any).registerDate ?? undefined,
-          quantity: action.payload.quantity,
+          quantity: qty,
           totalPrice,
         } as unknown) as ICartProduct);
       } else {
@@ -68,10 +70,10 @@ const cartSlice = createSlice({
             ? calculateDiscountPercentage(
                 existingItem.price,
                 existingItem.discount
-              ) * action.payload.quantity
-            : existingItem.price * action.payload.quantity);
+              ) * qty
+            : existingItem.price * qty);
 
-        existingItem.quantity += action.payload.quantity;
+        existingItem.quantity += qty;
         existingItem.totalPrice = totalPrice;
       }
     },
@@ -84,6 +86,9 @@ const cartSlice = createSlice({
       const existingItem = state.items.find(
         (item) => item.slug.current === productSlug
       );
+
+      // Não permitir que o total de peças fique abaixo do mínimo configurado
+      if (state.totalQuantity <= MIN_TOTAL_QUANTITY) return;
 
       state.totalQuantity--;
 
@@ -113,6 +118,29 @@ const cartSlice = createSlice({
       }
     },
 
+    removeItemCompletely(
+      state: ICart,
+      action: PayloadAction<string> // slug.current
+    ) {
+      const productSlug = action.payload;
+      const existingItem = state.items.find(
+        (item) => item.slug.current === productSlug
+      );
+      if (!existingItem) return;
+
+      const projectedTotal = state.totalQuantity - (existingItem.quantity || 0);
+      // Não permitir remoção completa se deixaria o total abaixo do mínimo,
+      // exceto caso especial: se o total atual for exatamente o mínimo e o item tem quantidade <= 1
+      if (projectedTotal < MIN_TOTAL_QUANTITY) {
+        const isSpecialCase = state.totalQuantity === MIN_TOTAL_QUANTITY && (existingItem.quantity || 0) <= 1;
+        if (!isSpecialCase) return;
+      }
+
+      state.totalQuantity = projectedTotal;
+      state.totalAmount = state.totalAmount - (existingItem.totalPrice || 0);
+      state.items = state.items.filter((item) => item.slug.current !== productSlug);
+    },
+
     setItemQuantity(
       state: ICart,
       action: PayloadAction<{ productSlugOrId: string; quantity: number }>
@@ -125,7 +153,17 @@ const cartSlice = createSlice({
 
       // adjust totals
       const prevQty = existingItem.quantity || 0;
-      const delta = quantity - prevQty;
+      let newQty = quantity;
+      let delta = quantity - prevQty;
+
+      // Não permitir que o total fique abaixo do mínimo
+      const desiredTotal = state.totalQuantity + delta;
+      if (desiredTotal < MIN_TOTAL_QUANTITY) {
+        const allowedQuantity = prevQty + (MIN_TOTAL_QUANTITY - state.totalQuantity);
+        newQty = Math.max(1, allowedQuantity);
+        delta = newQty - prevQty;
+      }
+
       state.totalQuantity = state.totalQuantity + delta;
 
       const unit = existingItem.discount
@@ -133,8 +171,8 @@ const cartSlice = createSlice({
         : existingItem.price;
       state.totalAmount = state.totalAmount + delta * unit;
 
-      existingItem.quantity = quantity;
-      existingItem.totalPrice = unit * quantity;
+      existingItem.quantity = newQty;
+      existingItem.totalPrice = unit * newQty;
     },
 
     clearCart(state) {

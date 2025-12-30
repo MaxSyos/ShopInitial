@@ -273,7 +273,7 @@ const OrderConfirmation: React.FC = () => {
                 value={newAddress.complement}
                 placeholder={t.complement || 'Complemento'}
                 minLength={1}
-                maxLength={100}
+                maxLength={1000}
                 classes={newAddress.complement.length < 1 || newAddress.complement.length > 100 ? 'border-red-500' : ''}
                 onInput={(e: React.FormEvent<HTMLInputElement>) => 
                   handleInputChange('complement', (e.target as HTMLInputElement).value)
