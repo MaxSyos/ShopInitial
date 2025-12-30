@@ -133,14 +133,18 @@ const ProductsPage: React.FC<{ initialProducts?: any }> = ({ initialProducts }) 
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 animate-pulse">
           {[...Array(6)].map((_, index) => (
-            <div key={index} className="bg-gray-200 h-80 rounded-lg"></div>
+            <div key={index} className="w-full sm:w-auto flex justify-center">
+              <div className="bg-gray-200 h-80 rounded-lg w-[260px]"></div>
+            </div>
           ))}
         </div>
       ) : Array.isArray(mappedProducts) && mappedProducts.length > 0 ? (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {mappedProducts.map((product) => (
-              <ProductCard key={product.slug.current} product={product} />
+              <div key={product.slug?.current || product.id || product.name} className="w-full sm:w-auto flex justify-center">
+                <ProductCard product={product} />
+              </div>
             ))}
           </div>
           <div className="mt-8">
