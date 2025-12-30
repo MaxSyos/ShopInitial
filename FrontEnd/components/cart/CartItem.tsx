@@ -82,9 +82,25 @@ const CartItem: React.FC<Props> = ({ product }) => {
   }
 
   function onInputNumberChangeHandler(e: React.ChangeEvent<HTMLInputElement>) {
-    if (+e.currentTarget.value >= 1 && +e.currentTarget.value <= 10) {
-      setCounter(+e.currentTarget.value);
+    const raw = parseInt(e.currentTarget.value, 10) || 1;
+    const newVal = Math.max(1, Math.min(100, raw));
+    const prev = counter || 1;
+    setCounter(newVal);
+
+    // mirror + / - behavior: sync immediately with store/backend
+    try {
+      if (newVal > prev) {
+        // increase by diff
+        (dispatch as any)(addItemAndPersist({ product, quantity: newVal - prev }));
+      } else if (newVal < prev) {
+        const productSlugOrId = product.id || product.slug?.current;
+        (dispatch as any)(updateItemQuantity({ productSlugOrId, quantity: newVal, cartItemId: (product as any).cartItemId }));
+      }
+    } catch (err) {
+      console.error('Erro ao sincronizar quantidade via input', err);
+      (dispatch as any)(fetchCart());
     }
+    
   }
   return (
     <div className="flex items-center flex-wrap sm:my-4 sm:py-4 px-2 border-b-2">

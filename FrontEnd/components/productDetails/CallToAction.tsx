@@ -1,4 +1,4 @@
-importimport React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { HiOutlinePlusSm, HiMinusSm } from "react-icons/hi";
 import { BsCartPlus } from "react-icons/bs";
