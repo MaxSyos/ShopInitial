@@ -36,7 +36,7 @@ const CallToAction: React.FC<Props> = ({ product }) => {
   }
 
   function increment() {
-    if (counter < 100) {
+    if (counter < 1000) {
       setCounter((prev) => prev + 1);
     }
   }
@@ -66,7 +66,7 @@ const CallToAction: React.FC<Props> = ({ product }) => {
           className="inline-block w-[70px] rtl:pr-8 ltr:pl-7 py-2 mx-1 sm:mx-4 border-[1px] border-gray-400"
           type="number"
           min={1}
-          max={100}
+          max={1000}
           value={counter}
           onChange={onInputNumberChangeHandler}
         />

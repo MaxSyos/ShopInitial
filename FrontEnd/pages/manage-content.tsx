@@ -1089,7 +1089,7 @@ const ManageContent = () => {
                     <input
                       type="number"
                       min="0"
-                      max="100"
+                      max="1000"
                       step="0.01"
                       value={offerForm.discount}
                       onChange={(e) => setOfferForm({ ...offerForm, discount: e.target.value })}
