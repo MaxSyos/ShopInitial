@@ -6,7 +6,6 @@ export const tokenStore = {
   getToken(): string | null {
     // Tentar recuperar de memória primeiro
     if (_accessToken) {
-      console.log('[TokenStore] getToken -> found in memory:', _accessToken.substring(0, 15) + '...');
       return _accessToken;
     }
     
@@ -15,7 +14,6 @@ export const tokenStore = {
       try {
         const stored = localStorage.getItem('accessToken');
         if (stored) {
-          console.log('[TokenStore] getToken -> found in localStorage:', stored.substring(0, 15) + '...');
           _accessToken = stored;
           return stored;
         }
@@ -29,7 +27,6 @@ export const tokenStore = {
   },
   setToken(token: string | null) {
     if (token) {
-      console.log('[TokenStore] setToken -> storing token:', token.substring(0, 15) + '...');
     } else {
       console.log('[TokenStore] setToken -> clearing token');
     }
@@ -40,10 +37,8 @@ export const tokenStore = {
       try {
         if (token) {
           localStorage.setItem('accessToken', token);
-          console.log('[TokenStore] setToken -> saved to localStorage');
         } else {
           localStorage.removeItem('accessToken');
-          console.log('[TokenStore] setToken -> cleared from localStorage');
         }
       } catch (e) {
         console.warn('[TokenStore] Could not store token in localStorage:', e);

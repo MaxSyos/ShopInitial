@@ -39,9 +39,7 @@ export function mapBackendProductToIProduct(product: Product): IProduct {
 
 export function mapBackendProductsToIProducts(products: Product[]): IProduct[] {
   // Log para depuração
-  console.log('Produtos recebidos do backend:', products);
   const mapped = products.map(mapBackendProductToIProduct);
-  console.log('Produtos mapeados para o frontend:', mapped);
   return mapped;
 }
 

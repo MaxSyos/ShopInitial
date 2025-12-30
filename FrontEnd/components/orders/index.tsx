@@ -74,11 +74,6 @@ const Orders: React.FC = () => {
     setLoading(true);
     try {
       const token = tokenStore.getToken();
-      console.log('===== [Orders Component] fetchOrders called =====');
-      console.log('[Orders Component] Current page:', page);
-      console.log('[Orders Component] Token in tokenStore:', token ? `present (${token.substring(0, 20)}...)` : '❌ MISSING');
-      console.log('[Orders Component] UserInfo:', userInfo ? `present (id: ${userInfo._id})` : '❌ MISSING');
-      console.log('[Orders Component] Fetching from /orders/list...');
       const response = await api.get('/orders/list', {
         params: {
           page,
@@ -92,7 +87,6 @@ const Orders: React.FC = () => {
       setPagination(data.pagination || null);
       try {
         const debugArr = (data.orders || []).map((o: { id: string; status: string; paymentStatus: string; isDelivered?: boolean }) => ({ id: o.id, status: o.status, paymentStatus: o.paymentStatus, isDelivered: o.isDelivered }));
-        console.debug('DEBUG: fetched orders:', debugArr);
       } catch (e) {
         // ignore
       }

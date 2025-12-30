@@ -10,7 +10,6 @@ interface Props {
 }
 
 const Card: React.FC<Props> = ({ product }) => {
-  console.log('🎯 Card - product discount:', product.discount);
   const category = product.category && product.category.length > 0 ? product.category[0] : "categoria";
   const subCategory = product.subCategory ? product.subCategory : "all";
   const titleSlug = product.name ? product.name.replace(/\s+/g, "-").toLowerCase() : product.slug?.current || product.id;

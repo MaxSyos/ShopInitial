@@ -104,7 +104,6 @@ const SearchPage: React.FC = () => {
   // Mapeia os produtos com ofertas já aplicadas
   const mappedProducts = mapBackendProductsToIProducts(productsWithOffers);
 
-  console.log('SearchPage - produtos com ofertas:', productsWithOffers);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">

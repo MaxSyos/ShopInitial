@@ -34,13 +34,7 @@ const CartItem: React.FC<Props> = ({ product }) => {
       ? product.image[0]
       : "/images/default-product.jpg";
 
-  console.log('🛒 CartItem product:', {
-    name: product.name,
-    imageUrl,
-    images: product.image,
-    imageType: typeof product.image,
-    isArray: Array.isArray(product.image),
-  });
+
 
   // Debug: imprimir o produto inteiro quando houver problemas
   if (!imageUrl || imageUrl === '/images/default-product.jpg') {

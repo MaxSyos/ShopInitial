@@ -161,11 +161,9 @@ const ManageContent = () => {
   const fetchProducts = async (retryCount = 0) => {
     setProductsError(null);
     try {
-      console.log('manage-content: fetching products via api client (attempt ' + (retryCount + 1) + ')');
       const headers = getAuthHeaders();
       
       const res = await api.get('/products?limit=200', { headers });
-      console.log('manage-content: products response', res && res.data);
       const items = res.data?.items || [];
       setProducts(items);
       /* if (items.length > 0) {
@@ -178,7 +176,6 @@ const ManageContent = () => {
       
       // Retry automático até 2 vezes se falhar por timeout ou erro de rede
       if (retryCount < 2 && (err.code === 'ECONNABORTED' || err.message.includes('timeout') || !err.response)) {
-        console.log('manage-content: retrying products fetch...');
         toast.info('Tentando carregar novamente...');
         setTimeout(() => fetchProducts(retryCount + 1), 2000);
         return;

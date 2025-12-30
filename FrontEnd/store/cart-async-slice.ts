@@ -22,9 +22,7 @@ export const fetchCart = createAsyncThunk('cart/fetchCart', async (_, { rejectWi
   }
 
   try {
-    console.log('fetchCart thunk -> isAuthenticated:', isAuthenticated);
     const response = await api.get('/cart');
-    console.log('fetchCart -> response:', response.data);
     return response.data;
   } catch (error: any) {
     console.error('fetchCart error', error?.response?.data || error.message);
@@ -39,7 +37,6 @@ export const addToCart = createAsyncThunk(
     const isAuthenticated = state?.userInfo?.isAuthenticated;
     if (!isAuthenticated) {
       // Usuário anônimo: não persiste no backend
-      console.log('addToCart thunk -> anonymous user, skipping backend persist');
       // apply optimistic local update
       const fakeProduct: any = { id: payload.productId, slug: { current: payload.productId }, price: 0 };
       dispatch(cartActions.addItemToCart({ product: fakeProduct, quantity: payload.quantity }));
@@ -72,7 +69,6 @@ export const addItemAndPersist = createAsyncThunk(
 
     if (!isAuthenticated) {
       // usuário anônimo -> apenas retorna o estado local atual
-      console.log('addItemAndPersist -> anonymous user, keeping optimistic local update');
       const current = state.cart;
       return { items: current.items, totalQuantity: current.totalQuantity, totalAmount: current.totalAmount };
     }
@@ -96,7 +92,6 @@ export const removeFromCart = createAsyncThunk(
     const isAuthenticated = state?.userInfo?.isAuthenticated;
     if (!isAuthenticated) {
       // Usuário anônimo: não persiste no backend
-      console.log('removeFromCart -> anonymous user, skipping backend');
       return { items: [], totalQuantity: 0, totalAmount: 0 };
     }
 

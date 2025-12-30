@@ -87,10 +87,7 @@ const ManageOrdersPage: React.FC = () => {
     try {
       setLoading(true);
       const token = tokenStore.getToken();
-      console.log('[ManageOrders] Token in tokenStore:', token ? `present (${token.substring(0, 20)}...)` : 'MISSING');
-      console.log('[ManageOrders] Fetching orders from /admin/orders...');
       const response = await api.get('/admin/orders');
-      console.log('[ManageOrders] Orders fetched successfully:', response.data?.length || 0, 'orders');
       const data = Array.isArray(response.data) ? response.data : response.data.orders || [];
       setOrders(data);
     } catch (error: any) {

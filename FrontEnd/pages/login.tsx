@@ -33,9 +33,7 @@ const Login: NextPage = () => {
     try {
       // ✅ Armazenar token no tokenStore para que o axiosClient consiga acessar
       if (userData.accessToken) {
-        console.log('[Login Page] LoginHandler -> storing token:', userData.accessToken.substring(0, 15) + '...');
         tokenStore.setToken(userData.accessToken);
-        console.log('[Login Page] Token stored in tokenStore');
       } else {
         console.warn('[Login Page] ⚠️ userData.accessToken is empty!');
       }
@@ -59,7 +57,6 @@ const Login: NextPage = () => {
       await router.push(redirect);
     } catch (err: any) {
       setErrorMessage(getError(err));
-      console.log(getError(err));
     }
   }
   return (

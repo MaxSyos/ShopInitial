@@ -12,8 +12,6 @@ interface Props {
 }
 const ProductDetails: React.FC<Props> = ({ product, products }) => {
   // Log para depuração
-  console.log('ProductDetails - product:', product);
-  console.log('ProductDetails - products:', products);
 
   if (!product) {
     return <div className="text-center py-12">Carregando produto...</div>;

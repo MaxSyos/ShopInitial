@@ -111,7 +111,6 @@ const ProductsPage: React.FC<{ initialProducts?: any }> = ({ initialProducts }) 
     ? mapBackendProductsToIProducts(productsWithOffers)
     : [];
 
-  console.log('ProductsPage - produtos com ofertas:', productsWithOffers);
 
   if (loading && (!products?.items || products.items.length === 0)) {
     return (

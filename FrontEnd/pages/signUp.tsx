@@ -27,9 +27,7 @@ const SignUp: NextPage = () => {
   async function signUpHandler(user: IUser) {
     // ✅ Armazenar token no tokenStore para que o axiosClient consiga acessar
     if (user.accessToken) {
-      console.log('[SignUp Page] signUpHandler -> storing token:', user.accessToken.substring(0, 15) + '...');
       tokenStore.setToken(user.accessToken);
-      console.log('[SignUp Page] Token stored in tokenStore');
     } else {
       console.warn('[SignUp Page] ⚠️ user.accessToken is empty!');
     }

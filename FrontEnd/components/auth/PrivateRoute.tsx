@@ -17,10 +17,8 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({
   const { isAuthenticated, loading, user } = useAuth();
 
   useEffect(() => {
-    console.log('PrivateRoute: isAuthenticated=', isAuthenticated, 'loading=', loading, 'user=', user, 'requiredRole=', requiredRole);
     
     if (!loading && !isAuthenticated) {
-      console.log('PrivateRoute: redirecting to', redirectTo, '(not authenticated)');
       router.replace({
         pathname: redirectTo,
         // usar asPath para preservar params e query reais (ex: /payment/123)
@@ -30,7 +28,6 @@ export const PrivateRoute: React.FC<PrivateRouteProps> = ({
 
     if (!loading && isAuthenticated && requiredRole && user?.role !== requiredRole) {
       // Redirecionar se o role não corresponde
-      console.log('PrivateRoute: redirecting to / (role mismatch: user.role=', user?.role, 'required=', requiredRole, ')');
       router.replace('/');
     }
   }, [isAuthenticated, loading, router, redirectTo, requiredRole, user]);

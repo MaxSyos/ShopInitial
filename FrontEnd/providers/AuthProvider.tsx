@@ -17,11 +17,9 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   const restoreUserSession = async () => {
       try {
         if (typeof window !== 'undefined') {
-          console.log('\n===== [AuthProvider] Restoring user session =====');
           const userInfo = localStorage.getItem('userInfo');
 
           if (userInfo) {
-            console.log('[AuthProvider] Found userInfo in localStorage');
             const userData = JSON.parse(userInfo);
 
             // Basic validation
@@ -35,10 +33,8 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
             ) {
               // If cached accessToken exists, restore it in-memory; otherwise try refresh endpoint
               if (userData.accessToken) {
-                console.log('[AuthProvider] ✅ Access token found in localStorage, restoring...');
                 tokenStore.setToken(userData.accessToken);
                 dispatch(userInfoActions.userLogin({ ...userData, accessToken: userData.accessToken }));
-                console.log('[AuthProvider] ✅ User session restored from localStorage');
 
                 // Após restaurar sessão, sincroniza o carrinho local com o backend
                 try {
@@ -69,7 +65,6 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                         if (mappedItems.length === 0) {
                           // nada para mesclar
                         } else {
-                          console.log('AuthProvider -> merging local cart items', mappedItems);
                           const resp = await fetch('/api/cart/merge', {
                             method: 'POST',
                             headers: {
@@ -79,7 +74,6 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                             body: JSON.stringify({ items: mappedItems })
                           });
 
-                          console.log('AuthProvider -> merge response status', resp.status);
 
                           if (resp.ok) {
                             // Recarregar o carrinho do servidor para atualizar o estado local
@@ -102,18 +96,15 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                 }
               } else {
                 // Try to refresh using HttpOnly cookie
-                console.log('[AuthProvider] ⚠️ No access token in localStorage, attempting refresh...');
                 fetch(`${API_BASE}/refresh`, { method: 'POST', credentials: 'include' })
                   .then((r) => r.json())
                   .then((data) => {
                     if (data?.accessToken) {
-                      console.log('[AuthProvider] ✅ Token refreshed successfully');
                       tokenStore.setToken(data.accessToken);
                       dispatch(userInfoActions.userLogin({ ...userData, accessToken: data.accessToken }));
                       // update cached userInfo
                       userData.accessToken = data.accessToken;
                       localStorage.setItem('userInfo', JSON.stringify(userData));
-                      console.log('[AuthProvider] ✅ User session restored via refresh token');
                     } else {
                       console.warn('[AuthProvider] ⚠️ Refresh failed, no access token returned');
                       dispatch(userInfoActions.userLogout());
@@ -130,7 +121,6 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
               localStorage.clear();
             }
           } else {
-            console.log('[AuthProvider] No userInfo in localStorage, user not logged in');
           }
         }
       } catch (error) {

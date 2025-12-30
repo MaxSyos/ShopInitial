@@ -28,8 +28,6 @@ const Home: NextPage = () => {
   }, []);
 
   useEffect(() => {
-    console.log('🔍 Index - newestProducts:', newestProducts);
-    console.log('🔍 Index - products:', products);
   }, [newestProducts, products]);
   useEffect(() => {
     const mergeOffers = async () => {
