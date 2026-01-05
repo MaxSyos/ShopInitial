@@ -101,6 +101,7 @@ model OrderItem {
   quantity  Int
   unitPrice Float
   total     Float
+  lists     OrderItemList[]
 }
 
 model Order {
@@ -271,4 +272,47 @@ enum PaymentStatus {
   PAID
   FAILED
   EXPIRED
+}
+
+// Tamanhos para produtos que precisam de especificação por item
+enum Size {
+  PP
+  P
+  M
+  G
+  GG
+  EXG
+  EXGG
+  BLPP
+  BLP
+  BLM
+  BLG
+  BLGG
+  BLEXG
+  BLEXGG
+  ANOS_2
+  ANOS_4
+  ANOS_6
+  ANOS_8
+  ANOS_10
+  ANOS_12
+  ANOS_14
+}
+
+// Armazenamento de listas customizadas vinculadas a um OrderItem
+model OrderItemList {
+  id          String            @id @map("_id") @default(auto()) @db.ObjectId
+  orderItemId String            @db.ObjectId
+  orderItem   OrderItem         @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  rows        OrderItemListRow[]
+  createdAt   DateTime          @default(now())
+}
+
+model OrderItemListRow {
+  id     String   @id @map("_id") @default(auto()) @db.ObjectId
+  listId String   @db.ObjectId
+  list   OrderItemList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  name   String
+  number String?
+  size   Size
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import React from "react";
+import React, { useState } from "react";
+import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { useLanguage } from "../../hooks/useLanguage";
 import { ICartRootState } from "../../lib/types/cart";
@@ -14,6 +15,10 @@ const OrderSummaryBox = () => {
   const totalQuantity = useSelector(
     (state: ICartRootState) => state.cart.totalQuantity
   );
+
+  const router = useRouter();
+  const [showMinModal, setShowMinModal] = useState(false);
+  const MIN_QTY = 10;
 
   return (
     <>
@@ -38,11 +43,37 @@ const OrderSummaryBox = () => {
               <ProductPrice price={totalAmount} />
             </div>
           </div>
-          <Link href="/shipping-address">
-            <a className="block bg-palette-primary md:mt-8 py-3 rounded-lg text-palette-side text-center shadow-lg">
-              {t.order}
-            </a>
-          </Link>
+          <button
+            onClick={(e) => {
+              if (totalQuantity < MIN_QTY) {
+                e.preventDefault();
+                setShowMinModal(true);
+                return;
+              }
+              router.push("/shipping-address");
+            }}
+            className="block bg-palette-primary md:mt-8 py-3 rounded-lg text-palette-side text-center shadow-lg w-full"
+          >
+            {t.order}
+          </button>
+
+          {showMinModal && (
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/50 dark:bg-black/60 z-[99998]" onClick={() => setShowMinModal(false)} />
+              <div className="relative bg-white dark:bg-gray-900 rounded-lg p-6 max-w-md mx-4 shadow-lg z-[100000] text-gray-900 dark:text-gray-100">
+                <h3 className="text-lg font-semibold mb-2">Atenção</h3>
+                <p className="mb-4">Quantidade mínima de {MIN_QTY} peças necessária para finalizar o pedido.</p>
+                <div className="flex justify-end">
+                  <button
+                    className="px-4 py-2 bg-palette-primary dark:bg-palette-primary text-white rounded-md"
+                    onClick={() => setShowMinModal(false)}
+                  >
+                    Fechar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <p className="text-palette-mute text-lg mx-auto mt-12">
