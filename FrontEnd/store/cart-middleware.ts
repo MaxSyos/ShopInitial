@@ -25,7 +25,7 @@ const cartMiddleware: Middleware = (storeAPI) => (next) => (action) => {
         cartLocal.enqueueOp({ type: 'add', productId, quantity: Number(payload.quantity), unitPrice: payload.product?.price });
         cartSync.scheduleSync();
       }
-    } else if (type.endsWith('/removeItemFromCart')) {
+    } else if (type.endsWith('/removeItemFromCart') || type.endsWith('/removeItemCompletely')) {
       // payload is slug.current — find item in nextState
       const slug = action.payload as string;
       const item = (nextState.items || []).find((it: any) => it.slug?.current === slug || it.id === slug);

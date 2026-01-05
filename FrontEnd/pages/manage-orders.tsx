@@ -171,6 +171,61 @@ const ManageOrdersPage: React.FC = () => {
     }
   };
 
+  const [showListsModal, setShowListsModal] = useState(false);
+  const [listsForOrder, setListsForOrder] = useState<Record<string, any[]>>({});
+  const [listsLoading, setListsLoading] = useState(false);
+  const [currentOrderForLists, setCurrentOrderForLists] = useState<OrderData | null>(null);
+
+  async function openListsModal(order: OrderData) {
+    setShowListsModal(true);
+    setListsForOrder({});
+    setCurrentOrderForLists(order);
+    setListsLoading(true);
+    try {
+      const out: Record<string, any[]> = {};
+      // fetch lists for each order item
+      await Promise.all(order.items.map(async (it) => {
+        try {
+          const resp = await fetch(`/api/orders/lists?orderItemId=${encodeURIComponent(it.id)}`);
+          if (!resp.ok) return;
+          const data = await resp.json();
+          out[it.id] = data || [];
+        } catch (err) {
+          out[it.id] = [];
+        }
+      }));
+      setListsForOrder(out);
+    } catch (err) {
+      console.error('Erro ao buscar listas do pedido', err);
+      toast.error('Erro ao carregar listas do pedido');
+    } finally {
+      setListsLoading(false);
+    }
+  }
+
+  function exportListAsXls(orderId: string, productName: string, listRows: any[], idx: number) {
+    // create CSV content
+    const headers = ['Nome', 'Número', 'Tamanho'];
+    const lines = [headers.join('\t')];
+    for (const r of listRows) {
+      const name = (r.name || '').replace(/\t|\n|\r/g, ' ');
+      const number = (r.number || '').toString().replace(/\t|\n|\r/g, ' ');
+      const size = (r.size || '').replace(/\t|\n|\r/g, ' ');
+      lines.push([name, number, size].join('\t'));
+    }
+    const csv = lines.join('\n');
+    const blob = new Blob([csv], { type: 'application/vnd.ms-excel' });
+    const fileName = `order_${orderId}_${productName.replace(/\s+/g, '_')}_list_${idx + 1}.xls`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   const filteredOrders = orders.filter((order) => {
     if (statusFilter === 'all') return true;
     if (statusFilter === 'paid') return order.paymentStatus === 'PAID' || order.paymentStatus === 'COMPLETED';
@@ -262,6 +317,7 @@ const ManageOrdersPage: React.FC = () => {
                   <th className="px-4 py-3 text-left font-semibold">Total</th>
                   <th className="px-4 py-3 text-left font-semibold">Pagamento</th>
                   <th className="px-4 py-3 text-left font-semibold">Entrega</th>
+                  <th className="px-4 py-3 text-left font-semibold">Listas</th>
                   <th className="px-4 py-3 text-center font-semibold">Ações</th>
                 </tr>
               </thead>
@@ -308,6 +364,15 @@ const ManageOrdersPage: React.FC = () => {
                         <span className={`px-2 py-1 rounded-md text-xs font-medium ${getDeliveryStatusColor(order.deliveryMethod || '', order.isDelivered || false)}`}>
                           {getDeliveryStatusText(order.deliveryMethod || '', order.isDelivered || false)}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => openListsModal(order)}
+                          className="inline-flex items-center gap-2 px-3 py-1 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-md hover:opacity-75 transition"
+                          title="Ver listas do pedido"
+                        >
+                          Listas
+                        </button>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <button
@@ -422,6 +487,97 @@ const ManageOrdersPage: React.FC = () => {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Listas por produto */}
+        {showListsModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-6 z-50 overflow-auto">
+            <div className="bg-palette-card rounded-lg p-6 max-w-4xl w-full shadow-lg">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold mb-4">Listas do Pedido</h2>
+                <button onClick={() => setShowListsModal(false)} className="px-3 py-1 rounded-md bg-gray-200">Fechar</button>
+              </div>
+              {listsLoading ? (
+                <div className="py-8 text-center">Carregando listas...</div>
+              ) : (
+                <div className="space-y-6">
+                  {filteredOrders.length === 0 ? (
+                    <p>Nenhuma lista encontrada</p>
+                  ) : (
+                    // percorre os produtos do pedido e mostra as listas relacionadas
+                    Object.keys(listsForOrder).length === 0 ? (
+                      <p className="text-palette-mute">Nenhuma lista registrada para este pedido.</p>
+                    ) : (
+                      orders
+                        .filter(o => o.id && o.items && o.items.length)
+                        .map((o) => {
+                          // só mostrar para o pedido atualmente com modal aberto
+                          // assumimos que modal é aberto para um pedido e listsForOrder contém chaves
+                          return null;
+                        })
+                    )
+                  )}
+
+                  {/* Exibir listas por produto usando listasForOrder - ordena pelos items do pedido que abriu o modal */}
+                  <div className="space-y-6">
+                    {currentOrderForLists && currentOrderForLists.items.map((item) => {
+                      const lists = listsForOrder[item.id] || [];
+                      return (
+                        <div key={item.id} className="border rounded-md p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <p className="font-medium">Produto: {item.productName}</p>
+                              <p className="text-xs text-palette-mute">Quantidade no pedido: {item.quantity}</p>
+                            </div>
+                          </div>
+
+                          {lists.length === 0 ? (
+                            <p className="text-palette-mute">Nenhuma lista registrada para este produto.</p>
+                          ) : (
+                            <div className="space-y-3">
+                              {lists.map((lst: any, idx: number) => (
+                                <div key={lst.id} className="bg-white dark:bg-gray-900 p-3 rounded-md shadow-sm">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="text-sm font-semibold">Lista #{idx + 1}</div>
+                                    <button
+                                      className="px-3 py-1 bg-palette-primary text-white rounded-md text-sm"
+                                      onClick={() => exportListAsXls(currentOrderForLists.id, item.productName, lst.rows || [], idx)}
+                                    >
+                                      Exportar .XLS
+                                    </button>
+                                  </div>
+                                  <div className="overflow-auto">
+                                    <table className="w-full text-sm">
+                                      <thead>
+                                        <tr className="text-left text-xs text-palette-mute">
+                                          <th className="py-1 px-2">Nome</th>
+                                          <th className="py-1 px-2">Número</th>
+                                          <th className="py-1 px-2">Tamanho</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {(lst.rows || []).map((r: any, i: number) => (
+                                          <tr key={i} className="border-t">
+                                            <td className="py-1 px-2">{r.name}</td>
+                                            <td className="py-1 px-2">{r.number}</td>
+                                            <td className="py-1 px-2">{r.size}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

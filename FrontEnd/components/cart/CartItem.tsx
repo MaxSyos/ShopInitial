@@ -24,12 +24,12 @@ const CartItem: React.FC<Props> = ({ product }) => {
         (item) => item.slug.current === product.slug.current
       )?.quantity
   );
-  const [counter, setCounter] = useState(productQuantity ?? 10);
+  const [counter, setCounter] = useState(productQuantity ?? product.quantity ?? 1);
   const dispatch = useDispatch();
   const { t } = useLanguage();
   const totalQuantity = useSelector((state: ICartRootState) => state.cart.totalQuantity);
   const safePrev = counter || product.quantity || 1;
-  const minAllowed = Math.max(1, 10 - ((totalQuantity || 0) - safePrev));
+  const minAllowed = 1;
 
   // Define a URL da imagem de forma segura, com um fallback.
   // Isso evita o erro se 'product.image' não existir ou não for um array.
@@ -52,41 +52,20 @@ const CartItem: React.FC<Props> = ({ product }) => {
   }
 
   function decrement(prod: IProduct) {
-    // impedir decremento se atingir o mínimo permitido para esse item
+    // decrement normally (no global minimum enforcement here)
     const current = counter || prod.quantity || 1;
-    if (current <= minAllowed) {
-      toast.warn('O pedido mínimo é de 10 peças no total');
-      return;
-    }
-    setCounter((prev) => --prev!);
-    // update local state immediately
-    const slug = prod.slug?.current || prod.id;
-    dispatch(cartActions.removeItemFromCart(slug));
-    // try to persist removal if we have a cartItemId
-    const cartItemId = (prod as any).cartItemId;
-    if (cartItemId) {
-      // fire-and-forget: the thunk will replace the cart state when resolved
-      (dispatch as any)(removeFromCart(cartItemId));
+    if (current > 1) {
+      setCounter((prev) => --prev!);
+      const productSlugOrId = prod.id || prod.slug?.current;
+      (dispatch as any)(updateItemQuantity({ productSlugOrId, quantity: current - 1, cartItemId: (prod as any).cartItemId }));
     }
   }
 
   function removeItemHandler(product: IProduct) {
-    // remove item completely if allowed by minimum total rule
-    const itemQty = product.quantity || counter || 0;
-    const projectedTotal = (totalQuantity || 0) - itemQty;
-    if (projectedTotal < 10) {
-      // caso especial: se o total atual for exatamente 10 e o item tem qty <= 1, permitir remoção
-      if (!((totalQuantity || 0) === 10 && itemQty <= 1)) {
-        toast.warn('Não é possível remover este item: mínimo de 10 peças no pedido');
-        return;
-      }
-    }
-
-    // update local state
+    // Remover o item a pedido do usuário, sem validação de mínimo total
     const slug = product.slug?.current || product.id;
     dispatch(cartActions.removeItemCompletely(slug));
 
-    // persist if backend id is available
     const cartItemId = (product as any).cartItemId;
     if (cartItemId) {
       (dispatch as any)(removeFromCart(cartItemId));
@@ -120,21 +99,11 @@ const CartItem: React.FC<Props> = ({ product }) => {
     let newVal = Math.max(1, Math.min(1000, raw));
     const prev = counter || 1;
 
-    // garantir que o total do carrinho não fique abaixo de 10
-    const desiredTotal = (totalQuantity || 0) - prev + newVal;
-    if (desiredTotal < 10) {
-      // ajustar newVal para que desiredTotal == 10
-      newVal = prev + (10 - (totalQuantity || 0));
-      newVal = Math.max(1, newVal);
-      toast.warn('O pedido mínimo é de 10 peças no total — ajuste aplicado');
-    }
-
     setCounter(newVal);
 
     // mirror + / - behavior: sync immediately with store/backend
     try {
       if (newVal > prev) {
-        // increase by diff
         (dispatch as any)(addItemAndPersist({ product, quantity: newVal - prev }));
       } else if (newVal < prev) {
         const productSlugOrId = product.id || product.slug?.current;
@@ -144,6 +113,8 @@ const CartItem: React.FC<Props> = ({ product }) => {
       console.error('Erro ao sincronizar quantidade via input', err);
       (dispatch as any)(fetchCart());
     }
+
+    // (duplicated sync removed) -- already sincronizado acima
     
   }
   // Lista de nomes modal

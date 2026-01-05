@@ -17,8 +17,8 @@ const OrderSummaryBox = () => {
   );
 
   const router = useRouter();
-  const [showMinModal, setShowMinModal] = useState(false);
-  const MIN_QTY = 10;
+     const [showMinModal, setShowMinModal] = useState(false);
+     const MIN_QTY = 10;
 
   return (
     <>

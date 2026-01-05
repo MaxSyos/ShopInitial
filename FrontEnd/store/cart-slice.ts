@@ -86,12 +86,9 @@ const cartSlice = createSlice({
       const existingItem = state.items.find(
         (item) => item.slug.current === productSlug
       );
-
-      // Não permitir que o total de peças fique abaixo do mínimo configurado
-      if (state.totalQuantity <= MIN_TOTAL_QUANTITY) return;
-
+      // Atualiza quantidades e totais ao remover uma unidade do item
+      if (!existingItem) return;
       state.totalQuantity--;
-
       state.totalAmount =
         state.totalAmount -
         (existingItem?.discount
@@ -127,16 +124,8 @@ const cartSlice = createSlice({
         (item) => item.slug.current === productSlug
       );
       if (!existingItem) return;
-
-      const projectedTotal = state.totalQuantity - (existingItem.quantity || 0);
-      // Não permitir remoção completa se deixaria o total abaixo do mínimo,
-      // exceto caso especial: se o total atual for exatamente o mínimo e o item tem quantidade <= 1
-      if (projectedTotal < MIN_TOTAL_QUANTITY) {
-        const isSpecialCase = state.totalQuantity === MIN_TOTAL_QUANTITY && (existingItem.quantity || 0) <= 1;
-        if (!isSpecialCase) return;
-      }
-
-      state.totalQuantity = projectedTotal;
+      // Remove o item completamente e ajusta totais (sem validação de mínimo)
+      state.totalQuantity = state.totalQuantity - (existingItem.quantity || 0);
       state.totalAmount = state.totalAmount - (existingItem.totalPrice || 0);
       state.items = state.items.filter((item) => item.slug.current !== productSlug);
     },
@@ -156,16 +145,8 @@ const cartSlice = createSlice({
       let newQty = quantity;
       let delta = quantity - prevQty;
 
-      // Não permitir que o total fique abaixo do mínimo
-      const desiredTotal = state.totalQuantity + delta;
-      if (desiredTotal < MIN_TOTAL_QUANTITY) {
-        const allowedQuantity = prevQty + (MIN_TOTAL_QUANTITY - state.totalQuantity);
-        newQty = Math.max(1, allowedQuantity);
-        delta = newQty - prevQty;
-      }
-
+      // Ajusta total e quantidade sem impor mínimo global aqui
       state.totalQuantity = state.totalQuantity + delta;
-
       const unit = existingItem.discount
         ? calculateDiscountPercentage(existingItem.price, existingItem.discount)
         : existingItem.price;
