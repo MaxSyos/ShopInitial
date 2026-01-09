@@ -204,18 +204,20 @@ const ManageOrdersPage: React.FC = () => {
   }
 
   function exportListAsXls(orderId: string, productName: string, listRows: any[], idx: number) {
-    // create CSV content
+    // create CSV content with UTF-8 encoding and semicolon separator (compatible with Excel)
     const headers = ['Nome', 'Número', 'Tamanho'];
-    const lines = [headers.join('\t')];
+    const lines = [headers.join(';')];
     for (const r of listRows) {
-      const name = (r.name || '').replace(/\t|\n|\r/g, ' ');
-      const number = (r.number || '').toString().replace(/\t|\n|\r/g, ' ');
-      const size = (r.size || '').replace(/\t|\n|\r/g, ' ');
-      lines.push([name, number, size].join('\t'));
+      const name = (r.name || '').replace(/[;\n\r]/g, ' ');
+      const number = (r.number || '').toString().replace(/[;\n\r]/g, ' ');
+      const size = (r.size || '').replace(/[;\n\r]/g, ' ');
+      lines.push([name, number, size].join(';'));
     }
-    const csv = lines.join('\n');
-    const blob = new Blob([csv], { type: 'application/vnd.ms-excel' });
-    const fileName = `order_${orderId}_${productName.replace(/\s+/g, '_')}_list_${idx + 1}.xls`;
+    // Adicionar BOM UTF-8 para garantir que o Excel reconheça a codificação corretamente
+    const bom = '\uFEFF';
+    const csv = bom + lines.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const fileName = `order_${orderId}_${productName.replace(/\s+/g, '_')}_list_${idx + 1}.csv`;
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

@@ -282,7 +282,7 @@ const CartItem: React.FC<Props> = ({ product }) => {
                     value={r.name}
                     onChange={(e) => updateRow(idx, 'name', e.currentTarget.value.toUpperCase())}
                   />
-                  <input className="w-28 border p-2 rounded-md" placeholder="sem nº" value={r.number} onChange={(e) => updateRow(idx, 'number', e.target.value)} />
+                  <input className="w-28 border p-2 rounded-md" placeholder="sem nº" value={r.number} onChange={(e) => updateRow(idx, 'number', e.target.value.replace(/\D/g, ''))} type="text" inputMode="numeric" />
                   <select className="w-28 border p-2 rounded-md" value={r.size} onChange={(e) => updateRow(idx, 'size', e.target.value)}>
                     <option value="PP">PP</option>
                     <option value="P">P</option>
