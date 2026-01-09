@@ -493,11 +493,11 @@ const ManageOrdersPage: React.FC = () => {
 
         {/* Modal de Listas por produto */}
         {showListsModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-6 z-50 overflow-auto">
+          <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-6 z-[9999] overflow-auto">
             <div className="bg-palette-card rounded-lg p-6 max-w-4xl w-full shadow-lg">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold mb-4">Listas do Pedido</h2>
-                <button onClick={() => setShowListsModal(false)} className="px-3 py-1 rounded-md bg-gray-200">Fechar</button>
+                <button onClick={() => setShowListsModal(false)} className="px-3 py-1 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Fechar</button>
               </div>
               {listsLoading ? (
                 <div className="py-8 text-center">Carregando listas...</div>

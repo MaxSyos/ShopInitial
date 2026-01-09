@@ -356,6 +356,59 @@ const ShippingAddressPage: React.FC = () => {
           // ignore
         }
 
+        // Associar listas salvas localmente (user_lists_v1) aos orderItems criados
+        try {
+          const rawLists = localStorage.getItem('user_lists_v1');
+          if (rawLists) {
+            const parsedLists = JSON.parse(rawLists || '{}') || {};
+            const orderItems = (created && (created.localOrder?.items || created.items)) || [];
+            for (const it of orderItems) {
+              const orderItemId = it.id || it.orderItemId;
+              if (!orderItemId) continue;
+
+              // possíveis chaves usadas ao salvar: cartItemId | productId | product.slug.current
+              const productId = it.productId || it.product?.id || (it.product && it.product.id);
+              const slug = it.product?.slug?.current || (it.product && it.product.slug && it.product.slug.current);
+              const possibleKeys: string[] = [];
+              if ((it as any).cartItemId) possibleKeys.push(String((it as any).cartItemId));
+              if (productId) possibleKeys.push(String(productId));
+              if (slug) possibleKeys.push(String(slug));
+
+              let foundKey: string | null = null;
+              for (const k of possibleKeys) {
+                if (parsedLists[k]) { foundKey = k; break; }
+              }
+
+              if (foundKey) {
+                try {
+                  // usar cliente axios `api` para enviar header Authorization automaticamente
+                  const resp = await api.post('/orders/lists', { orderItemId, rows: parsedLists[foundKey] });
+                  if (resp && resp.data) {
+                    // remover da lista local
+                    delete parsedLists[foundKey];
+                  } else {
+                    console.warn('orders/lists POST sem resposta esperada', resp);
+                  }
+                } catch (e) {
+                  console.warn('Falha ao salvar lista do pedido no servidor', e);
+                }
+              }
+            }
+
+            // persistir o que sobrou ou remover a chave se vazia
+            try {
+              const remaining = Object.keys(parsedLists || {});
+              if (!remaining || remaining.length === 0) {
+                localStorage.removeItem('user_lists_v1');
+              } else {
+                localStorage.setItem('user_lists_v1', JSON.stringify(parsedLists));
+              }
+            } catch (e) {}
+          }
+        } catch (e) {
+          console.warn('Erro ao associar listas locais ao pedido:', e);
+        }
+
         // Limpar o carrinho local APENAS após o pedido ser criado com sucesso
         try {
           dispatch(cartActions.clearCart());
