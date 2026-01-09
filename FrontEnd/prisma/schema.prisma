@@ -312,7 +312,7 @@ model OrderItemListRow {
   id     String   @id @map("_id") @default(auto()) @db.ObjectId
   listId String   @db.ObjectId
   list   OrderItemList @relation(fields: [listId], references: [id], onDelete: Cascade)
-  name   String
+  name   String?
   number String?
   size   Size
 }
