@@ -16,6 +16,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json(items);
   } catch (error: any) {
     console.error('API products newest error:', error);
-    return res.status(500).json({ message: 'Erro ao buscar produtos mais novos', error: String(error), stack: error?.stack });
+    return res.status(500).json({ message: 'Erro ao buscar novos produtos', error: String(error), stack: error?.stack });
   }
 }

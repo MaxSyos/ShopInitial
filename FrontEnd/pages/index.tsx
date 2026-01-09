@@ -22,7 +22,7 @@ const Home: NextPage = () => {
   useEffect(() => {
     // Carrega todos os produtos para ofertas
     loadProducts();
-    // Carrega os produtos mais novos - agora feito direto no componente Newest
+    // Carrega os novos produtos - agora feito direto no componente Newest
     // loadNewestProducts(10); // REMOVIDO - Newest component agora faz fetch direto
     // eslint-disable-next-line
   }, []);

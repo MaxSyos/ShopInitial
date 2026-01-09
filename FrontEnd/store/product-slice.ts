@@ -134,7 +134,7 @@ const productsSlice = createSlice({
       })
       .addCase(fetchNewestProducts.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Erro ao carregar produtos mais novos';
+        state.error = action.error.message || 'Erro ao carregar novos produtos';
       })
 
       // fetchPopularProducts
