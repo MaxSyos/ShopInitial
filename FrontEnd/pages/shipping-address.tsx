@@ -331,8 +331,12 @@ const ShippingAddressPage: React.FC = () => {
         return;
       }
 
-      // Montar dados do pedido
-      const items = cartItems.map((it: any) => ({ productId: it.id, quantity: it.quantity, price: it.price }));
+      // Montar dados do pedido - usar totalPrice/quantity para considerar desconto
+      const items = cartItems.map((it: any) => ({ 
+        productId: it.id, 
+        quantity: it.quantity, 
+        price: it.totalPrice / it.quantity // Preço final com desconto já aplicado
+      }));
       const orderData = { shippingAddress: selectedAddress, items };
 
       try {

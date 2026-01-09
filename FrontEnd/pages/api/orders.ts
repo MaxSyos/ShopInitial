@@ -52,10 +52,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ? Number(payload.shippingCost)
         : (calcSubtotal >= FREE_SHIPPING_THRESHOLD ? 0 : DEFAULT_SHIPPING_COST);
 
-      // Taxa fixa de 5% do subtotal (arredondada a 2 casas)
-      const calcTax = Math.round((calcSubtotal * 0.05) * 100) / 100;
-
-      const calcTotal = Math.round((calcSubtotal + calcShippingCost + calcTax) * 100) / 100;
+      // Total = Subtotal + Frete (sem taxa)
+      const calcTotal = Math.round((calcSubtotal + calcShippingCost) * 100) / 100;
 
       // Persistir pedido localmente primeiro com os valores calculados
       const createdOrder = await prisma.order.create({
@@ -65,7 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           billingAddress: payload.billingAddress || null,
           subtotal: Number(payload.subtotal ?? calcSubtotal),
           shippingCost: Number(payload.shippingCost ?? calcShippingCost),
-          tax: Number(payload.tax ?? calcTax),
+          tax: 0,
           total: Number(payload.total ?? calcTotal),
           status: 'PENDING',
           itemsJson: payload.items || [],

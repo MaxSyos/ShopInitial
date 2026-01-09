@@ -22,6 +22,11 @@ const ProductList: React.FC<Props> = ({ productList }) => {
   const [selectedRadioBtn, setSelectedRadioBtn] = useState<string>("all");
   const dispatch = useDispatch();
 
+  // Reset selectedRadioBtn quando a lista de produtos mudar
+  useEffect(() => {
+    setSelectedRadioBtn("all");
+  }, [productList.length]);
+
   useEffect(() => {
     dispatch(
       SortedProductsListActions.sortProductsList({
