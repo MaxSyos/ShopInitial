@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prisma:seed": "node --loader ts-node/esm prisma/seed.ts",
+    "prisma:seed": "node prisma/seed.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
+    "clear-db": "node scripts/clear-database.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

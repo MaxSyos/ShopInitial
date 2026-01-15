@@ -17,7 +17,7 @@ const Footer = () => {
           <SocialPart />
         </div>
       </div>
-      <div className="border-t-[1px] border-slate-500/30 text-center text-xs md:text-sm py-4">
+      {/* <div className="border-t-[1px] border-slate-500/30 text-center text-xs md:text-sm py-4">
         <div>
           {t.copyRight}
           <BsFillSuitHeartFill
@@ -58,7 +58,7 @@ const Footer = () => {
             CafeDX
           </a>
         </div>
-      </div>
+      </div> */}
     </footer>
   );
 };
