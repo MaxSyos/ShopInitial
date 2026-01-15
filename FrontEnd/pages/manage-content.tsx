@@ -625,6 +625,7 @@ const ManageContent = () => {
                 {tab === 'offers' && 'Ofertas'}
                 {tab === 'brands' && 'Marcas'}
                 {tab === 'categories' && 'Categorias'}
+                {tab === 'whatsapp' && 'WhatsApp'}
               </button>
             ))}
           </div>

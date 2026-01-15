@@ -6,6 +6,7 @@ import Footer from "../footer";
 import { ToastContainer } from "react-toastify";
 import { useLanguage } from "../../hooks/useLanguage";
 import NextNProgress from "nextjs-progressbar";
+import FloatingWhatsAppIcon from "../UI/FloatingWhatsAppIcon";
 
 const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const { locale } = useLanguage();
@@ -29,6 +30,7 @@ const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
         <Footer />
       </div>
       <ToastContainer {...toastConfig} />
+      <FloatingWhatsAppIcon />
     </ThemeProvider>
   );
 };
