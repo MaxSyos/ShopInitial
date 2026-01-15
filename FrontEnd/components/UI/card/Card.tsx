@@ -19,7 +19,7 @@ const Card: React.FC<Props> = ({ product }) => {
   const imageUrl = Array.isArray(product.image) && product.image.length > 0 ? product.image[0] : "/images/default-product.jpg";
 
   return (
-    <div className="shadow-xl my-1 md:my-4 bg-palette-card rounded-xl flex flex-col relative min-h-[340px] min-w-[220px] max-w-[320px] max-h-[420px] w-full overflow-hidden">
+    <div className="shadow-xl my-1 md:my-4 bg-palette-card rounded-xl flex flex-col relative min-h-[340px] min-w-[180px] max-w-[280px] max-h-[420px] w-full overflow-hidden">
       <Link href={productUrl}>
         <a className="flex flex-col items-center relative w-full h-full">
           <div className="w-full relative bg-slate-400/30 px-1 md:px-6 py-2 rounded-t-xl flex flex-col justify-between items-center min-h-[220px] max-h-[260px] md:min-h-[300px] md:max-h-[300px]">

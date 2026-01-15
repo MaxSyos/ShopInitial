@@ -25,9 +25,9 @@ const CarouselBox: React.FC<Props> = ({
     className: ` px-4 ${full ? "bg-palette-fill" : "bg-[#37bccef9]"}`,
     infinite: true,
     speed: 600,
-    centerPadding: "60px",
-    slidesToShow: 5,
-    slidesToScroll: 5,
+    centerPadding: full ? "100px" : "60px",
+    slidesToShow: full ? 3 : 5,
+    slidesToScroll: full ? 4 : 5,
     // initialSlide: 0,
     swipeToSlide: true,
     // rtl: true,
@@ -37,22 +37,22 @@ const CarouselBox: React.FC<Props> = ({
       {
         breakpoint: 1324,
         settings: {
-          slidesToShow: 4,
-          slidesToScroll: 4,
+          slidesToShow: full ? 3 : 4,
+          slidesToScroll: full ? 3 : 4,
         },
       },
       {
         breakpoint: 1024,
         settings: {
-          slidesToShow: 3,
-          slidesToScroll: 3,
+          slidesToShow: full ? 2 : 3,
+          slidesToScroll: full ? 2 : 3,
         },
       },
       {
         breakpoint: 768,
         settings: {
-          slidesToShow: 2,
-          slidesToScroll: 2,
+          slidesToShow: full ? 2 : 2,
+          slidesToScroll: full ? 2 : 2,
         },
       },
       {

@@ -9,9 +9,10 @@ import { GetServerSideProps } from "next";
 
 interface Props {
   initialProduct?: IProduct | null;
+  similarProducts?: IProduct[];
 }
 
-const ProductDetailsPage: React.FC<Props> = ({ initialProduct = null }) => {
+const ProductDetailsPage: React.FC<Props> = ({ initialProduct = null, similarProducts = [] }) => {
   const router = useRouter();
   const { slug } = router.query;
   const [product, setProduct] = useState<IProduct | null>(initialProduct || null);
@@ -66,7 +67,7 @@ const ProductDetailsPage: React.FC<Props> = ({ initialProduct = null }) => {
 
   return (
     <div>
-      <ProductDetails product={product} products={[]} />
+      <ProductDetails product={product} products={similarProducts} />
     </div>
   );
 };
@@ -76,7 +77,7 @@ export default ProductDetailsPage;
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { slug } = context.query;
   if (!slug || Array.isArray(slug)) {
-    return { props: { initialProduct: null } };
+    return { props: { initialProduct: null, similarProducts: [] } };
   }
 
   try {
@@ -109,9 +110,26 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
 
     const mapped = mapBackendProduct(product as any);
-    return { props: { initialProduct: mapped } };
+
+    // Buscar produtos similares (mesma categoria, excluindo o atual)
+    let similarProducts: IProduct[] = [];
+    try {
+      const similar = await prisma.product.findMany({
+        where: {
+          categoryId: product.categoryId,
+          id: { not: product.id },
+        },
+        include: { images: true, brand: true, category: true, reviews: true },
+        take: 10,
+      });
+      similarProducts = similar.map((p: any) => mapBackendProduct(p));
+    } catch (similarErr) {
+      console.warn('getServerSideProps: erro ao buscar produtos similares', similarErr);
+    }
+
+    return { props: { initialProduct: mapped, similarProducts } };
   } catch (error) {
     console.error("getServerSideProps product fetch error:", error);
-    return { props: { initialProduct: null } };
+    return { props: { initialProduct: null, similarProducts: [] } };
   }
 };
