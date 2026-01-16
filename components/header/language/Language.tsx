@@ -19,7 +19,7 @@ const Language = () => {
   }
 
   return (
-    <div className="relative rtl:ml-2 rtl:pl-2 ltr:mr-2 ltr:pr-2">
+    <div className="relative rtl:ml-2 rtl:pl-2 -top-8 ltr:mr-2 ltr:pr-2">
       <div className="md:hidden">
         <h3>{t.language}</h3>
         <div className={`ltr:ml-2 rtl:mr-2 mt-2 z-10`}>
