@@ -82,6 +82,7 @@ const Carousel = () => {
 
   return (
     <div className="relative">
+      {/* @ts-ignore */}
       <Slider {...settings}>{slides}</Slider>
       <>
         <div className="absolute top-1/2 right-4 md:right-3 lg:right-8 shadow-lg rounded-full bg-palette-card/80 p-1 drop-shadow-lg text-[0.8rem] md:text-[1.8rem]">

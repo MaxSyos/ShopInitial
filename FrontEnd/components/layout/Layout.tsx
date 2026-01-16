@@ -29,7 +29,7 @@ const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
         <main className="flex-grow md:mt-40">{children}</main>
         <Footer />
       </div>
-      <ToastContainer {...toastConfig} />
+      <ToastContainer {...toastConfig as any} />
       <FloatingWhatsAppIcon />
     </ThemeProvider>
   );

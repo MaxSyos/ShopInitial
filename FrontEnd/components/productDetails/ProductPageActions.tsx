@@ -23,7 +23,7 @@ const ProductPageActions: React.FC<Props> = ({ product }) => {
     }
   }, [isAuthenticated, userInfo, favoriteItems.length, dispatch]);
   const isInFavorite = favoriteItems.some(
-    (item) => item.productId === (product.id || product._id || product.slug?.current) ||
+    (item) => item.productId === (product.id || product.slug?.current) ||
              item.slug?.current === product.slug?.current ||
              (item.productData && item.productData.id === product.id) ||
              (item.productData && item.productData.slug?.current === product.slug?.current)
@@ -33,7 +33,7 @@ const ProductPageActions: React.FC<Props> = ({ product }) => {
     try {
       if (!isInFavorite) {
         // Adicionar aos favoritos - persistir no backend
-        const productId = product.id || product._id || product.slug?.current;
+        const productId = product.id || product.slug?.current;
         console.log('Adicionando aos favoritos:', { productId, product });
         (dispatch as any)(addFavoriteProduct({
           productId: productId,
@@ -42,7 +42,7 @@ const ProductPageActions: React.FC<Props> = ({ product }) => {
       } else {
         // Remover dos favoritos - encontrar o ID do favorito
         const favoriteItem = favoriteItems.find(
-          (item) => item.productId === (product.id || product._id || product.slug?.current) ||
+          (item) => item.productId === (product.id || product.slug?.current) ||
                    item.slug?.current === product.slug?.current ||
                    item.id === product.id
         );
@@ -51,7 +51,7 @@ const ProductPageActions: React.FC<Props> = ({ product }) => {
           (dispatch as any)(removeFavoriteProduct(favoriteItem.id));
         } else {
           // Fallback: tentar remover pelo productId
-          const productId = product.id || product._id || product.slug?.current;
+          const productId = product.id || product.slug?.current;
           const fallbackFavorite = favoriteItems.find(item => item.productId === productId);
           if (fallbackFavorite && fallbackFavorite.id) {
             (dispatch as any)(removeFavoriteProduct(fallbackFavorite.id));

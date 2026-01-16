@@ -1,17 +1,20 @@
 import { IProductDetails, TSlug } from "./products";
 
 export interface ICartProduct {
-  id?: string;
+  id: string;
   image: any;
   name: string;
   slug: TSlug;
   price: number;
-  discount?: number;
+  discount: number | null;
   brand: string;
   category: string[];
+  subCategory?: string | null;
+  timeStamp?: number | null;
+  description?: string | null;
   starRating: number;
   isOffer?: boolean;
-  details?: IProductDetails[];
+  details: IProductDetails[];
   registerDate?: string;
   quantity: number;
   totalPrice: number;

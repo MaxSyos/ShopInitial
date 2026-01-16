@@ -6,7 +6,7 @@ import { useSelector } from "react-redux";
 import { toast } from 'react-toastify';
 import { useDispatch } from "react-redux";
 import { useLanguage } from "../../hooks/useLanguage";
-import { ICartRootState } from "../../lib/types/cart";
+import { ICartRootState, ICartProduct } from "../../lib/types/cart";
 import { IProduct } from "../../lib/types/products";
 import { cartActions } from "../../store/cart-slice";
 import { addItemAndPersist, removeFromCart, fetchCart } from '../../store/cart-async-slice';
@@ -15,7 +15,7 @@ import { updateItemQuantity } from '../../store/cart-async-slice';
 import ProductPrice from "../UI/ProductPrice";
 
 interface Props {
-  product: IProduct;
+  product: ICartProduct;
 }
 const CartItem: React.FC<Props> = ({ product }) => {
   const productQuantity = useSelector(
@@ -45,13 +45,13 @@ const CartItem: React.FC<Props> = ({ product }) => {
     console.warn('⚠️ CartItem - Sem imagem para produto:', product.name, product);
   }
 
-  function increment(product: IProduct) {
+  function increment(product: ICartProduct) {
     setCounter((prev) => ++prev!);
     // atualizar local + persistir no backend quando autenticado
-    (dispatch as any)(addItemAndPersist({ product, quantity: 1 }));
+    (dispatch as any)(addItemAndPersist({ product: product as any, quantity: 1 }));
   }
 
-  function decrement(prod: IProduct) {
+  function decrement(prod: ICartProduct) {
     // decrement normally (no global minimum enforcement here)
     const current = counter || prod.quantity || 1;
     if (current > 1) {
@@ -61,7 +61,7 @@ const CartItem: React.FC<Props> = ({ product }) => {
     }
   }
 
-  function removeItemHandler(product: IProduct) {
+  function removeItemHandler(product: ICartProduct) {
     // Remover o item a pedido do usuário, sem validação de mínimo total
     const slug = product.slug?.current || product.id;
     dispatch(cartActions.removeItemCompletely(slug));
@@ -81,7 +81,7 @@ const CartItem: React.FC<Props> = ({ product }) => {
     try {
       if (diff > 0) {
         // increase: reuse optimistic add + persist (enqueue)
-        (dispatch as any)(addItemAndPersist({ product, quantity: diff }));
+        (dispatch as any)(addItemAndPersist({ product: product as any, quantity: diff }));
       } else {
         // decrease: set absolute quantity locally and enqueue update for sync
         const productSlugOrId = product.id || product.slug?.current;
@@ -104,7 +104,7 @@ const CartItem: React.FC<Props> = ({ product }) => {
     // mirror + / - behavior: sync immediately with store/backend
     try {
       if (newVal > prev) {
-        (dispatch as any)(addItemAndPersist({ product, quantity: newVal - prev }));
+        (dispatch as any)(addItemAndPersist({ product: product as any, quantity: newVal - prev }));
       } else if (newVal < prev) {
         const productSlugOrId = product.id || product.slug?.current;
         (dispatch as any)(updateItemQuantity({ productSlugOrId, quantity: newVal, cartItemId: (product as any).cartItemId }));

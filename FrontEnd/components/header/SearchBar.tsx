@@ -14,8 +14,6 @@ interface Product {
   slug?: { current?: string } | string;
   category?: any;
   subCategory?: string;
-  category?: any;
-  subCategory?: string;
 }
 
 const SearchBar = () => {

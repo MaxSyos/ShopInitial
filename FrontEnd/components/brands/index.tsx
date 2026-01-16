@@ -40,17 +40,14 @@ const Brands = () => {
   return (
     <div className="p-1 my-4 md:my-8 text-center">
       <SectionTitle title={"popularBrands"} />
-      <Slider {...settings}>
-        {brandContent.map((brandItem) => {
-          return (
-            <BrandBox
-              key={brandItem.id}
-              brandName={brandItem.name}
-              imageSrc={brandItem.imgSrc}
-            />
-          );
-        })}
-      </Slider>
+      {/* @ts-ignore */}
+      <Slider {...settings} children={brandContent.map((brandItem) => (
+        <BrandBox
+          key={brandItem.id}
+          brandName={brandItem.name}
+          imageSrc={brandItem.imgSrc}
+        />
+      )) as any} />
     </div>
   );
 };

@@ -38,7 +38,7 @@ export const authService = {
     }
   },
 
-  async register(user: Omit<IUser, '_id' | 'isAdmin' | 'token'>) {
+  async register(user: { name: string; email: string; password: string }) {
     try {
       const res = await fetch(`${API_BASE}/register`, {
         method: 'POST',

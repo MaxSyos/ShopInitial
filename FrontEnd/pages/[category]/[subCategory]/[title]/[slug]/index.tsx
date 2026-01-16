@@ -4,7 +4,6 @@ import ProductDetails from "../../../../../components/productDetails";
 import mapBackendProduct from "../../../../../utilities/mapBackendProduct";
 import { IProduct } from "../../../../../lib/types/products";
 import { axiosInstance } from "../../../../../lib/axiosConfig";
-import prisma from "../../../../../lib/prisma";
 import { GetServerSideProps } from "next";
 
 interface Props {
@@ -90,6 +89,7 @@ const ProductDetailsPage: React.FC<Props> = ({ initialProduct = null, similarPro
 export default ProductDetailsPage;
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
+  const prisma = (await import("../../../../../lib/prisma")).default;
   const { slug, category } = context.query;
   if (!slug || Array.isArray(slug)) {
     return { props: { initialProduct: null, similarProducts: [], category: null } };
@@ -142,7 +142,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       console.warn('getServerSideProps: erro ao buscar produtos similares', similarErr);
     }
 
-    return { props: { initialProduct: mapped, similarProducts, category } };
+    return { props: { initialProduct: mapped, similarProducts, category: Array.isArray(category) ? category[0] : category || null } };
   } catch (error) {
     console.error("getServerSideProps product fetch error:", error);
     return { props: { initialProduct: null, similarProducts: [], category: null } };

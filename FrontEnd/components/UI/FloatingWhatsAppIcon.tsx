@@ -79,7 +79,7 @@ const FloatingWhatsAppIcon: React.FC = () => {
 
   return (
     <div
-      className="fixed z-[9999] cursor-move"
+      className="fixed z-[9999] cursor-pointer"
       style={{ left: position.x, top: position.y }}
       onMouseDown={handleMouseDown}
     >

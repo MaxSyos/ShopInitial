@@ -64,7 +64,7 @@ const Favorites = () => {
     };
 
     try {
-      (dispatch as any)(addItemAndPersist({ product, quantity: 1 }));
+      (dispatch as any)(addItemAndPersist({ product: product as any, quantity: 1 }));
       // Remover dos favoritos após adicionar ao carrinho
       // @ts-ignore
       dispatch(removeFavoriteProduct(item.id));

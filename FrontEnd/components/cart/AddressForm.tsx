@@ -88,7 +88,9 @@ const AddressForm: React.FC<AddressFormProps> = ({ savedAddresses, onSubmit, isL
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
+          id="street"
           name="street"
+          type="text"
           value={formData.street}
           onChange={handleChange}
           placeholder={t.Street || 'Rua'}
@@ -96,14 +98,18 @@ const AddressForm: React.FC<AddressFormProps> = ({ savedAddresses, onSubmit, isL
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
+            id="city"
             name="city"
+            type="text"
             value={formData.city}
             onChange={handleChange}
             placeholder={t.City || 'Cidade'}
             required
           />
           <Input
+            id="state"
             name="state"
+            type="text"
             value={formData.state}
             onChange={handleChange}
             placeholder={t.State || 'Estado'}
@@ -112,14 +118,18 @@ const AddressForm: React.FC<AddressFormProps> = ({ savedAddresses, onSubmit, isL
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
+            id="country"
             name="country"
+            type="text"
             value={formData.country}
             onChange={handleChange}
             placeholder={t.Country || 'País'}
             required
           />
           <Input
+            id="postalCode"
             name="postalCode"
+            type="text"
             value={formData.postalCode}
             onChange={handleChange}
             placeholder={t.PostalCode || 'CEP'}

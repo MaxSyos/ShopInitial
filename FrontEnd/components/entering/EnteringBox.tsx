@@ -81,7 +81,7 @@ const EnteringBox: React.FC<Props> = ({
           ...response.user,
           token: response.accessToken,
           accessToken: response.accessToken,
-          refreshToken: response.refreshToken
+          refreshToken: response.refreshToken || ''
         };
       } else {
         const response = await authService.login(email, password);
@@ -94,7 +94,7 @@ const EnteringBox: React.FC<Props> = ({
           ...response.user,
           token: response.accessToken,
           accessToken: response.accessToken,
-          refreshToken: response.refreshToken
+          refreshToken: ''
         };
       }
 

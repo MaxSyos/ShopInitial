@@ -3,6 +3,7 @@ import { useLanguage } from "../../hooks/useLanguage";
 
 interface Props {
   id: string;
+  name?: string;
   type: string;
   minLength?: number;
   maxLength?: number;
@@ -62,6 +63,7 @@ const Input = React.forwardRef<IImperativeHandler, Props>((props, ref) => {
       <input
         ref={inputRef}
         id={props.id}
+        name={props.name}
         minLength={props.minLength}
         maxLength={props.maxLength}
         type={props.type}

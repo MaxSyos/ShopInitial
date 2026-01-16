@@ -96,6 +96,7 @@ const CarouselBox: React.FC<Props> = ({
           full ? "w-full mt-4" : "w-[55%] sm:w-[75%] md:w-[85%]"
         }`}
       >
+        {/* @ts-ignore */}
         <Slider {...settings}>{children}</Slider>
         <div>
           <div className="absolute top-[45%] right-4 md:right-1 shadow-lg rounded-full bg-palette-card p-1 drop-shadow-lg text-[0.8rem] md:text-[1.8rem]">

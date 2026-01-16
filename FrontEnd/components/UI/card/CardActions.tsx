@@ -31,7 +31,7 @@ const CardActions: React.FC<Props> = ({ product }) => {
     (state: IFavoriteRootState) => state.favorite.items
   );
   const isInFavorite = favoriteItems.some(
-    (item: any) => item.slug?.current === product.slug.current || item.productId === product._id
+    (item: any) => item.slug?.current === product.slug.current || item.productId === product.id
   );
   const FavoriteIcon = isInFavorite ? RiHeartFill : RiHeartAddLine;
 
@@ -55,10 +55,10 @@ const CardActions: React.FC<Props> = ({ product }) => {
         name: product.name,
         price: product.price,
         slug: product.slug,
-        image: product.images?.[0]?.url || '',
+        image: product.image?.[0]?.url || '',
       };
       try {
-        (dispatch as any)(addFavoriteProduct({ productId: product._id || product.id, productData }));
+        (dispatch as any)(addFavoriteProduct({ productId: product.id, productData }));
         toast.success('Adicionado aos favoritos', {
           theme: theme === "dark" ? "dark" : "light",
         });
@@ -69,7 +69,7 @@ const CardActions: React.FC<Props> = ({ product }) => {
     } else {
       // Remover dos favoritos
       const favoriteItem = favoriteItems.find(
-        (item: any) => item.slug?.current === product.slug.current || item.productId === product._id
+        (item: any) => item.slug?.current === product.slug.current || item.productId === product.id
       );
       if (favoriteItem?.id) {
         try {

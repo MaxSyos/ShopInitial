@@ -20,9 +20,9 @@ const ImageSection: React.FC<Props> = ({ imgArray, product }) => {
         <div className="flex flex-grow md:ltr:mr-3 md:rtl:ml-3">
           <Image
             src={
-              typeof imgArray[selectedImg] === "string"
+              (typeof imgArray[selectedImg] === "string"
                 ? imgArray[selectedImg]
-                : urlFor(imgArray[selectedImg]).url()
+                : urlFor(imgArray[selectedImg]).url()) as string
             }
             alt="product img"
             width={450}
