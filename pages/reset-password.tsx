@@ -1,10 +1,10 @@
 import type { NextPage } from "next";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { useLanguage } from "../../../hooks/useLanguage";
+import { useLanguage } from "../hooks/useLanguage";
 import { toast } from "react-toastify";
-import Input from "../../../components/UI/Input";
-import { authService } from "../../../lib/authService";
+import Input from "../components/UI/Input";
+import { authService } from "../lib/authService";
 
 const ResetPassword: NextPage = () => {
   const { t } = useLanguage();
@@ -15,10 +15,13 @@ const ResetPassword: NextPage = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Espera o router estar pronto antes de verificar o token
+    if (!router.isReady) return;
+    
     if (!token) {
       router.push('/login');
     }
-  }, [token, router]);
+  }, [token, router, router.isReady]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
