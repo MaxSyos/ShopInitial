@@ -192,8 +192,8 @@ const OrderConfirmation: React.FC = () => {
                 value={newAddress.street}
                 placeholder={t.street}
                 classes={newAddress.street.length < 3 ? 'border-red-500' : ''}
-                onInput={(e: React.FormEvent<HTMLInputElement>) => 
-                  handleInputChange('street', (e.target as HTMLInputElement).value)
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  handleInputChange('street', e.target.value)
                 }
               />
               {newAddress.street.length < 3 && (
@@ -207,8 +207,8 @@ const OrderConfirmation: React.FC = () => {
                 value={newAddress.city}
                 placeholder={t.city}
                 classes={newAddress.city.length < 3 ? 'border-red-500' : ''}
-                onInput={(e: React.FormEvent<HTMLInputElement>) => 
-                  handleInputChange('city', (e.target as HTMLInputElement).value)
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  handleInputChange('city', e.target.value)
                 }
               />
               {newAddress.city.length < 3 && (
@@ -224,8 +224,8 @@ const OrderConfirmation: React.FC = () => {
                 minLength={2}
                 maxLength={2}
                 classes={newAddress.state.length !== 2 ? 'border-red-500' : ''}
-                onInput={(e: React.FormEvent<HTMLInputElement>) => 
-                  handleInputChange('state', (e.target as HTMLInputElement).value.toUpperCase().slice(0,2))
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  handleInputChange('state', e.target.value.toUpperCase().slice(0,2))
                 }
               />
               {newAddress.state.length !== 2 && (
@@ -241,8 +241,8 @@ const OrderConfirmation: React.FC = () => {
                 minLength={8}
                 maxLength={8}
                 classes={newAddress.postalCode.length !== 8 ? 'border-red-500' : ''}
-                onInput={(e: React.FormEvent<HTMLInputElement>) => 
-                  handleInputChange('postalCode', (e.target as HTMLInputElement).value.replace(/\D/g, '').slice(0,8))
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  handleInputChange('postalCode', e.target.value.replace(/\D/g, '').slice(0,8))
                 }
               />
               {newAddress.postalCode.length !== 8 && (
@@ -258,8 +258,8 @@ const OrderConfirmation: React.FC = () => {
                 minLength={1}
                 maxLength={20}
                 classes={newAddress.number.length < 1 || newAddress.number.length > 20 ? 'border-red-500' : ''}
-                onInput={(e: React.FormEvent<HTMLInputElement>) => 
-                  handleInputChange('number', (e.target as HTMLInputElement).value)
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  handleInputChange('number', e.target.value)
                 }
               />
               {(newAddress.number.length < 1 || newAddress.number.length > 20) && (
@@ -275,8 +275,8 @@ const OrderConfirmation: React.FC = () => {
                 minLength={1}
                 maxLength={1000}
                 classes={newAddress.complement.length < 1 || newAddress.complement.length > 100 ? 'border-red-500' : ''}
-                onInput={(e: React.FormEvent<HTMLInputElement>) => 
-                  handleInputChange('complement', (e.target as HTMLInputElement).value)
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  handleInputChange('complement', e.target.value)
                 }
               />
               {(newAddress.complement.length < 1 || newAddress.complement.length > 100) && (
@@ -290,8 +290,8 @@ const OrderConfirmation: React.FC = () => {
                 value={newAddress.country}
                 placeholder={t.country}
                 classes={newAddress.country.length < 2 ? 'border-red-500' : ''}
-                onInput={(e: React.FormEvent<HTMLInputElement>) => 
-                  handleInputChange('country', (e.target as HTMLInputElement).value)
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                  handleInputChange('country', e.target.value)
                 }
               />
               {newAddress.country.length < 2 && (

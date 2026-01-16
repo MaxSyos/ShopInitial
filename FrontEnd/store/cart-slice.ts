@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
-import { ICart } from "../lib/types/cart";
+import { ICart, ICartProduct } from "../lib/types/cart";
 import { IProduct } from "../lib/types/products";
 import { calculateDiscountPercentage } from "../utilities/calculateDiscountPercentage";
 import * as cartApi from './cart-api';

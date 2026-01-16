@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import { useLanguage } from '../hooks/useLanguage';
 import { toast } from 'react-toastify';
 import Breadcrumb from '../components/UI/Breadcrumb';
@@ -110,7 +111,7 @@ const SearchPage: React.FC = () => {
       <Breadcrumb />
       <div className="mb-6 flex justify-between items-center">
         <h1 className="text-2xl font-bold">
-          {t.searchResults || 'Resultados da busca'}: "{q}"
+          {t.searchResults || 'Resultados da busca'}: &quot;{q}&quot;
         </h1>
         <span className="text-sm text-gray-500">
           {t.found || 'Encontrado'}: {total} {t.products || 'produtos'}
@@ -133,8 +134,7 @@ const SearchPage: React.FC = () => {
             <div className="mt-8">
               <Pagination
                 currentPage={currentPage}
-                totalItems={total}
-                itemsPerPage={PAGE_SIZE}
+                totalPages={Math.ceil(total / PAGE_SIZE)}
                 onPageChange={handlePageChange}
               />
             </div>
@@ -145,12 +145,12 @@ const SearchPage: React.FC = () => {
           <p className="text-lg text-gray-500">
             {t.noResults || 'Nenhum produto encontrado para sua busca.'}
           </p>
-          <a
+          <Link
             href="/products"
             className="mt-4 inline-block text-palette-primary hover:underline"
           >
             {t.backToProducts || 'Voltar para produtos'}
-          </a>
+          </Link>
         </div>
       )}
     </div>

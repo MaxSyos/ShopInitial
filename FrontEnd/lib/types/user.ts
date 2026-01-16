@@ -8,6 +8,8 @@ export interface IUser {
   accessToken: string;
   refreshToken: string;
   role: 'USER' | 'ADMIN';
+  cpf?: string;
+  whatsapp?: string;
 }
 
 export interface IUserInfo {

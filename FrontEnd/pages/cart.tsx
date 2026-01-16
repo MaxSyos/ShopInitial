@@ -5,7 +5,7 @@ import Breadcrumb from "../components/UI/Breadcrumb";
 import OrderSummaryBox from "../components/cart/OrderSummaryBox";
 import PrivateRoute from "../components/auth/PrivateRoute";
 
-const cart: NextPage = () => {
+const Cart: NextPage = () => {
   const [showSizesModal, setShowSizesModal] = useState(false);
   return (
     <PrivateRoute>
@@ -60,4 +60,4 @@ const cart: NextPage = () => {
   );
 };
 
-export default cart;
+export default Cart;

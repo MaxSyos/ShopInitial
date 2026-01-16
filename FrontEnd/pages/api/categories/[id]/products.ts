@@ -1,9 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import prisma from '../../../../lib/prisma';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const prismaModule = await import('../../../../lib/prisma');
-    const prisma = (prismaModule as any).default || (prismaModule as any).prisma;
 
     const { id } = req.query;
     const page = parseInt((req.query.page as string) || '1', 10);

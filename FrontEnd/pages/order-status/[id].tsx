@@ -40,6 +40,8 @@ interface OrderData {
     state: string;
     postalCode: string;
     country: string;
+    number?: string;
+    complement?: string;
   };
   payment: {
     id: string;

@@ -7,6 +7,8 @@ export const mockAddresses: ShippingAddress[] = [
     state: 'SP',
     country: 'Brasil',
     postalCode: '01310-100',
+    number: '1000',
+    complement: '',
     isDefault: true
   },
   {
@@ -15,6 +17,8 @@ export const mockAddresses: ShippingAddress[] = [
     state: 'SP',
     country: 'Brasil',
     postalCode: '01426-001',
+    number: '123',
+    complement: '',
     isDefault: false
   },
   {
@@ -23,6 +27,8 @@ export const mockAddresses: ShippingAddress[] = [
     state: 'RJ',
     country: 'Brasil',
     postalCode: '22010-000',
+    number: '500',
+    complement: '',
     isDefault: false
   }
 ];

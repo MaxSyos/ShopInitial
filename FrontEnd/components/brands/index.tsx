@@ -3,6 +3,9 @@ import BrandBox from "./BrandBox";
 import { brandContent } from "../../mock/brand";
 import Slider from "react-slick";
 import SectionTitle from "../UI/SectionTitle";
+
+const SliderComponent = Slider as any;
+
 const Brands = () => {
   const settings = {
     infinite: true,
@@ -40,14 +43,14 @@ const Brands = () => {
   return (
     <div className="p-1 my-4 md:my-8 text-center">
       <SectionTitle title={"popularBrands"} />
-      {/* @ts-ignore */}
-      <Slider {...settings} children={brandContent.map((brandItem) => (
+      {/* eslint-disable-next-line react/no-children-prop */}
+      <SliderComponent {...settings} children={brandContent.map((brandItem) => (
         <BrandBox
           key={brandItem.id}
           brandName={brandItem.name}
           imageSrc={brandItem.imgSrc}
         />
-      )) as any} />
+      ))} />
     </div>
   );
 };

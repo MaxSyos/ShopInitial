@@ -51,7 +51,7 @@ export interface ProductFilters {
 }
 
 class ProductService {
-  async getProducts(filters: ProductFilters = {}): Promise<{ items: Product[] }> {
+  async getProducts(filters: ProductFilters = {}): Promise<ProductsResponse> {
     const params = new URLSearchParams();
     
     Object.entries(filters).forEach(([key, value]) => {

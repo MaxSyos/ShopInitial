@@ -250,7 +250,6 @@ const en: { [key: string]: string } = {
   manageContent: "Manage Content",
   banners: "Banners",
   carousel: "Carousel",
-  offers: "Offers",
   brands: "Brands",
   manageContentDescription: "Manage banners, carousel, offers and brands",
   createNewBanner: "Create New Banner",

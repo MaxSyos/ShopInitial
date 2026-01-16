@@ -247,7 +247,6 @@ const fa: { [key: string]: string } = {
   manageContent: "مدیریت محتوا",
   banners: "بنرها",
   carousel: "اسلایدشو",
-  offers: "پیشنهادات",
   brands: "برندها",
   manageContentDescription: "مدیریت بنرها، اسلایدشو، پیشنهادات و برندها",
   createNewBanner: "ایجاد بنر جدید",

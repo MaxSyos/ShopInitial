@@ -471,8 +471,8 @@ const PaymentByIdPage: React.FC = () => {
                     <span>
                       R$ {Number(
                         orderSummary?.totalAmount ?? 
-                        (orderSummary?.items?.reduce((sum: number, item: any) => sum + (item.totalPrice || item.total || 0), 0) || 0) ||
-                        totalAmount || 0
+                        ((orderSummary?.items?.reduce((sum: number, item: any) => sum + (item.totalPrice || item.total || 0), 0) || 0) ||
+                        totalAmount || 0)
                       ).toFixed(2)}
                     </span>
                   </div>

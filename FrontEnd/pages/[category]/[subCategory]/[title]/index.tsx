@@ -7,7 +7,7 @@ import { IProduct } from "../../../../lib/types/products";
 import ProductList from "../../../../components/productList/ProductList";
 import { ITitlePathsParams } from "../../../../lib/types/pagePathsParams";
 
-const brandPage: NextPage<{
+const BrandPage: NextPage<{
   products: IProduct[];
 }> = ({ products: initialProducts }) => {
   const router = useRouter();
@@ -65,8 +65,6 @@ const brandPage: NextPage<{
   );
 };
 
-export default brandPage;
-
 export const getStaticPaths: GetStaticPaths = async () => {
   const query = `*[_type=="product"]{
     "category":category[0],
@@ -100,3 +98,5 @@ export const getStaticProps: GetStaticProps = async (context) => {
     },
   };
 };
+
+export default BrandPage;
