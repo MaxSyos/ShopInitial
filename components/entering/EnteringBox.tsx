@@ -210,14 +210,23 @@ const EnteringBox: React.FC<Props> = ({
             {loading ? "Carregando..." : t[`${title}`]}
           </button>
         </form>
-        <Link href={`/${linkHref}`}>
-          <a className="block my-4">
-            <span className="text-sm text-palette-mute">
-              {title === "login" ? t.doHaveAnAccount : t.alreadyHaveAnAccount}
-            </span>
-            <span className="text-cyan-500">{t[`${linkHref}`]}</span>
-          </a>
-        </Link>
+        <div className="my-4 flex justify-between items-center">
+          {title === "login" && (
+            <Link href="/forgot-password">
+              <a className="text-sm text-cyan-500 hover:underline">
+                {t.forgotPassword || "Esqueceu a senha?"}
+              </a>
+            </Link>
+          )}
+          <Link href={`/${linkHref}`}>
+            <a className="text-sm">
+              <span className="text-palette-mute">
+                {title === "login" ? t.doHaveAnAccount : t.alreadyHaveAnAccount}
+              </span>
+              <span className="text-cyan-500 ml-1">{t[`${linkHref}`]}</span>
+            </a>
+          </Link>
+        </div>
       </div>
     </div>
   );

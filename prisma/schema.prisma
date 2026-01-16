@@ -18,6 +18,8 @@ model User {
   cpf       String?
   whatsapp  String?
   role      String @default("USER")
+  resetToken String?
+  resetTokenExpiry DateTime?
   createdAt DateTime @default(now())
   orders    Order[]
   addresses Address[]

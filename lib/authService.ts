@@ -109,4 +109,40 @@ export const authService = {
       console.error('Erro ao fazer logout:', err);
     }
   },
+
+  async forgotPassword(email: string) {
+    try {
+      const res = await fetch(`${API_BASE}/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || 'Erro ao enviar email');
+
+      return data;
+    } catch (err: any) {
+      console.error('Erro no forgot password:', err);
+      throw err;
+    }
+  },
+
+  async resetPassword(token: string, password: string) {
+    try {
+      const res = await fetch(`${API_BASE}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || 'Erro ao redefinir senha');
+
+      return data;
+    } catch (err: any) {
+      console.error('Erro no reset password:', err);
+      throw err;
+    }
+  },
 };
