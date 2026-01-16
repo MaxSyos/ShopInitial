@@ -10,19 +10,26 @@ import { GetServerSideProps } from "next";
 interface Props {
   initialProduct?: IProduct | null;
   similarProducts?: IProduct[];
+  category?: string;
 }
 
-const ProductDetailsPage: React.FC<Props> = ({ initialProduct = null, similarProducts = [] }) => {
+const ProductDetailsPage: React.FC<Props> = ({ initialProduct = null, similarProducts = [], category }) => {
   const router = useRouter();
   const { slug } = router.query;
   const [product, setProduct] = useState<IProduct | null>(initialProduct || null);
+  const [similar, setSimilar] = useState<IProduct[]>(similarProducts);
   const [loading, setLoading] = useState<boolean>(initialProduct ? false : true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setProduct(initialProduct);
+    setSimilar(similarProducts);
+  }, [initialProduct, similarProducts]);
+
+  useEffect(() => {
     const fetchProduct = async () => {
       if (!slug || typeof slug !== "string") return;
-      if (initialProduct) return; // already have product from server
+      if (initialProduct && initialProduct.slug?.current === slug) return; // already have the correct product
       setLoading(true);
       setError(null);
       console.log('ProductDetailsPage: fetching product for slug=', slug);
@@ -30,14 +37,22 @@ const ProductDetailsPage: React.FC<Props> = ({ initialProduct = null, similarPro
         const res = await axiosInstance.get(`/products/${slug}`);
         console.log('ProductDetailsPage: fetch response', res && res.data);
         if (res.data) {
-          setProduct(mapBackendProduct(res.data));
+          const mapped = mapBackendProduct(res.data);
+          setProduct(mapped);
+          // Buscar similares
+          try {
+            const similarRes = await axiosInstance.get(`/products?category=${mapped.category[0]}&limit=10`);
+            const similars = similarRes.data.filter((p: any) => p.slug !== slug).map(mapBackendProduct);
+            setSimilar(similars);
+          } catch (simErr) {
+            console.warn('Error fetching similar products', simErr);
+          }
         } else {
           setProduct(null);
           console.warn('ProductDetailsPage: produto nao encontrado, response had no data', res);
           setError("Produto não encontrado.");
         }
       } catch (err) {
-        // Log detalhado do erro para depuração no console do navegador
         console.error('ProductDetailsPage: error fetching product', err, (err as any)?.response?.status, (err as any)?.response?.data);
         setProduct(null);
         setError("Produto não encontrado.");
@@ -46,7 +61,7 @@ const ProductDetailsPage: React.FC<Props> = ({ initialProduct = null, similarPro
       }
     };
     fetchProduct();
-  }, [slug]);
+  }, [slug, initialProduct]);
 
   // Proteção extra: só renderiza algo se o slug estiver definido corretamente
   if (!slug || typeof slug !== "string") {
@@ -66,8 +81,8 @@ const ProductDetailsPage: React.FC<Props> = ({ initialProduct = null, similarPro
   }
 
   return (
-    <div>
-      <ProductDetails product={product} products={similarProducts} />
+    <div key={slug}>
+      <ProductDetails product={product} products={similar} />
     </div>
   );
 };
@@ -75,9 +90,9 @@ const ProductDetailsPage: React.FC<Props> = ({ initialProduct = null, similarPro
 export default ProductDetailsPage;
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const { slug } = context.query;
+  const { slug, category } = context.query;
   if (!slug || Array.isArray(slug)) {
-    return { props: { initialProduct: null, similarProducts: [] } };
+    return { props: { initialProduct: null, similarProducts: [], category: null } };
   }
 
   try {
@@ -127,9 +142,9 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       console.warn('getServerSideProps: erro ao buscar produtos similares', similarErr);
     }
 
-    return { props: { initialProduct: mapped, similarProducts } };
+    return { props: { initialProduct: mapped, similarProducts, category } };
   } catch (error) {
     console.error("getServerSideProps product fetch error:", error);
-    return { props: { initialProduct: null, similarProducts: [] } };
+    return { props: { initialProduct: null, similarProducts: [], category: null } };
   }
 };
