@@ -19,6 +19,7 @@ interface OrderData {
   isDelivered?: boolean;
   deliveryMethod?: string;
   trackingCode?: string;
+  isLocalPickup?: boolean;
   items: Array<{
     id: string;
     productName: string;

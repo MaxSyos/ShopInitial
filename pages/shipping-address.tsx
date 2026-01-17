@@ -14,6 +14,7 @@ import Input from '../components/UI/Input';
 import Benefits from '../components/Benefits';
 import OrderTracking from '../components/cart/OrderTracking';
 import PrivateRoute from '../components/auth/PrivateRoute';
+import DeliveryMethodModal from '../components/shipping/DeliveryMethodModal';
 import api from '../lib/axiosClient';
 import { maskCPF, maskWhatsApp, isValidCPFFormat, isValidWhatsAppFormat } from '../utilities/masks';
 
@@ -42,6 +43,8 @@ const ShippingAddressPage: React.FC = () => {
   const [savingProfileFields, setSavingProfileFields] = useState(false);
   const [profileFieldErrors, setProfileFieldErrors] = useState<{ [key: string]: string }>({});
   const [userDataLoaded, setUserDataLoaded] = useState(false);
+  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const userInfo = useSelector(
     (state: IUserInfoRootState) => state.userInfo.userInformation
@@ -390,117 +393,116 @@ const ShippingAddressPage: React.FC = () => {
       return;
     }
 
-    (async () => {
-      // Se showNewAddressForm está ativado, significa que o usuário está preenchendo um novo endereço
-      // Ele DEVE salvar o endereço antes de continuar
-      if (showNewAddressForm && selectedAddressIndex === -1) {
-        toast.error('Por favor, salve o endereço antes de continuar');
-        return;
-      }
+    // Abrir modal de forma de pagamento
+    setShowDeliveryModal(true);
+  };
 
-      const selectedAddress = selectedAddressIndex >= 0
-        ? shippingAddresses[selectedAddressIndex]
-        : newAddress;
+  const handleDeliveryMethodConfirm = async (isLocalPickup: boolean) => {
+    const selectedAddress = selectedAddressIndex >= 0
+      ? shippingAddresses[selectedAddressIndex]
+      : newAddress;
 
-      if (!selectedAddress.street || !selectedAddress.city || !selectedAddress.postalCode) {
-        toast.error('Por favor, selecione ou preencha um endereço válido');
-        return;
-      }
+    if (!selectedAddress.street || !selectedAddress.city || !selectedAddress.postalCode) {
+      toast.error('Por favor, selecione ou preencha um endereço válido');
+      return;
+    }
 
+    setIsProcessingPayment(true);
+    try {
       // Montar dados do pedido - usar totalPrice/quantity para considerar desconto
       const items = cartItems.map((it: any) => ({ 
         productId: it.id, 
         quantity: it.quantity, 
         price: it.totalPrice / it.quantity // Preço final com desconto já aplicado
       }));
-      const orderData = { shippingAddress: selectedAddress, items };
+      const orderData = { shippingAddress: selectedAddress, items, isLocalPickup };
 
+      // @ts-ignore dispatch typing
+      const created = await dispatch((await import('../store/order-slice')).createOrder(orderData)).unwrap();
+
+      // salvar order criado para uso na página de pagamento/confirmation
       try {
-        // mostrar carregando simples
-        // @ts-ignore dispatch typing
-        const created = await dispatch((await import('../store/order-slice')).createOrder(orderData)).unwrap();
-
-        // salvar order criado para uso na página de pagamento/confirmation
+        // gerar idempotencyKey local para reutilizar no fluxo de pagamento
+        let idempotencyKey = '';
         try {
-          // gerar idempotencyKey local para reutilizar no fluxo de pagamento
-          let idempotencyKey = '';
-          try {
-            // @ts-ignore
-            idempotencyKey = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-          } catch (e) {
-            idempotencyKey = `id-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-          }
-          const createdWithKey = { ...created, idempotencyKey };
-          localStorage.setItem('createdOrder', JSON.stringify(createdWithKey));
+          // @ts-ignore
+          idempotencyKey = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : `id-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
         } catch (e) {
-          // ignore
+          idempotencyKey = `id-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
         }
+        const createdWithKey = { ...created, idempotencyKey };
+        localStorage.setItem('createdOrder', JSON.stringify(createdWithKey));
+      } catch (e) {
+        // ignore
+      }
 
-        // Associar listas salvas localmente (user_lists_v1) aos orderItems criados
-        try {
-          const rawLists = localStorage.getItem('user_lists_v1');
-          if (rawLists) {
-            const parsedLists = JSON.parse(rawLists || '{}') || {};
-            const orderItems = (created && (created.localOrder?.items || created.items)) || [];
-            for (const it of orderItems) {
-              const orderItemId = it.id || it.orderItemId;
-              if (!orderItemId) continue;
+      // Associar listas salvas localmente (user_lists_v1) aos orderItems criados
+      try {
+        const rawLists = localStorage.getItem('user_lists_v1');
+        if (rawLists) {
+          const parsedLists = JSON.parse(rawLists || '{}') || {};
+          const orderItems = (created && (created.localOrder?.items || created.items)) || [];
+          for (const it of orderItems) {
+            const orderItemId = it.id || it.orderItemId;
+            if (!orderItemId) continue;
 
-              // possíveis chaves usadas ao salvar: cartItemId | productId | product.slug.current
-              const productId = it.productId || it.product?.id || (it.product && it.product.id);
-              const slug = it.product?.slug?.current || (it.product && it.product.slug && it.product.slug.current);
-              const possibleKeys: string[] = [];
-              if ((it as any).cartItemId) possibleKeys.push(String((it as any).cartItemId));
-              if (productId) possibleKeys.push(String(productId));
-              if (slug) possibleKeys.push(String(slug));
+            // possíveis chaves usadas ao salvar: cartItemId | productId | product.slug.current
+            const productId = it.productId || it.product?.id || (it.product && it.product.id);
+            const slug = it.product?.slug?.current || (it.product && it.product.slug && it.product.slug.current);
+            const possibleKeys: string[] = [];
+            if ((it as any).cartItemId) possibleKeys.push(String((it as any).cartItemId));
+            if (productId) possibleKeys.push(String(productId));
+            if (slug) possibleKeys.push(String(slug));
 
-              let foundKey: string | null = null;
-              for (const k of possibleKeys) {
-                if (parsedLists[k]) { foundKey = k; break; }
-              }
-
-              if (foundKey) {
-                try {
-                  // usar cliente axios `api` para enviar header Authorization automaticamente
-                  const resp = await api.post('/orders/lists', { orderItemId, rows: parsedLists[foundKey] });
-                  if (resp && resp.data) {
-                    // remover da lista local
-                    delete parsedLists[foundKey];
-                  } else {
-                    console.warn('orders/lists POST sem resposta esperada', resp);
-                  }
-                } catch (e) {
-                  console.warn('Falha ao salvar lista do pedido no servidor', e);
-                }
-              }
+            let foundKey: string | null = null;
+            for (const k of possibleKeys) {
+              if (parsedLists[k]) { foundKey = k; break; }
             }
 
-            // persistir o que sobrou ou remover a chave se vazia
-            try {
-              const remaining = Object.keys(parsedLists || {});
-              if (!remaining || remaining.length === 0) {
-                localStorage.removeItem('user_lists_v1');
-              } else {
-                localStorage.setItem('user_lists_v1', JSON.stringify(parsedLists));
+            if (foundKey) {
+              try {
+                // usar cliente axios `api` para enviar header Authorization automaticamente
+                const resp = await api.post('/orders/lists', { orderItemId, rows: parsedLists[foundKey] });
+                if (resp && resp.data) {
+                  // remover da lista local
+                  delete parsedLists[foundKey];
+                } else {
+                  console.warn('orders/lists POST sem resposta esperada', resp);
+                }
+              } catch (e) {
+                console.warn('Falha ao salvar lista do pedido no servidor', e);
               }
-            } catch (e) {}
+            }
           }
-        } catch (e) {
-          console.warn('Erro ao associar listas locais ao pedido:', e);
-        }
 
-        // Limpar o carrinho local APENAS após o pedido ser criado com sucesso
-        try {
-          dispatch(cartActions.clearCart());
-        } catch (e) {
-          console.warn('Falha ao limpar o carrinho local:', e);
+          // persistir o que sobrou ou remover a chave se vazia
+          try {
+            const remaining = Object.keys(parsedLists || {});
+            if (!remaining || remaining.length === 0) {
+              localStorage.removeItem('user_lists_v1');
+            } else {
+              localStorage.setItem('user_lists_v1', JSON.stringify(parsedLists));
+            }
+          } catch (e) {}
         }
-
-        router.push(`/payment/${created.id}`);
-      } catch (e: any) {
-        toast.error(e?.message || 'Erro ao criar pedido');
+      } catch (e) {
+        console.warn('Erro ao associar listas locais ao pedido:', e);
       }
-    })();
+
+      // Limpar o carrinho local APENAS após o pedido ser criado com sucesso
+      try {
+        dispatch(cartActions.clearCart());
+      } catch (e) {
+        console.warn('Falha ao limpar o carrinho local:', e);
+      }
+
+      setShowDeliveryModal(false);
+      router.push(`/payment/${created.id}`);
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao criar pedido');
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   if (loading) {
@@ -833,6 +835,14 @@ const ShippingAddressPage: React.FC = () => {
         </div>
 
         <Benefits />
+
+        {/* Modal de Forma de Pagamento */}
+        <DeliveryMethodModal
+          isOpen={showDeliveryModal}
+          onClose={() => setShowDeliveryModal(false)}
+          onConfirm={handleDeliveryMethodConfirm}
+          isLoading={isProcessingPayment}
+        />
       </div>
     </PrivateRoute>
   );

@@ -72,7 +72,7 @@ export const deleteShippingAddress = createAsyncThunk(
 // Thunk para criar pedido
 export const createOrder = createAsyncThunk(
   'order/createOrder',
-  async (orderData: { shippingAddress: ShippingAddress, items: any[] }, { rejectWithValue }) => {
+  async (orderData: { shippingAddress: ShippingAddress, items: any[], isLocalPickup?: boolean }, { rejectWithValue }) => {
     try {
       // Usar rota local do Next.js para garantir persistência no banco via handlers locais
       // Tentar recuperar token do localStorage (userInfo) ou usar tokenStore se disponível

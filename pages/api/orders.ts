@@ -66,6 +66,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           tax: 0,
           total: Number(payload.total ?? calcTotal),
           status: 'PENDING',
+          isLocalPickup: payload.isLocalPickup === true,
           itemsJson: payload.items || [],
         }
       });

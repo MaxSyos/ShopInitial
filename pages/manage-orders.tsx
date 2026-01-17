@@ -41,6 +41,7 @@ interface OrderData {
   deliveryMethod?: string;
   isDelivered?: boolean;
   deliveredAt?: string;
+  isLocalPickup?: boolean;
 }
 
 interface EditingOrder {
@@ -147,7 +148,8 @@ const ManageOrdersPage: React.FC = () => {
     }
   };
 
-  const getDeliveryStatusColor = (status: string, isDelivered: boolean) => {
+  const getDeliveryStatusColor = (status: string, isDelivered: boolean, isLocalPickup?: boolean) => {
+    if (isLocalPickup) return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400';
     if (isDelivered) return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
     switch (status?.toUpperCase()) {
       case 'CORREIOS':
@@ -159,7 +161,8 @@ const ManageOrdersPage: React.FC = () => {
     }
   };
 
-  const getDeliveryStatusText = (deliveryMethod: string, isDelivered: boolean) => {
+  const getDeliveryStatusText = (deliveryMethod: string, isDelivered: boolean, isLocalPickup?: boolean) => {
+    if (isLocalPickup) return 'Entrega local (sem rastreamento)';
     if (isDelivered) return 'Entregue';
     switch (deliveryMethod?.toUpperCase()) {
       case 'CORREIOS':
@@ -363,8 +366,8 @@ const ManageOrdersPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded-md text-xs font-medium ${getDeliveryStatusColor(order.deliveryMethod || '', order.isDelivered || false)}`}>
-                          {getDeliveryStatusText(order.deliveryMethod || '', order.isDelivered || false)}
+                        <span className={`px-2 py-1 rounded-md text-xs font-medium ${getDeliveryStatusColor(order.deliveryMethod || '', order.isDelivered || false, order.isLocalPickup)}`}>
+                          {getDeliveryStatusText(order.deliveryMethod || '', order.isDelivered || false, order.isLocalPickup)}
                         </span>
                       </td>
                       <td className="px-4 py-3">

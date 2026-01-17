@@ -16,6 +16,7 @@ interface Order {
   isDelivered?: boolean;
   deliveryMethod?: string;
   trackingCode?: string | null;
+  isLocalPickup?: boolean;
   items: Array<{
     productName: string;
     quantity: number;
