@@ -30,10 +30,14 @@ const ProductDetails: React.FC<Props> = ({ product, products }) => {
   return (
     <div className="flex flex-col">
       <Breadcrumb productName={product.name} />
-      <div className="w-full xl:max-w-[2100px] mx-auto">
-        <div className="flex flex-col md:flex-row flex-wrap md:flex-nowrap items-center md:items-start mt-8 relative">
-          <ImageSection imgArray={product.image} product={product} />
-          <DetailsSection product={product} />
+      <div className="w-full xl:max-w-[2100px] mx-auto px-4 lg:px-0">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8 items-start mt-8 relative">
+          <div className="flex justify-center">
+            <ImageSection imgArray={product.image} product={product} />
+          </div>
+          <div className="w-full">
+            <DetailsSection product={product} />
+          </div>
         </div>
         <div className="border-2 my-8">
           <Benefits />

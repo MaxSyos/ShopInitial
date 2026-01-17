@@ -6,6 +6,7 @@ import { IUserInfoRootState } from '../lib/types/user';
 import { ICartRootState } from '../lib/types/cart';
 import { ShippingAddress, fetchUserAddresses, addShippingAddress, deleteShippingAddress } from '../store/order-slice';
 import { cartActions } from '../store/cart-slice';
+import { userInfoActions } from '../store/user-slice';
 import { RootState, AppDispatch } from '../store';
 import { toast } from 'react-toastify';
 import Breadcrumb from '../components/UI/Breadcrumb';
@@ -52,6 +53,11 @@ const ShippingAddressPage: React.FC = () => {
   const cartItems = useSelector((state: ICartRootState) => state.cart.items);
   const totalAmount = useSelector((state: ICartRootState) => state.cart.totalAmount);
   const { shippingAddresses = [], loading, error } = useSelector((state: RootState) => state.order);
+
+  // Verificar se todos os campos obrigatórios estão preenchidos
+  const areAllProfileFieldsFilled = hasCpf && hasWhatsapp && (userInfo?.name && String(userInfo.name).trim() !== '');
+  const isAddressSelected = selectedAddressIndex >= 0;
+  const canProceedToPayment = areAllProfileFieldsFilled && isAddressSelected;
 
   useEffect(() => {
     if (!userInfo) {
@@ -213,6 +219,10 @@ const ShippingAddressPage: React.FC = () => {
     try {
       await api.put('/auth/update', updateData);
       toast.success('Dados do perfil atualizados com sucesso!');
+      
+      // Atualizar o Redux com os novos dados
+      dispatch(userInfoActions.updateUserInfo(updateData));
+      
       setMissingProfileFields([]); // Limpar campos faltando após salvar
     } catch (error: any) {
       const errorMsg = error?.response?.data?.message || 'Erro ao salvar dados do perfil';
@@ -313,15 +323,60 @@ const ShippingAddressPage: React.FC = () => {
 
       await dispatch(addShippingAddress(payload)).unwrap();
       toast.success('Endereço adicionado com sucesso!');
+      
+      // Recarregar endereços do servidor para garantir sincronização
+      const updatedAddresses = await dispatch(fetchUserAddresses()).unwrap();
+      
       setShowNewAddressForm(false);
-      setSelectedAddressIndex(shippingAddresses.length);
+      // Selecionar automaticamente o novo endereço (será o último da lista)
+      setSelectedAddressIndex(updatedAddresses.length - 1);
+      
+      // Resetar o formulário
+      setNewAddress({
+        street: '',
+        number: '',
+        complement: '',
+        city: '',
+        state: '',
+        country: 'Brasil',
+        postalCode: '',
+        isDefault: false,
+      });
     } catch (error: any) {
       toast.error(error.message || 'Erro ao adicionar endereço');
     }
   };
 
   const handleContinueToPayment = () => {
+    // Verificar se todos os campos obrigatórios estão preenchidos
+    const missingFields: string[] = [];
+    
+    if (!userInfo?.name || String(userInfo.name).trim() === '') {
+      missingFields.push('Nome');
+    }
+    if (!hasCpf) {
+      missingFields.push('CPF');
+    }
+    if (!hasWhatsapp) {
+      missingFields.push('WhatsApp');
+    }
+    if (selectedAddressIndex === -1) {
+      missingFields.push('Endereço');
+    }
+
+    if (missingFields.length > 0) {
+      toast.error(`Campos obrigatórios faltando: ${missingFields.join(', ')}`);
+      return;
+    }
+
     (async () => {
+      // Se showNewAddressForm está ativado, significa que o usuário está preenchendo um novo endereço
+      // Ele DEVE salvar o endereço antes de continuar
+      if (showNewAddressForm && selectedAddressIndex === -1) {
+        toast.error('Por favor, salve o endereço antes de continuar');
+        return;
+      }
+
       const selectedAddress = selectedAddressIndex >= 0
         ? shippingAddresses[selectedAddressIndex]
         : newAddress;
@@ -730,10 +785,24 @@ const ShippingAddressPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Aviso de campos faltando */}
+                {!canProceedToPayment && (
+                  <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+                    <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium mb-2">⚠️ Campos obrigatórios:</p>
+                    <ul className="text-xs text-yellow-700 dark:text-yellow-300 space-y-1">
+                      {(!userInfo?.name || String(userInfo?.name).trim() === '') && <li>• Nome</li>}
+                      {!hasCpf && <li>• CPF</li>}
+                      {!hasWhatsapp && <li>• WhatsApp</li>}
+                      {selectedAddressIndex === -1 && <li>• Selecione um endereço</li>}
+                    </ul>
+                  </div>
+                )}
+
                 <button
                   onClick={handleContinueToPayment}
-                  className="w-full bg-palette-primary text-palette-side py-3 px-4 rounded-lg hover:bg-palette-primary/90 transition-colors"
-                  disabled={selectedAddressIndex === -1 && !showNewAddressForm}
+                  className="w-full bg-palette-primary text-palette-side py-3 px-4 rounded-lg hover:bg-palette-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!canProceedToPayment}
+                  title={!canProceedToPayment ? 'Preencha todos os campos obrigatórios (CPF, WhatsApp e selecione um endereço)' : 'Continuar para pagamento'}
                 >
                   Continuar para Pagamento
                 </button>

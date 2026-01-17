@@ -14,10 +14,10 @@ const ImageSection: React.FC<Props> = ({ imgArray, product }) => {
     setSelectedImg(index);
   }
   return (
-    <div className="flex items-start rounded-lg w-full md:w-auto">
+    <div className="flex flex-col items-center rounded-lg w-full">
       <ProductPageActions product={product} />
-      <div className="flex flex-col items-center w-full md:w-auto">
-        <div className="flex flex-grow md:ltr:mr-3 md:rtl:ml-3">
+      <div className="flex flex-col items-center w-full gap-4">
+        <div className="flex flex-grow w-full justify-center">
           <Image
             src={
               (typeof imgArray[selectedImg] === "string"
@@ -25,21 +25,21 @@ const ImageSection: React.FC<Props> = ({ imgArray, product }) => {
                 : urlFor(imgArray[selectedImg]).url()) as string
             }
             alt="product img"
-            width={450}
-            height={330}
-            className="object-contain md:drop-shadow-xl dark:bg-palette-card"
+            width={500}
+            height={500}
+            className="object-contain md:drop-shadow-xl dark:bg-palette-card max-w-full h-auto"
           />
         </div>
 
-        <div className="flex mt-4  md:p-4 w-full max-w-[350px] overflow-auto">
+        <div className="flex mt-2 md:p-4 w-full overflow-auto gap-2 justify-center">
           {imgArray.map((imgItem: any, index: number) => {
             return (
               <div
                 key={imgItem._key || imgItem}
-                className={`flex items-center justify-center p-2 md:p-4 rounded-lg  border-none transition-all duration-300 ease-in-out min-w-[80px] ${
+                className={`flex items-center justify-center p-2 md:p-4 rounded-lg border-2 transition-all duration-300 ease-in-out min-w-[80px] cursor-pointer ${
                   index === selectedImg
-                    ? "border-2 border-slate-300/60 shadow-md bg-palette-card/60"
-                    : ""
+                    ? "border-palette-primary shadow-md bg-palette-card/60"
+                    : "border-transparent hover:border-palette-border"
                 }`}
                 onClick={() => onClickHandler(index)}
               >

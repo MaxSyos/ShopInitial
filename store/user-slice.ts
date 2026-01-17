@@ -69,6 +69,18 @@ const userInfoSlice = createSlice({
         localStorage.setItem('userInfo', JSON.stringify(userInfo));
       }
     },
+
+    updateUserInfo(state, action: PayloadAction<Partial<IUser>>) {
+      if (state.userInformation) {
+        state.userInformation = { ...state.userInformation, ...action.payload };
+        // Atualizar localStorage também
+        if (typeof window !== 'undefined') {
+          const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+          const updated = { ...userInfo, ...action.payload };
+          localStorage.setItem('userInfo', JSON.stringify(updated));
+        }
+      }
+    },
   },
 });
 
