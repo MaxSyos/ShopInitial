@@ -41,6 +41,7 @@ const ShippingAddressPage: React.FC = () => {
   const [profileFieldValues, setProfileFieldValues] = useState({ name: '', cpf: '', whatsapp: '' });
   const [savingProfileFields, setSavingProfileFields] = useState(false);
   const [profileFieldErrors, setProfileFieldErrors] = useState<{ [key: string]: string }>({});
+  const [userDataLoaded, setUserDataLoaded] = useState(false);
 
   const userInfo = useSelector(
     (state: IUserInfoRootState) => state.userInfo.userInformation
@@ -70,6 +71,11 @@ const ShippingAddressPage: React.FC = () => {
       return;
     }
 
+    // Carregar dados do usuário apenas uma vez na primeira montagem
+    if (userDataLoaded) {
+      return;
+    }
+
     // Buscar dados mais recentes do usuário no backend para decidir quais campos faltam
     const loadUser = async () => {
       try {
@@ -80,12 +86,24 @@ const ShippingAddressPage: React.FC = () => {
         if (!serverUser.cpf) missing.push('cpf');
         if (!serverUser.whatsapp) missing.push('whatsapp');
 
+        // Sincronizar os dados do servidor com Redux para garantir que hasCpf e hasWhatsapp sejam verdadeiros
+        if (serverUser.cpf || serverUser.whatsapp || serverUser.name) {
+          dispatch(userInfoActions.updateUserInfo({
+            cpf: serverUser.cpf,
+            whatsapp: serverUser.whatsapp,
+            name: serverUser.name
+          }));
+        }
+
         setMissingProfileFields(missing);
         setProfileFieldValues({
           name: serverUser.name || '',
           cpf: serverUser.cpf || '',
           whatsapp: serverUser.whatsapp || ''
         });
+
+        // Marcar que os dados foram carregados para evitar loop infinito
+        setUserDataLoaded(true);
       } catch (err) {
         // fallback para dados locais
         const missing: string[] = [];
@@ -98,13 +116,16 @@ const ShippingAddressPage: React.FC = () => {
           cpf: userInfo.cpf || '',
           whatsapp: userInfo.whatsapp || ''
         });
+        
+        // Marcar que os dados foram carregados mesmo em caso de erro
+        setUserDataLoaded(true);
       }
     };
 
     loadUser();
 
     dispatch(fetchUserAddresses());
-  }, [userInfo, cartItems, dispatch, router]);
+  }, []);
 
   useEffect(() => {
     if (error) {
