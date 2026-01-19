@@ -300,6 +300,15 @@ const OrderStatusPage: React.FC = () => {
     return `${new Date(date).toLocaleDateString('pt-BR')} às ${time}`;
   };
 
+  const isEditAddressEnabled = () => {
+    const cep = orderData?.shippingAddress?.postalCode || '';
+    // Remove caracteres especiais para comparação
+    const cleanCep = cep.replace(/\D/g, '');
+    // Verifica se está entre 39400000 e 39409999
+    const cepNumber = parseInt(cleanCep, 10);
+    return cepNumber >= 39400000 && cepNumber <= 39409999;
+  };
+
   if (loading) {
     return (
       <PrivateRoute>
@@ -544,7 +553,14 @@ const OrderStatusPage: React.FC = () => {
                       <p>CEP: {orderData.shippingAddress?.postalCode ?? ''}</p>
                       <p>{orderData.shippingAddress?.country ?? ''}</p>
                       <div className="mt-2">
-                        <button onClick={startEditAddress} className="text-palette-primary hover:underline text-sm mr-3">Editar</button>
+                        <button 
+                          onClick={startEditAddress} 
+                          disabled={!isEditAddressEnabled()}
+                          className={`text-sm mr-3 ${isEditAddressEnabled() ? 'text-palette-primary hover:underline' : 'text-gray-400 cursor-not-allowed'}`}
+                          title={!isEditAddressEnabled() ? 'Editar disponível apenas para CEP entre 39400-000 e 39409-999' : 'Editar endereço'}
+                        >
+                          Editar
+                        </button>
                       </div>
                     </>
                   ) : (

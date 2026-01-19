@@ -49,6 +49,7 @@ interface EditingOrder {
   trackingCode: string;
   deliveryMethod: string;
   isDelivered: boolean;
+  isLocalPickup?: boolean;
 }
 
 const ManageOrdersPage: React.FC = () => {
@@ -103,8 +104,9 @@ const ManageOrdersPage: React.FC = () => {
     setEditingOrder({
       id: order.id,
       trackingCode: order.trackingCode || '',
-      deliveryMethod: order.deliveryMethod || 'PENDING',
+      deliveryMethod: order.isLocalPickup ? 'LOCAL' : (order.deliveryMethod || 'PENDING'),
       isDelivered: order.isDelivered || false,
+      isLocalPickup: order.isLocalPickup || false,
     });
   };
 
@@ -162,8 +164,8 @@ const ManageOrdersPage: React.FC = () => {
   };
 
   const getDeliveryStatusText = (deliveryMethod: string, isDelivered: boolean, isLocalPickup?: boolean) => {
-    if (isLocalPickup) return 'Entrega local (sem rastreamento)';
     if (isDelivered) return 'Entregue';
+    if (isLocalPickup) return 'Entrega local (sem rastreamento)';
     switch (deliveryMethod?.toUpperCase()) {
       case 'CORREIOS':
         return 'Correios';
@@ -404,6 +406,15 @@ const ManageOrdersPage: React.FC = () => {
               <h2 className="text-xl font-bold mb-4">Gerenciar Rastreamento</h2>
 
               <div className="space-y-4">
+                {/* Aviso de retirada local */}
+                {editingOrder.isLocalPickup && (
+                  <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-3">
+                    <p className="text-sm text-purple-800 dark:text-purple-300 font-medium">
+                      ℹ️ Esta é uma <strong>retirada pessoal na loja</strong> (sem rastreamento)
+                    </p>
+                  </div>
+                )}
+
                 {/* Opção de tipo de entrega */}
                 <div>
                   <label className="block text-sm font-medium mb-2">Tipo de Entrega</label>
@@ -416,7 +427,8 @@ const ManageOrdersPage: React.FC = () => {
                         trackingCode: '',
                       })
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                    disabled={editingOrder.isLocalPickup}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-600 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="PENDING">Selecione uma opção</option>
                     <option value="CORREIOS">Correios (com rastreamento)</option>
@@ -439,7 +451,7 @@ const ManageOrdersPage: React.FC = () => {
                           trackingCode: e.target.value,
                         })
                       }
-                      placeholder="Ex: AA999999999BR"
+                      placeholder="Ex: OR999999999BR"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg dark:bg-gray-800 dark:border-gray-600 dark:text-white"
                     />
                   </div>

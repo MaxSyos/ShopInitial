@@ -52,6 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         trackingCode: o.trackingCode || null,
         deliveryMethod: o.deliveryMethod || 'PENDING',
         isDelivered: o.isDelivered || false,
+        isLocalPickup: o.isLocalPickup || false,
         deliveredAt: o.deliveredAt || null
       }));
 
@@ -127,6 +128,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         trackingCode: o.trackingCode || null,
         deliveryMethod: o.deliveryMethod || 'PENDING',
         isDelivered: o.isDelivered || false,
+        isLocalPickup: o.isLocalPickup || false,
         deliveredAt: o.deliveredAt || null
       };
 
