@@ -54,6 +54,7 @@ yarn dev
   - `/cart` — carrinho e resumo do pedido.
   - `/orders` — lista de pedidos do usuário.
   - `/manage-orders` — página administrativa para pedidos (requer role ADMIN).
+  - `/manage-shipping-rates` — gerenciar tabelas de valor de envio (requer role ADMIN).
 
 - Hooks úteis:
   - `useProducts` — gerenciamento de carregamento/paginação de produtos.
@@ -65,6 +66,17 @@ yarn dev
 - Criação/edição de produtos possui guias de criação, exemplos de API e páginas auxiliares.
 - Existem arquivos que descrevem criação de produtos e pipeline de imagens (thumbnails, uploads).
 - Recomenda-se usar as rotas de API em `pages/api/products` e seguir o formato esperado pelo frontend (incluir `images`, `brand`, `category`).
+
+## Gerenciamento de Valor de Envio (Frete)
+
+- Página: `/manage-shipping-rates` (apenas ADMIN)
+- Funcionalidade: Gerenciar tabelas de valor de envio baseadas em dimensões de caixa
+- Recursos:
+  - Adicionar, editar e deletar tabelas de frete
+  - Calcular automaticamente valores SEDEX e PAC via Correios
+  - Suporte para CEP específico ou CEP padrão
+  - Armazenamento de histórico de cálculos
+- Documentação detalhada: Ver [docs/SHIPPING_RATES.md](./docs/SHIPPING_RATES.md)
 
 ## Imagens e Upload (ImgBB)
 

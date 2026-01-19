@@ -45,6 +45,13 @@ const ShippingAddressPage: React.FC = () => {
   const [userDataLoaded, setUserDataLoaded] = useState(false);
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  
+  // Estado para cálculo de frete
+  const [shippingCost, setShippingCost] = useState<number>(0);
+  const [shippingMethod, setShippingMethod] = useState<'SEDEX' | 'PAC' | null>(null);
+  const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
+  const [shippingError, setShippingError] = useState<string | null>(null);
+  const [availableShippingMethods, setAvailableShippingMethods] = useState<{ sedex: number | null; pac: number | null }>({ sedex: null, pac: null });
 
   const userInfo = useSelector(
     (state: IUserInfoRootState) => state.userInfo.userInformation
@@ -58,10 +65,22 @@ const ShippingAddressPage: React.FC = () => {
   const totalAmount = useSelector((state: ICartRootState) => state.cart.totalAmount);
   const { shippingAddresses = [], loading, error } = useSelector((state: RootState) => state.order);
 
+  // Calcular total com frete
+  const totalWithShipping = totalAmount + shippingCost;
+
   // Verificar se todos os campos obrigatórios estão preenchidos
   const areAllProfileFieldsFilled = hasCpf && hasWhatsapp && (userInfo?.name && String(userInfo.name).trim() !== '');
   const isAddressSelected = selectedAddressIndex >= 0;
-  const canProceedToPayment = areAllProfileFieldsFilled && isAddressSelected;
+  
+  const isShippingRestricted = () => {
+    const selectedAddress = selectedAddressIndex >= 0 ? shippingAddresses[selectedAddressIndex] : newAddress;
+    const cep = String(selectedAddress?.postalCode || '').replace(/\D/g, '');
+    const cepNum = parseInt(cep, 10);
+    return cepNum >= 39400000 && cepNum <= 39409999;
+  };
+  
+  const requiresShippingSelection = !isShippingRestricted() && (availableShippingMethods.sedex !== null || availableShippingMethods.pac !== null);
+  const canProceedToPayment = areAllProfileFieldsFilled && isAddressSelected && (!requiresShippingSelection || shippingMethod !== null);
 
   useEffect(() => {
     if (!userInfo) {
@@ -135,6 +154,17 @@ const ShippingAddressPage: React.FC = () => {
       toast.error(error);
     }
   }, [error]);
+
+  // Calcular frete quando endereço é selecionado ou quando novo endereço com CEP é preenchido
+  useEffect(() => {
+    if (selectedAddressIndex >= 0 || (newAddress.postalCode && !showNewAddressForm)) {
+      calculateShipping();
+    } else {
+      setAvailableShippingMethods({ sedex: null, pac: null });
+      setShippingCost(0);
+      setShippingMethod(null);
+    }
+  }, [selectedAddressIndex, newAddress.postalCode]);
 
   const handleAddressSelect = (index: number) => {
     setSelectedAddressIndex(index);
@@ -305,6 +335,67 @@ const ShippingAddressPage: React.FC = () => {
     }
   };
 
+  // Função para calcular frete
+  const calculateShipping = async () => {
+    if (selectedAddressIndex < 0 && !newAddress.postalCode) {
+      setShippingError('Selecione ou preencha um endereço para calcular o frete');
+      return;
+    }
+
+    const selectedAddress = selectedAddressIndex >= 0 ? shippingAddresses[selectedAddressIndex] : newAddress;
+    const cep = String(selectedAddress?.postalCode || '').replace(/\D/g, '');
+    
+    // Verificar se CEP está na faixa restrita
+    const cepNum = parseInt(cep, 10);
+    if (cepNum >= 39400000 && cepNum <= 39409999) {
+      setShippingError(null);
+      setAvailableShippingMethods({ sedex: null, pac: null });
+      setShippingCost(0);
+      setShippingMethod(null);
+      return;
+    }
+
+    if (!cep || cep.length !== 8) {
+      setShippingError('CEP inválido para cálculo de frete');
+      return;
+    }
+
+    setIsCalculatingShipping(true);
+    setShippingError(null);
+    
+    try {
+      // Usar a função legada que já está no backend
+      const response = await api.post('/orders/calculate-shipping', {
+        quantity: cartItems.length,
+        cep
+      });
+
+      if (response?.data?.sedex || response?.data?.pac) {
+        setAvailableShippingMethods({
+          sedex: response.data.sedex || null,
+          pac: response.data.pac || null
+        });
+        // Selecionar automaticamente o primeiro disponível
+        if (response.data.sedex && !shippingMethod) {
+          setShippingMethod('SEDEX');
+          setShippingCost(response.data.sedex);
+        } else if (response.data.pac && !shippingMethod) {
+          setShippingMethod('PAC');
+          setShippingCost(response.data.pac);
+        }
+      } else if (response?.data?.error) {
+        setShippingError(response.data.error);
+        setAvailableShippingMethods({ sedex: null, pac: null });
+      }
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.error || err.message || 'Erro ao calcular frete';
+      setShippingError(errorMsg);
+      setAvailableShippingMethods({ sedex: null, pac: null });
+    } finally {
+      setIsCalculatingShipping(false);
+    }
+  };
+
   const validateAddress = () => {
     const newErrors: { [key: string]: string } = {};
     if (!newAddress.street || typeof newAddress.street !== 'string') newErrors.street = 'Rua obrigatória';
@@ -415,7 +506,13 @@ const ShippingAddressPage: React.FC = () => {
         quantity: it.quantity, 
         price: it.totalPrice / it.quantity // Preço final com desconto já aplicado
       }));
-      const orderData = { shippingAddress: selectedAddress, items, isLocalPickup };
+      const orderData = { 
+        shippingAddress: selectedAddress, 
+        items, 
+        isLocalPickup,
+        shippingCost: shippingCost,
+        shippingMethod: shippingMethod || 'PAC'
+      };
 
       // @ts-ignore dispatch typing
       const created = await dispatch((await import('../store/order-slice')).createOrder(orderData)).unwrap();
@@ -430,7 +527,12 @@ const ShippingAddressPage: React.FC = () => {
         } catch (e) {
           idempotencyKey = `id-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
         }
-        const createdWithKey = { ...created, idempotencyKey };
+        const createdWithKey = { 
+          ...created, 
+          idempotencyKey,
+          shippingCost: shippingCost,
+          shippingMethod: shippingMethod || 'PAC'
+        };
         localStorage.setItem('createdOrder', JSON.stringify(createdWithKey));
       } catch (e) {
         // ignore
@@ -802,9 +904,81 @@ const ShippingAddressPage: React.FC = () => {
                 </div>
 
                 <div className="border-t pt-4 mb-6">
-                  <div className="flex justify-between font-bold text-lg">
-                    <span>Total</span>
-                    <span>R$ {Number(totalAmount || 0).toFixed(2)}</span>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span>Subtotal</span>
+                      <span>R$ {Number(totalAmount || 0).toFixed(2)}</span>
+                    </div>
+
+                    {/* Seção de frete */}
+                    {isAddressSelected && (
+                      <div className="space-y-2">
+                        {isShippingRestricted() ? (
+                          <div className="text-sm text-green-600 dark:text-green-400 font-medium">
+                            ✓ Retirada na Loja
+                          </div>
+                        ) : (
+                          <>
+                            {isCalculatingShipping ? (
+                              <div className="text-sm text-palette-text-secondary">
+                                Calculando frete...
+                              </div>
+                            ) : shippingError ? (
+                              <div className="text-sm text-red-600 dark:text-red-400">
+                                {shippingError}
+                              </div>
+                            ) : availableShippingMethods.sedex !== null || availableShippingMethods.pac !== null ? (
+                              <div className="space-y-2 space-X-2">
+                                <p className="text-sm font-medium text-palette-text-secondary">Escolha o tipo de frete:</p>
+                                
+                                {availableShippingMethods.sedex !== null && (
+                                  <label className="flex items-center space-x-3 p-2 border border-palette-border rounded-lg cursor-pointer hover:bg-palette-border/50">
+                                    <input
+                                      type="radio"
+                                      name="shippingMethod"
+                                      value="SEDEX"
+                                      checked={shippingMethod === 'SEDEX'}
+                                      onChange={(e) => {
+                                        setShippingMethod('SEDEX');
+                                        setShippingCost(availableShippingMethods.sedex || 0);
+                                      }}
+                                      className="w-4 h-4"
+                                    />
+                                    <span className="flex-1">
+                                      <span className="font-medium">SEDEX</span> - R$ {Number(availableShippingMethods.sedex || 0).toFixed(2)}
+                                    </span>
+                                  </label>
+                                )}
+
+                                {availableShippingMethods.pac !== null && (
+                                  <label className="flex items-center space-x-4 p-2 border border-palette-border rounded-lg cursor-pointer hover:bg-palette-border/50">
+                                    <input
+                                      type="radio"
+                                      name="shippingMethod"
+                                      value="PAC"
+                                      checked={shippingMethod === 'PAC'}
+                                      onChange={(e) => {
+                                        setShippingMethod('PAC');
+                                        setShippingCost(availableShippingMethods.pac || 0);
+                                      }}
+                                      className="w-4 h-4"
+                                    />
+                                    <span className="flex-1">
+                                      <span className="font-medium">PAC</span> - R$ {Number(availableShippingMethods.pac || 0).toFixed(2)}
+                                    </span>
+                                  </label>
+                                )}
+                              </div>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex justify-between font-bold text-lg border-t pt-3">
+                      <span>Total</span>
+                      <span>R$ {Number(totalWithShipping || 0).toFixed(2)}</span>
+                    </div>
                   </div>
                 </div>
 

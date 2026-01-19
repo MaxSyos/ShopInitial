@@ -33,6 +33,8 @@ const PaymentPage: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [orderId, setOrderId] = useState<string>('');
   const [shippingAddress, setShippingAddress] = useState<any>(null);
+  const [shippingCost, setShippingCost] = useState<number>(0);
+  const [shippingMethod, setShippingMethod] = useState<string>('PAC');
   const isCheckingPaymentRef = React.useRef<boolean>(false);
 
   const userInfo = useSelector(
@@ -40,6 +42,9 @@ const PaymentPage: React.FC = () => {
   );
   const cartItems = useSelector((state: ICartRootState) => state.cart.items);
   const totalAmount = useSelector((state: ICartRootState) => state.cart.totalAmount);
+  
+  // Calcular total com frete
+  const totalWithShipping = totalAmount + shippingCost;
 
   useEffect(() => {
     if (!userInfo) {
@@ -57,6 +62,19 @@ const PaymentPage: React.FC = () => {
     if (!savedAddress) {
       router.push('/shipping-address');
       return;
+    }
+
+    // Recuperar custo de frete e método salvo do localStorage
+    try {
+      const savedOrder = JSON.parse(localStorage.getItem('createdOrder') || '{}');
+      if (savedOrder?.shippingCost) {
+        setShippingCost(savedOrder.shippingCost);
+      }
+      if (savedOrder?.shippingMethod) {
+        setShippingMethod(savedOrder.shippingMethod);
+      }
+    } catch (e) {
+      // ignorar erros de parse
     }
 
     setShippingAddress(JSON.parse(savedAddress));
@@ -243,7 +261,7 @@ const PaymentPage: React.FC = () => {
 
       const paymentDataReq: any = {
         orderId: orderIdParam,
-        amount: totalAmount,
+        amount: totalWithShipping,
         currency: 'BRL',
         paymentMethod: 'PIX'
       };
@@ -447,9 +465,23 @@ const PaymentPage: React.FC = () => {
                 </div>
 
                 <div className="border-t pt-4 mb-6">
-                  <div className="flex justify-between font-bold text-lg">
-                    <span>Total</span>
-                    <span>R$ {Number(totalAmount || 0).toFixed(2)}</span>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span>Subtotal</span>
+                      <span>R$ {Number(totalAmount || 0).toFixed(2)}</span>
+                    </div>
+                    
+                    {shippingCost > 0 && (
+                      <div className="flex justify-between">
+                        <span>Frete ({shippingMethod})</span>
+                        <span>R$ {Number(shippingCost || 0).toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between font-bold text-lg border-t pt-3">
+                      <span>Total</span>
+                      <span>R$ {Number(totalWithShipping || 0).toFixed(2)}</span>
+                    </div>
                   </div>
                 </div>
               </div>

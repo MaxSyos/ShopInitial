@@ -247,6 +247,7 @@ const PaymentByIdPage: React.FC = () => {
         // Extrair items — podem estar em diferentes formatos
         const rawItems = resolved.items || resolved.itemsJson || [];
         const total = resolved.total ?? resolved.subtotal ?? resolved.amount ?? 0;
+        const shippingCost = resolved.shippingCost ?? 0;
         
         // Normalizar items
         const normalizedItems = (rawItems || []).map((it: any) => ({
@@ -257,8 +258,8 @@ const PaymentByIdPage: React.FC = () => {
           totalPrice: it.total ?? it.totalPrice ?? ((it.unitPrice || it.price || 0) * (it.quantity || 1)),
         }));
         
-        setOrderSummary({ items: normalizedItems, totalAmount: total });
-        console.log('Order Summary carregado da API:', { items: normalizedItems, total });
+        setOrderSummary({ items: normalizedItems, totalAmount: total, shippingCost });
+        console.log('Order Summary carregado da API:', { items: normalizedItems, total, shippingCost });
         return;
       }
     } catch (e) {
@@ -270,6 +271,7 @@ const PaymentByIdPage: React.FC = () => {
       const stored = JSON.parse(localStorage.getItem('createdOrder') || 'null');
       if (stored && (stored.items || stored.itemsJson)) {
         const total = stored.total ?? stored.totalAmount ?? 0;
+        const shippingCost = stored.shippingCost ?? 0;
         const rawItems = stored.items || stored.itemsJson || [];
         const normalizedItems = (rawItems || []).map((it: any) => ({
           id: it.id || it.productId,
@@ -278,8 +280,8 @@ const PaymentByIdPage: React.FC = () => {
           price: it.unitPrice || it.price || 0,
           totalPrice: it.totalPrice ?? ((it.unitPrice || it.price || 0) * (it.quantity || 1)),
         }));
-        setOrderSummary({ items: normalizedItems, totalAmount: total });
-        console.log('Order Summary carregado do localStorage:', { items: normalizedItems, total });
+        setOrderSummary({ items: normalizedItems, totalAmount: total, shippingCost });
+        console.log('Order Summary carregado do localStorage:', { items: normalizedItems, total, shippingCost });
         return;
       }
     } catch (fallbackErr) {
@@ -295,8 +297,8 @@ const PaymentByIdPage: React.FC = () => {
         price: item.unitPrice || item.price || item.pricePerQuantity || 0,
         totalPrice: item.totalPrice ?? item.total ?? ((item.unitPrice || item.price || item.pricePerQuantity || 0) * (item.quantity || 1)),
       }));
-      setOrderSummary({ items: normalizedItems, totalAmount });
-      console.log('Order Summary carregado do Redux cartItems:', { items: normalizedItems, totalAmount });
+      setOrderSummary({ items: normalizedItems, totalAmount, shippingCost: 0 });
+      console.log('Order Summary carregado do Redux cartItems:', { items: normalizedItems, totalAmount, shippingCost: 0 });
     }
   };
 
@@ -465,7 +467,30 @@ const PaymentByIdPage: React.FC = () => {
                   )}
                 </div>
 
-                <div className="border-t pt-4 mb-6">
+                {/* Subtotal */}
+                <div className="border-t pt-4 mb-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal</span>
+                    <span>
+                      R$ {Number(
+                        orderSummary?.totalAmount ? (orderSummary.totalAmount - (orderSummary.shippingCost || 0)) : 
+                        ((orderSummary?.items?.reduce((sum: number, item: any) => sum + (item.totalPrice || item.total || 0), 0) || 0) ||
+                        totalAmount || 0)
+                      ).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Frete */}
+                {orderSummary?.shippingCost && orderSummary.shippingCost > 0 && (
+                  <div className="flex justify-between text-sm pb-2">
+                    <span>Frete</span>
+                    <span>R$ {Number(orderSummary.shippingCost).toFixed(2)}</span>
+                  </div>
+                )}
+
+                {/* Total */}
+                <div className="border-t pt-4">
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>
                     <span>

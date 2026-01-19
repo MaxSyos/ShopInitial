@@ -235,22 +235,32 @@ async function main() {
       });
     }
 
-    // Favoritos
+    // Favoritos - Evitar duplicatas usando Set para produtos únicos
     const favCount = Math.floor(Math.random() * 5);
-    for (let i = 0; i < favCount; i++) {
+    const favoriteProducts = new Set();
+    
+    // Garantir que não há duplicatas de productId para o mesmo user
+    while (favoriteProducts.size < Math.min(favCount, products.length)) {
       const product = products[Math.floor(Math.random() * products.length)];
-      await prisma.favorite.create({
-        data: {
-          userId: user.id,
-          productId: product.id,
-          productData: {
-            name: product.name,
-            price: product.price,
-            image: `/images/products/${product.name.toLowerCase().replace(' ', '')}1.jpg`,
-            slug: product.name.toLowerCase().replace(' ', '-'),
+      favoriteProducts.add(product.id);
+    }
+    
+    for (const productId of favoriteProducts) {
+      const product = products.find(p => p.id === productId);
+      if (product) {
+        await prisma.favorite.create({
+          data: {
+            userId: user.id,
+            productId: product.id,
+            productData: {
+              name: product.name,
+              price: product.price,
+              image: `/images/products/${product.name.toLowerCase().replace(' ', '')}1.jpg`,
+              slug: product.name.toLowerCase().replace(' ', '-'),
+            },
           },
-        },
-      });
+        });
+      }
     }
   }
 
@@ -417,6 +427,64 @@ async function main() {
         backgroundColor: '#e0e0e0',
         isActive: true,
         order: 2,
+      },
+    ],
+  });
+
+  console.log('🚚 Criando tabelas de frete...');
+  // Shipping Rates - Tabelas padrão para cálculo de frete
+  await prisma.shippingRate.deleteMany();
+  await prisma.shippingRate.createMany({
+    data: [
+      // Até 5 peças
+      {
+        quantityUpTo: 5,
+        height: 10,
+        width: 15,
+        length: 20,
+        weight: 0.5,
+        sedexValue: 40.00,
+        pacValue: 25.00,
+      },
+      // Até 10 peças
+      {
+        quantityUpTo: 10,
+        height: 15,
+        width: 20,
+        length: 25,
+        weight: 1.0,
+        sedexValue: 65.00,
+        pacValue: 35.00,
+      },
+      // Até 20 peças
+      {
+        quantityUpTo: 20,
+        height: 20,
+        width: 25,
+        length: 30,
+        weight: 2.0,
+        sedexValue: 115.00,
+        pacValue: 60.00,
+      },
+      // Até 50 peças
+      {
+        quantityUpTo: 50,
+        height: 25,
+        width: 30,
+        length: 40,
+        weight: 5.0,
+        sedexValue: 265.00,
+        pacValue: 135.00,
+      },
+      // Acima de 50 peças
+      {
+        quantityUpTo: 1000,
+        height: 30,
+        width: 40,
+        length: 50,
+        weight: 10.0,
+        sedexValue: 515.00,
+        pacValue: 260.00,
       },
     ],
   });

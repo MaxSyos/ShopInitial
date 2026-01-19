@@ -49,7 +49,7 @@ model Category {
   name      String
   description String?
   parentId  String?    @db.ObjectId
-  parent    Category?  @relation("CategoryParent", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parent    Category?  @relation("CategoryParent", fields: [parentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   children  Category[] @relation("CategoryParent")
   products  Product[]
 }
@@ -318,4 +318,18 @@ model OrderItemListRow {
   name   String?
   number String?
   size   Size
+}
+
+// Tabela de valores de envio por dimensões e faixa de quantidade
+model ShippingRate {
+  id           String   @id @map("_id") @default(auto()) @db.ObjectId
+  quantityUpTo Int      // Quantidade até X peças (ex: 10, 15, 20, 30, 40)
+  height       Float    // Altura em cm
+  width        Float    // Largura em cm
+  length       Float    // Comprimento em cm
+  weight       Float    // Peso em kg
+  sedexValue   Float    @default(0) // Valor do frete SEDEX em R$
+  pacValue     Float    @default(0) // Valor do frete PAC em R$
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

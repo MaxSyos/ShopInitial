@@ -68,19 +68,15 @@ export const footerContent = [
 
           Você pode solicitar a troca por outro tamanho diretamente pelo nosso atendimento ou área do cliente. A troca está sujeita à disponibilidade em estoque.
 
-          10. O frete é grátis?
-
-          O frete grátis pode estar disponível conforme promoções, valor mínimo de compra ou região. As condições são informadas no carrinho antes da finalização do pedido.
-
-          11. Posso alterar ou cancelar meu pedido após a compra?
+          10. Posso alterar ou cancelar meu pedido após a compra?
 
           Alterações ou cancelamentos podem ser solicitados antes do envio do pedido. Após o despacho, não será possível realizar mudanças, sendo necessário seguir o processo de devolução.
 
-          12. As roupas encolhem ou desbotam após a lavagem?
+          11. As roupas encolhem ou desbotam após a lavagem?
 
           Nossas peças são produzidas com tecidos de qualidade, porém recomendamos seguir corretamente as instruções de lavagem presentes na etiqueta para preservar cor e durabilidade.
 
-          13. Como entrar em contato com o atendimento?
+          12. Como entrar em contato com o atendimento?
 
           Você pode falar conosco através do WhatsApp, e-mail ou formulário de contato disponível no site. Nosso time está pronto para ajudar.
           `,

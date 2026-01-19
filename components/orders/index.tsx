@@ -31,6 +31,12 @@ interface Order {
   };
 }
 
+interface ShippingInfo {
+  sedex?: number;
+  pac?: number;
+  error?: string;
+}
+
 interface PaginationData {
   page: number;
   limit: number;
@@ -49,6 +55,7 @@ const Orders: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pagination, setPagination] = useState<PaginationData | null>(null);
+  const [shippingInfo, setShippingInfo] = useState<Record<string, ShippingInfo>>({});
 
   useEffect(() => {
     if (!userInfo) {
@@ -84,10 +91,38 @@ const Orders: React.FC = () => {
 
       console.log('[Orders Component] ✅ Orders fetched successfully');
       const data = response.data || {};
-      setOrders(data.orders || []);
+      const ordersData = data.orders || [];
+      setOrders(ordersData);
       setPagination(data.pagination || null);
+
+      // Calcular frete para cada pedido
+      const shippingCalcs: Record<string, ShippingInfo> = {};
+      for (const order of ordersData) {
+        if (order.shippingAddress?.postalCode) {
+          try {
+            const cepNumber = parseInt(order.shippingAddress.postalCode.replace(/\D/g, ''), 10);
+            // Se CEP está na faixa restrita, não calcula frete
+            if (cepNumber >= 39400000 && cepNumber <= 39409999) {
+              shippingCalcs[order.id] = { sedex: 0, pac: 0 };
+            } else {
+              // Calcular frete com base na quantidade total de itens
+              const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
+              const shippingResponse = await api.post('/orders/calculate-shipping', {
+                quantity: totalItems,
+                cep: order.shippingAddress.postalCode
+              });
+              shippingCalcs[order.id] = shippingResponse.data || {};
+            }
+          } catch (err: any) {
+            console.error('Erro ao calcular frete para pedido', order.id, err);
+            shippingCalcs[order.id] = { error: 'Erro ao calcular' };
+          }
+        }
+      }
+      setShippingInfo(shippingCalcs);
+
       try {
-        const debugArr = (data.orders || []).map((o: { id: string; status: string; paymentStatus: string; isDelivered?: boolean }) => ({ id: o.id, status: o.status, paymentStatus: o.paymentStatus, isDelivered: o.isDelivered }));
+        const debugArr = (ordersData || []).map((o: { id: string; status: string; paymentStatus: string; isDelivered?: boolean }) => ({ id: o.id, status: o.status, paymentStatus: o.paymentStatus, isDelivered: o.isDelivered }));
       } catch (e) {
         // ignore
       }
@@ -192,7 +227,7 @@ const Orders: React.FC = () => {
               onClick={() => router.push(`/order-status/${order.id}`)}
               className="bg-palette-card p-6 rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer border border-palette-border hover:border-palette-primary"
             >
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-start">
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-start">
                 {/* Informações do Pedido */}
                 <div className="md:col-span-2">
                   <div className="mb-3">
@@ -259,6 +294,31 @@ const Orders: React.FC = () => {
                       {getPaymentStatusLabel(order.paymentStatus)}
                     </span>
                   </div>
+                </div>
+
+                {/* Frete */}
+                <div className="md:col-span-1">
+                  <p className="text-sm text-palette-mute mb-2">Frete</p>
+                  {shippingInfo[order.id]?.error ? (
+                    <p className="text-xs text-red-600">{shippingInfo[order.id].error}</p>
+                  ) : shippingInfo[order.id]?.sedex !== undefined && shippingInfo[order.id]?.sedex !== 0 ? (
+                    <div className="space-y-1">
+                      <div>
+                        <p className="text-xs text-palette-mute">SEDEX</p>
+                        <p className="text-sm font-semibold text-palette-text">
+                          {formatCurrency(shippingInfo[order.id].sedex || 0)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-palette-mute">PAC</p>
+                        <p className="text-sm font-semibold text-palette-text">
+                          {formatCurrency(shippingInfo[order.id].pac || 0)}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-palette-mute italic">Frete na zona local</p>
+                  )}
                 </div>
 
                 {/* Total */}

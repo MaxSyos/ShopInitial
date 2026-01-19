@@ -10,6 +10,7 @@ import { MdAdd } from "react-icons/md";
 import { MdCategory } from "react-icons/md";
 import { MdInventory } from "react-icons/md";
 import { MdOndemandVideo } from "react-icons/md";
+import { MdLocalShipping } from "react-icons/md";
 import jsCookie from "js-cookie";
 import { IUserInfoRootState } from "../../../lib/types/user";
 
@@ -107,6 +108,23 @@ const UserAccountBox: React.FC<Props> = ({ onClose }) => {
                 />
                 <span className="font-normal rtl:mr-1 ltr:ml-1">
                   Gerenciar Pedidos
+                </span>
+              </a>
+            </Link>
+          </li>
+        )}
+        {isAdmin && (
+          <li className="my-1 py-1" onClick={onClose}>
+            <Link href={'/manage-shipping-rates'}>
+              <a className="flex items-center hover:text-palette-primary">
+                <MdLocalShipping
+                  style={{
+                    fontSize: "1.2rem",
+                    width: "1.8rem",
+                  }}
+                />
+                <span className="font-normal rtl:mr-1 ltr:ml-1">
+                  Valor de Envio
                 </span>
               </a>
             </Link>
