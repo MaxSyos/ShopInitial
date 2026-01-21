@@ -50,6 +50,17 @@ interface OrderData {
     method: string;
     amount: number;
   };
+  installments?: Array<{
+    id: string;
+    installmentNumber: number;
+    amount: number;
+    status: string;
+    mpPreferenceId?: string;
+    mpQrCodeBase64?: string;
+    mpQrCodeUrl?: string;
+    expiresAt?: string;
+    paidAt?: string;
+  }>;
   tracking?: {
     code: string;
     status: string;
@@ -73,6 +84,7 @@ const OrderStatusPage: React.FC = () => {
   const [trackingLoading, setTrackingLoading] = useState<boolean>(false);
   const [isEditingAddress, setIsEditingAddress] = useState<boolean>(false);
   const [addressForm, setAddressForm] = useState<any>({});
+  const [generatingQrId, setGeneratingQrId] = useState<string | null>(null);
 
   const userInfo = useSelector(
     (state: IUserInfoRootState) => state.userInfo.userInformation
@@ -87,12 +99,23 @@ const OrderStatusPage: React.FC = () => {
     if (id) {
       fetchOrderData();
 
-      // Polling automático a cada 30 segundos para refletir mudanças feitas no admin
+      // Polling a cada 10 segundos (econômico)
       const pollInterval = setInterval(() => {
         fetchOrderData();
-      }, 30000);
+      }, 10000);
 
-      return () => clearInterval(pollInterval);
+      // Listener para quando a página volta ao foco (aba ativa)
+      const handlePageFocus = () => {
+        console.log('[Order Status] Página voltou ao foco, atualizando dados...');
+        fetchOrderData();
+      };
+
+      window.addEventListener('focus', handlePageFocus);
+
+      return () => {
+        clearInterval(pollInterval);
+        window.removeEventListener('focus', handlePageFocus);
+      };
     }
   }, [userInfo, id]);
 
@@ -145,13 +168,15 @@ const OrderStatusPage: React.FC = () => {
         })),
         shippingAddress: resolvedOrder?.shippingAddress || {},
         payment: {
-          id: resolvedOrder?.mpPreferenceId || resolvedOrder?.paymentId || '',
+          id: resolvedOrder?.installments?.[0]?.mpPreferenceId || resolvedOrder?.mpPreferenceId || resolvedOrder?.paymentId || '',
           status: mapPaymentStatus(resolvedOrder?.paymentStatus || resolvedOrder?.payment_status),
           method: resolvedOrder?.paymentMethod || resolvedOrder?.payment_method || 'PIX',
           amount: Number(resolvedOrder?.total ?? resolvedOrder?.totalAmount ?? 0)
         },
         // também expor paymentStatus no topo para compatibilidade
         paymentStatus: mapPaymentStatus(resolvedOrder?.paymentStatus || resolvedOrder?.payment_status),
+        // Adicionar informações das parcelas
+        installments: resolvedOrder?.installments || [],
         tracking: resolvedOrder?.tracking || null,
       };
 
@@ -244,6 +269,64 @@ const OrderStatusPage: React.FC = () => {
       console.error('Erro ao salvar endereço:', e);
       const message = e?.response?.data?.error || e.message || 'Erro ao salvar endereço';
       toast.error(message);
+    }
+  };
+
+  const generateInstallmentQr = async (installmentId: string, installmentNumber: number) => {
+    if (!orderData) return;
+    
+    setGeneratingQrId(installmentId);
+    
+    try {
+      console.log(`[Order Status] Gerando QR para parcela ${installmentNumber} do pedido ${orderData.id}`);
+      
+      const res = await api.post('/payments/generate-installment-qr', {
+        orderId: orderData.id,
+        installmentNumber
+      });
+
+      if (res.data?.installment) {
+        console.log(`[Order Status] QR gerado com sucesso para parcela ${installmentNumber}`);
+        
+        // Atualizar os dados do pedido com a nova parcela
+        setOrderData(prev => {
+          if (!prev) return null;
+          
+          const updatedInstallments = (prev.installments || []).map(inst => 
+            inst.id === installmentId 
+              ? {
+                  ...inst,
+                  status: res.data.installment.status,
+                  mpPreferenceId: res.data.installment.mpPreferenceId,
+                  mpQrCodeBase64: res.data.installment.mpQrCodeBase64,
+                  mpQrCodeUrl: res.data.installment.mpQrCodeUrl,
+                  expiresAt: res.data.installment.expiresAt
+                }
+              : inst
+          );
+          
+          return {
+            ...prev,
+            installments: updatedInstallments
+          };
+        });
+        
+        toast.success(`QR Code da Parcela ${installmentNumber} gerado com sucesso!`);
+        
+        // Refrescar dados após 2 segundos para capturar alterações do webhook (ex: Inst2 criada)
+        setTimeout(() => {
+          console.log(`[Order Status] Refrescando dados após geração de QR`);
+          fetchOrderData();
+        }, 2000);
+      } else {
+        toast.error('Erro ao processar resposta do servidor');
+      }
+    } catch (error: any) {
+      console.error(`[Order Status] Erro ao gerar QR para parcela ${installmentNumber}:`, error);
+      const message = error?.response?.data?.error || error.message || 'Erro ao gerar QR code';
+      toast.error(message);
+    } finally {
+      setGeneratingQrId(null);
     }
   };
 
@@ -423,6 +506,112 @@ const OrderStatusPage: React.FC = () => {
                   }
                 </div>
               </div>
+
+              {/* Parcelas PIX (se houver) */}
+              {orderData.installments && orderData.installments.length > 0 && (
+                <div className="bg-palette-card p-6 rounded-lg shadow-md">
+                  <h2 className="text-xl font-semibold mb-4">Parcelas PIX</h2>
+                  <div className="space-y-4">
+                    {orderData.installments.map((installment) => {
+                      const statusUpper = String(installment.status || '').toUpperCase();
+                      let statusColor = 'bg-gray-100 text-gray-800';
+                      let statusLabel = installment.status;
+
+                      if (statusUpper === 'PAID') {
+                        statusColor = 'bg-green-100 text-green-800';
+                        statusLabel = 'Paga';
+                      } else if (statusUpper === 'PAYMENT_CREATED') {
+                        statusColor = 'bg-blue-100 text-blue-800';
+                        statusLabel = 'Aguardando Pagamento';
+                      } else if (statusUpper === 'PENDING') {
+                        statusColor = 'bg-yellow-100 text-yellow-800';
+                        statusLabel = 'Não Iniciada';
+                      } else if (statusUpper === 'EXPIRED') {
+                        statusColor = 'bg-red-100 text-red-800';
+                        statusLabel = 'Expirada';
+                      } else if (statusUpper === 'FAILED') {
+                        statusColor = 'bg-red-100 text-red-800';
+                        statusLabel = 'Falhou';
+                      }
+
+                      return (
+                        <div key={installment.id} className="border border-palette-border rounded-lg p-4">
+                          <div className="flex justify-between items-center mb-3">
+                            <div>
+                              <h3 className="font-semibold text-lg">Parcela {installment.installmentNumber}/2</h3>
+                              <p className="text-sm text-palette-mute">
+                                Valor: R$ {Number(installment.amount).toFixed(2)}
+                              </p>
+                              {installment.expiresAt && statusUpper === 'PAYMENT_CREATED' && (
+                                <p className="text-xs text-red-600 mt-1">
+                                  Vence em: {new Date(installment.expiresAt).toLocaleString('pt-BR')}
+                                </p>
+                              )}
+                            </div>
+                            <span className={`inline-block px-4 py-2 rounded-lg text-sm font-semibold ${statusColor}`}>
+                              {statusLabel}
+                            </span>
+                          </div>
+
+                          {/* Exibir QR Code se estiver pendente */}
+                          {statusUpper === 'PAYMENT_CREATED' && installment.mpQrCodeBase64 && (
+                            <div className="mt-4 pt-4 border-t border-palette-border">
+                              <p className="text-sm text-palette-mute mb-3">Código PIX para pagar:</p>
+                              <div className="bg-palette-side dark:bg-palette-side p-4 rounded-lg inline-block border border-palette-border">
+                                <img 
+                                  src={`data:image/png;base64,${installment.mpQrCodeBase64}`}
+                                  alt={`QR Code Parcela ${installment.installmentNumber}`}
+                                  className="w-48 h-48"
+                                />
+                              </div>
+                              <div className="mt-3">
+                                <p className="text-xs text-palette-mute mb-2">Ou copie o código PIX:</p>
+                                <div 
+                                  onClick={() => {
+                                    if (installment.mpQrCodeUrl) {
+                                      navigator.clipboard.writeText(installment.mpQrCodeUrl);
+                                      toast.success('Código PIX copiado!');
+                                    }
+                                  }}
+                                  className="bg-palette-border dark:bg-palette-border/50 text-palette-text dark:text-palette-side p-3 rounded cursor-pointer hover:bg-palette-border/80 dark:hover:bg-palette-border/70 transition-colors break-all text-xs font-mono"
+                                  title="Clique para copiar"
+                                >
+                                  {installment.mpQrCodeUrl ? installment.mpQrCodeUrl.substring(0, 60) + '...' : 'Código indisponível'}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Botão para gerar QR se estiver em PENDING ou sem QR */}
+                          {(statusUpper === 'PENDING' || (statusUpper === 'PAYMENT_CREATED' && !installment.mpQrCodeBase64)) && (
+                            <div className="mt-4 pt-4 border-t border-palette-border">
+                              <button
+                                onClick={() => generateInstallmentQr(installment.id, installment.installmentNumber)}
+                                disabled={generatingQrId === installment.id}
+                                className="w-full bg-palette-primary text-palette-side px-4 py-3 rounded-lg hover:bg-palette-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+                              >
+                                {generatingQrId === installment.id ? 'Gerando QR Code...' : '🎫 Pagar Agora - Gerar QR Code'}
+                              </button>
+                              <p className="text-xs text-palette-mute mt-2 text-center">
+                                Clique para gerar o código PIX desta parcela
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Mostrar data de pagamento se já foi paga */}
+                          {statusUpper === 'PAID' && installment.paidAt && (
+                            <div className="mt-3 pt-3 border-t border-palette-border">
+                              <p className="text-sm text-green-700">
+                                ✓ Paga em {new Date(installment.paidAt).toLocaleString('pt-BR')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Rastreamento */}
               {orderData.tracking && (

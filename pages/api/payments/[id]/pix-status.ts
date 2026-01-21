@@ -11,21 +11,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const mpId = String(id);
     const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
 
-    // Tentar localizar pedido localmente pelo mpPreferenceId ou pelo id do pedido
-    // Primeiro buscar por mpPreferenceId exato
-    let order: any = await prisma.order.findFirst({ where: { mpPreferenceId: mpId } });
+    // Tentar localizar pela Parcela (Payment Installment) ou pelo orderId
+    let installment: any = null;
+    let order: any = null;
+
+    // Primeiro: buscar por mpPreferenceId na Parcela 1
+    installment = await prisma.paymentInstallment.findFirst({
+      where: { mpPreferenceId: mpId },
+      include: { order: true }
+    });
+
+    if (installment) {
+      order = installment.order;
+    }
 
     // Se não encontrado, talvez o id enviado é o id do pedido local
     if (!order) {
-      // buscar por order.id
-      order = await prisma.order.findUnique({ where: { id: mpId } });
+      order = await prisma.order.findUnique({
+        where: { id: mpId },
+        include: { installments: true }
+      });
+      if (order) {
+        // Buscar Parcela 1 do pedido
+        installment = order.installments?.find((i: any) => i.installmentNumber === 1);
+      }
     }
 
-    // Se não temos accessToken ou não conseguimos consultar o MP, retornamos o status salvo localmente
+    // Se não temos accessToken, retornamos o status salvo localmente
     if (!accessToken) {
       if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
       const localStatus = order.paymentStatus || 'PENDING';
-      // Normalizar para o formato esperado pelo frontend
       const uiStatus = localStatus === 'PENDING' ? 'WAITING_PAYMENT' : (localStatus === 'PAID' ? 'COMPLETED' : (localStatus === 'FAILED' ? 'FAILED' : localStatus));
       return res.status(200).json({ status: uiStatus, localStatus, order });
     }
@@ -36,10 +51,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     if (!resp.ok) {
-      // se o MP retornou erro, retornar status local se houver
       const text = await resp.text().catch(() => null);
       console.warn('MP status fetch failed', mpId, text);
-      if (!order) return res.status(502).json({ error: 'Falha ao consultar MP e pedido não encontrado localmente', details: text });
+      if (!order) return res.status(502).json({ error: 'Falha ao consultar MP', details: text });
       const localStatus = order.paymentStatus || 'PENDING';
       const uiStatus = localStatus === 'PENDING' ? 'WAITING_PAYMENT' : (localStatus === 'PAID' ? 'COMPLETED' : (localStatus === 'FAILED' ? 'FAILED' : localStatus));
       return res.status(200).json({ status: uiStatus, localStatus, order, mpError: text });
@@ -49,7 +63,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Se o MP retornou external_reference, tentar localizar pedido por ele
     if (!order && mpDetails?.external_reference) {
-      order = await prisma.order.findUnique({ where: { id: mpDetails.external_reference } });
+      order = await prisma.order.findUnique({
+        where: { id: mpDetails.external_reference },
+        include: { installments: true }
+      });
+      if (order) {
+        installment = order.installments?.find((i: any) => i.installmentNumber === 1);
+      }
     }
 
     // Mapear status MP para status de UI
@@ -65,27 +85,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Atualizar registro local com o status do pagamento quando possível
     try {
-      if (order) {
-        const updateData: any = {};
-        // Mapear para o schema local
+      if (installment) {
+        // Atualizar Parcela 1
+        const updateData: any = {
+          webhookLog: {
+            lastCheck: new Date().toISOString(),
+            mpStatus: mpStatus,
+            uiStatus: status
+          }
+        };
+
         if (status === 'COMPLETED') {
-          updateData.paymentStatus = 'PAID';
+          updateData.status = 'PAID';
           updateData.paidAt = new Date();
         } else if (status === 'FAILED') {
-          updateData.paymentStatus = 'FAILED';
-        } else {
-          updateData.paymentStatus = 'PENDING';
+          updateData.status = 'FAILED';
         }
 
-        // também persistir mpPreferenceId e mpQrCodeBase64 se vierem
-        if (mpDetails?.id) updateData.mpPreferenceId = mpDetails.id?.toString();
-        const qrBase64 = mpDetails?.point_of_interaction?.transaction_data?.qr_code_base64 || mpDetails?.qr_code_base64 || null;
-        if (qrBase64) updateData.mpQrCodeBase64 = qrBase64;
+        await prisma.paymentInstallment.update({
+          where: { id: installment.id },
+          data: updateData
+        });
+      }
 
-        await prisma.order.update({ where: { id: order.id }, data: updateData });
+      // Atualizar Order se ambas parcelas estiverem PAID
+      if (order) {
+        const allInstallments = await prisma.paymentInstallment.findMany({
+          where: { orderId: order.id }
+        });
+
+        const allPaid = allInstallments.every((i: any) => i.status === 'PAID');
+        if (allPaid && order.paymentStatus !== 'PAID') {
+          await prisma.order.update({
+            where: { id: order.id },
+            data: {
+              paymentStatus: 'PAID',
+              status: 'CONFIRMED'
+            }
+          });
+        }
       }
     } catch (e) {
-      console.warn('Falha ao atualizar pedido com status MP', e);
+      console.warn('Falha ao atualizar status local', e);
     }
 
     return res.status(200).json({ status, mpDetails, order: order || null });

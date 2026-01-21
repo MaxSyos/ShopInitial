@@ -17,7 +17,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const orders = await prisma.order.findMany({
         include: {
           user: { select: { id: true, name: true, email: true } },
-          items: { include: { product: { include: { images: true } } } }
+          items: { include: { product: { include: { images: true } } } },
+          installments: true
         },
         orderBy: { createdAt: 'desc' }
       });
@@ -48,6 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           unitPrice: it.unitPrice,
           total: it.total
         })),
+        installments: o.installments || [],
         shippingAddress: o.shippingAddress || {},
         trackingCode: o.trackingCode || null,
         deliveryMethod: o.deliveryMethod || 'PENDING',

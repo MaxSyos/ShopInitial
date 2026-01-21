@@ -7,6 +7,17 @@ import { toast } from 'react-toastify';
 import api from '../../lib/axiosClient';
 import tokenStore from '../../lib/tokenStore';
 
+interface Installment {
+  id: string;
+  installmentNumber: number;
+  status: string;
+  amount: number;
+  mpPreferenceId?: string;
+  mpQrCodeBase64?: string;
+  expiresAt?: string;
+  paidAt?: string;
+}
+
 interface Order {
   id: string;
   status: string;
@@ -17,6 +28,7 @@ interface Order {
   deliveryMethod?: string;
   trackingCode?: string | null;
   isLocalPickup?: boolean;
+  installments?: Installment[];
   items: Array<{
     productName: string;
     quantity: number;
@@ -67,12 +79,23 @@ const Orders: React.FC = () => {
     const timer = setTimeout(() => {
       fetchOrders(currentPage);
 
-      // Polling automático a cada 30 segundos para refletir mudanças feitas no admin
+      // Polling automático a cada 10 segundos (econômico)
       const pollInterval = setInterval(() => {
         fetchOrders(currentPage);
-      }, 30000);
+      }, 10000);
 
-      return () => clearInterval(pollInterval);
+      // Listener para quando a página volta ao foco (aba ativa)
+      const handlePageFocus = () => {
+        console.log('[Orders] Página voltou ao foco, atualizando pedidos...');
+        fetchOrders(currentPage);
+      };
+
+      window.addEventListener('focus', handlePageFocus);
+
+      return () => {
+        clearInterval(pollInterval);
+        window.removeEventListener('focus', handlePageFocus);
+      };
     }, 100);
 
     return () => clearTimeout(timer);
@@ -227,7 +250,7 @@ const Orders: React.FC = () => {
               onClick={() => router.push(`/order-status/${order.id}`)}
               className="bg-palette-card p-6 rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer border border-palette-border hover:border-palette-primary"
             >
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-start">
+              <div className="grid grid-cols-1 md:grid-cols-7 gap-4 items-start">
                 {/* Informações do Pedido */}
                 <div className="md:col-span-2">
                   <div className="mb-3">
@@ -263,6 +286,59 @@ const Orders: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Parcelas de Pagamento (PIX) */}
+                {order.installments && order.installments.length > 0 && (
+                  <div className="md:col-span-1">
+                    <p className="text-sm text-palette-mute mb-2">Parcelas</p>
+                    <div className="space-y-2">
+                      {order.installments.map((inst) => {
+                        const statusUpper = String(inst.status || '').toUpperCase();
+                        let statusColor = 'bg-gray-100 text-gray-800';
+                        let statusLabel = inst.status;
+
+                        if (statusUpper === 'PAID') {
+                          statusColor = 'bg-green-100 text-green-800';
+                          statusLabel = 'Paga';
+                        } else if (statusUpper === 'PAYMENT_CREATED') {
+                          statusColor = 'bg-blue-100 text-blue-800';
+                          statusLabel = 'Pendente';
+                        } else if (statusUpper === 'PENDING') {
+                          statusColor = 'bg-yellow-100 text-yellow-800';
+                          statusLabel = 'Não Iniciada';
+                        } else if (statusUpper === 'EXPIRED' || statusUpper === 'FAILED') {
+                          statusColor = 'bg-red-100 text-red-800';
+                          statusLabel = statusUpper === 'EXPIRED' ? 'Expirada' : 'Falhou';
+                        }
+
+                        return (
+                          <div
+                            key={inst.id}
+                            className="border border-palette-border rounded p-2 cursor-pointer hover:bg-palette-border transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (statusUpper === 'PAYMENT_CREATED') {
+                                router.push(`/order-status/${order.id}`);
+                              }
+                            }}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs font-semibold text-palette-text">
+                                Parcela {inst.installmentNumber}/2
+                              </span>
+                              <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${statusColor}`}>
+                                {statusLabel}
+                              </span>
+                            </div>
+                            <div className="text-xs text-palette-mute mt-1">
+                              {formatCurrency(inst.amount)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Status */}
                 <div className="md:col-span-1">
                   <div className="mb-3">
@@ -290,9 +366,45 @@ const Orders: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-sm text-palette-mute mb-1">Pagamento</p>
-                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getPaymentColor(order.paymentStatus)}`}>
-                      {getPaymentStatusLabel(order.paymentStatus)}
-                    </span>
+                    {(() => {
+                      // Calcular status do pagamento baseado nas parcelas, não apenas no campo paymentStatus
+                      if (!order.installments || order.installments.length === 0) {
+                        // Se não houver parcelas, usar paymentStatus
+                        return (
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getPaymentColor(order.paymentStatus)}`}>
+                            {getPaymentStatusLabel(order.paymentStatus)}
+                          </span>
+                        );
+                      }
+
+                      // Verificar se todas as parcelas foram pagas
+                      const allPaid = order.installments.every(
+                        (inst) => String(inst.status || '').toUpperCase() === 'PAID'
+                      );
+                      const somePaid = order.installments.some(
+                        (inst) => String(inst.status || '').toUpperCase() === 'PAID'
+                      );
+
+                      if (allPaid) {
+                        return (
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getPaymentColor('PAID')}`}>
+                            {getPaymentStatusLabel('PAID')}
+                          </span>
+                        );
+                      } else if (somePaid) {
+                        return (
+                          <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                            Parcial
+                          </span>
+                        );
+                      } else {
+                        return (
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getPaymentColor('PENDING')}`}>
+                            {getPaymentStatusLabel('PENDING')}
+                          </span>
+                        );
+                      }
+                    })()}
                   </div>
                 </div>
 

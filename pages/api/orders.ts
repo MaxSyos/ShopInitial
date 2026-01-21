@@ -55,20 +55,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Total = Subtotal + Frete (sem taxa)
       const calcTotal = Math.round((calcSubtotal + calcShippingCost) * 100) / 100;
 
-      // Persistir pedido localmente primeiro com os valores calculados
-      const createdOrder = await prisma.order.create({
-        data: {
-          user: { connect: { id: user.id } },
-          shippingAddress: payload.shippingAddress || {},
-          billingAddress: payload.billingAddress || null,
-          subtotal: Number(payload.subtotal ?? calcSubtotal),
-          shippingCost: Number(payload.shippingCost ?? calcShippingCost),
-          tax: 0,
-          total: Number(payload.total ?? calcTotal),
-          status: 'PENDING',
-          isLocalPickup: payload.isLocalPickup === true,
-          itemsJson: payload.items || [],
-        }
+      // Persistir pedido localmente com transação para garantir atomicidade
+      const createdOrder = await prisma.$transaction(async (tx) => {
+        // Criar order
+        const order = await tx.order.create({
+          data: {
+            user: { connect: { id: user.id } },
+            shippingAddress: payload.shippingAddress || {},
+            billingAddress: payload.billingAddress || null,
+            subtotal: Number(payload.subtotal ?? calcSubtotal),
+            shippingCost: Number(payload.shippingCost ?? calcShippingCost),
+            tax: 0,
+            total: Number(payload.total ?? calcTotal),
+            status: 'PENDING',
+            paymentInstallments: 2,
+            isLocalPickup: payload.isLocalPickup === true,
+            itemsJson: payload.items || [],
+          }
+        });
+
+        // Calcular parcelas: 50% cada uma
+        const totalAmount = Number(payload.total ?? calcTotal);
+        const inst1Amount = Math.round((totalAmount / 2) * 100) / 100;
+        const inst2Amount = Math.round((totalAmount - inst1Amount) * 100) / 100;
+
+        // Criar 2 parcelas PIX automaticamente
+        await tx.paymentInstallment.createMany({
+          data: [
+            {
+              orderId: order.id,
+              installmentNumber: 1,
+              amount: inst1Amount,
+              status: 'PENDING',
+              expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutos
+            },
+            {
+              orderId: order.id,
+              installmentNumber: 2,
+              amount: inst2Amount,
+              status: 'PENDING',
+              expiresAt: null, // SEM EXPIRAÇÃO
+            },
+          ],
+        });
+
+        return order;
       });
 
   // Criar OrderItems locais (opcionalmente)

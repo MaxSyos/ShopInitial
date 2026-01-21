@@ -1,3 +1,4 @@
+
 // Prisma schema para MongoDB
 // Provider: mongodb
 
@@ -49,7 +50,7 @@ model Category {
   name      String
   description String?
   parentId  String?    @db.ObjectId
-  parent    Category?  @relation("CategoryParent", fields: [parentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  parent    Category?  @relation("CategoryParent", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children  Category[] @relation("CategoryParent")
   products  Product[]
 }
@@ -106,6 +107,39 @@ model OrderItem {
   lists     OrderItemList[]
 }
 
+model PaymentInstallment {
+  id                String              @id @map("_id") @default(auto()) @db.ObjectId
+  orderId           String              @db.ObjectId
+  order             Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  // Identificação
+  installmentNumber Int                 // 1 ou 2
+  
+  // Valores
+  amount            Float               // Valor da parcela em reais
+  
+  // Integração Mercado Pago
+  mpPreferenceId    String?             // ID da preference no MP
+  mpIdempotencyKey  String?             // Chave de idempotência
+  mpQrCodeBase64    String?             // QR code em base64 (para exibição)
+  mpQrCodeUrl       String?             // URL do QR code público
+  
+  // Status e datas
+  status            InstallmentStatus   @default(PENDING)
+  createdAt         DateTime            @default(now())
+  paidAt            DateTime?           // Data/hora do pagamento confirmado
+  expiresAt         DateTime?           // Data de expiração (apenas Inst1, Inst2 = null)
+  
+  // Auditoria e histórico
+  webhookLog        Json?               // Registro de webhooks recebidos
+  
+  // Índices para queries frequentes
+  @@unique([orderId, installmentNumber])
+  @@index([orderId])
+  @@index([status])
+  @@index([paidAt])
+}
+
 model Order {
   id             String      @id @map("_id") @default(auto()) @db.ObjectId
   userId         String      @db.ObjectId
@@ -118,28 +152,39 @@ model Order {
   billingAddress  Json?
   // Pagamento: apenas PIX via MercadoPago
   paymentMethod   PaymentMethod @default(PIX)
-  paymentStatus   PaymentStatus @default(PENDING)
-  // Campos do MercadoPago / PIX
-  mpPreferenceId  String?   // id da preference criado no MercadoPago
-  mpIdempotencyKey String?  // chave de idempotência usada ao criar pagamento no MP
-  mpQrCodeBase64  String?   // QR code em base64 (imagem) retornado pela API
-  mpQrCodeUrl     String?   // URL público para o QR code (se houver)
-  paymentExpiresAt DateTime?
-  paidAt          DateTime?
+  paymentStatus   PaymentStatus @default(PENDING) // PAID só quando ambas as parcelas pagarem
+  
+  // RELACIONAMENTO COM PARCELAS (novo)
+  installments    PaymentInstallment[]
+  
+  // Contagem (para queries rápidas)
+  paymentInstallments Int @default(2) // Sempre 2
+  
+  // Valores
   subtotal        Float
   shippingCost    Float     @default(0)
   tax             Float     @default(0)
   total           Float
-  status          String    @default("PENDING")
-  // Rastreamento e entrega
-  trackingCode    String?   // Código de rastreamento dos Correios
+  
+  // Status do pedido
+  status          String    @default("PENDING") // PENDING, PAYMENT_PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED
+  
+  // Rastreamento
+  trackingCode    String?
   deliveryMethod  String    @default("PENDING") // PENDING, CORREIOS, LOCAL
-  isDelivered     Boolean   @default(false) // Entrega confirmada (local)
-  deliveredAt     DateTime? // Data/hora da entrega
-  trackingUrl     String?   // URL do rastreamento
-  isLocalPickup   Boolean   @default(false) // Retirada local na loja
+  isDelivered     Boolean   @default(false)
+  deliveredAt     DateTime?
+  trackingUrl     String?
+  isLocalPickup   Boolean   @default(false)
+  
+  // Timestamps
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+  
+  // Índices
+  @@index([userId])
+  @@index([paymentStatus])
+  @@index([status])
 }
 
 model Address {
@@ -275,6 +320,14 @@ enum PaymentStatus {
   PAID
   FAILED
   EXPIRED
+}
+
+enum InstallmentStatus {
+  PENDING           // Parcela criada, aguardando pagamento
+  PAYMENT_CREATED   // Preference criada no MP, QR gerado
+  PAID              // Pagamento confirmado
+  FAILED            // Pagamento falhou
+  EXPIRED           // QR Code expirou (apenas Parcela 1)
 }
 
 // Tamanhos para produtos que precisam de especificação por item

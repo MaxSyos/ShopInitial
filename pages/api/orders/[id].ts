@@ -9,19 +9,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { id } = req.query;
   if (!id) return res.status(400).json({ error: 'order id é obrigatório' });
 
-  // helper para localizar pedido do usuário por id/external/mp
+  // helper para localizar pedido do usuário por id/external
   const findUserOrder = async () => {
     const whereClause = {
       OR: [
         { id: String(id) },
-        { externalId: String(id) },
-        { mpPreferenceId: String(id) }
+        { externalId: String(id) }
       ]
     };
     // @ts-ignore prisma typings
     const order = await prisma.order.findFirst({
       where: { AND: [{ userId: user.id }, whereClause] },
-      include: { items: { include: { product: { include: { images: true } } } } }
+      include: { items: { include: { product: { include: { images: true } } } }, installments: true }
     });
     return order;
   };
@@ -65,12 +64,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           isDelivered: o.isDelivered || false,
           deliveryMethod: o.deliveryMethod || 'PENDING',
           trackingCode: o.trackingCode || null,
+          installments: [],
           items: [] // updated does not include items by default here
         }
       };
       // tentar incluir items se existirem
       try {
-        const refreshed = await prisma.order.findUnique({ where: { id: updated.id }, include: { items: { include: { product: { include: { images: true } } } } } });
+        const refreshed = await prisma.order.findUnique({ where: { id: updated.id }, include: { items: { include: { product: { include: { images: true } } } }, installments: true } });
         if (refreshed) {
           response.order.items = (refreshed.items || []).map((it: any) => ({
             id: it.id,
@@ -86,6 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               images: it.product.images
             } : null
           }));
+          response.order.installments = refreshed.installments || [];
         }
       } catch (e) {
         console.warn('Não foi possível incluir items ao retornar pedido atualizado', e);
@@ -122,6 +123,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           isDelivered: o.isDelivered || false,
           deliveryMethod: o.deliveryMethod || 'PENDING',
           trackingCode: o.trackingCode || null,
+          installments: o.installments || [],
           items: (o.items || []).map((it: any) => ({
             id: it.id,
             productId: it.productId,

@@ -269,8 +269,9 @@ const PaymentPage: React.FC = () => {
 
       const paymentResponse = await api.post('/payments/create', paymentDataReq);
 
-      // A rota /api/payments/create retorna { order, mp: { id, qr, qrBase64 } }
+      // A rota /api/payments/create retorna { order, installment1, mp: { id, qr, qrBase64 } }
       const respData = paymentResponse.data || {};
+      const installment1 = respData.installment1 || {};
       const mp = respData.mp || {};
 
       // mp.qrBase64 pode vir prefixado com data:image..., normalizar
@@ -278,26 +279,26 @@ const PaymentPage: React.FC = () => {
       if (mp.qrBase64) {
         const raw = mp.qrBase64 as string;
         pixQrBase64 = raw.startsWith('data:') ? raw.split(',')[1] ?? raw : raw;
-      } else if (respData.order && respData.order.mpQrCodeBase64) {
-        const raw = respData.order.mpQrCodeBase64 as string;
+      } else if (installment1?.mpQrCodeBase64) {
+        const raw = installment1.mpQrCodeBase64 as string;
         pixQrBase64 = raw.startsWith('data:') ? raw.split(',')[1] ?? raw : raw;
       }
 
       // Normalizar status: API usa 'PENDING' enquanto a UI espera 'WAITING_PAYMENT'
-      const rawStatus = (respData.order && respData.order.paymentStatus) || 'WAITING_PAYMENT';
-      const normalizedStatus = rawStatus === 'PENDING' ? 'WAITING_PAYMENT' : rawStatus;
+      const rawStatus = installment1?.status || 'PAYMENT_CREATED' || 'WAITING_PAYMENT';
+      const normalizedStatus = ['PENDING', 'PAYMENT_CREATED'].includes(rawStatus) ? 'WAITING_PAYMENT' : rawStatus;
 
       const paymentState: PaymentData = {
-        id: (mp.id || (respData.order && respData.order.mpPreferenceId) || orderIdParam).toString(),
+        id: (mp.id || installment1?.mpPreferenceId || orderIdParam).toString(),
         status: normalizedStatus,
-        pixCode: mp.qr || (respData.order && respData.order.mpQrCodeUrl) || undefined,
+        pixCode: mp.qr || installment1?.mpQrCodeUrl || undefined,
         pixQrCode: pixQrBase64,
-        pixExpiresAt: respData.order?.paymentExpiresAt ? new Date(respData.order.paymentExpiresAt).toISOString() : undefined,
+        pixExpiresAt: installment1?.expiresAt ? new Date(installment1.expiresAt).toISOString() : undefined,
         amount: paymentDataReq.amount
       };
 
       setPaymentData(paymentState);
-      toast.success('Pagamento PIX gerado com sucesso!');
+      toast.success('Pagamento PIX (Parcela 1/2) gerado com sucesso!');
     } catch (error: any) {
       console.error('Erro ao gerar pagamento PIX:', error);
       // Mostrar mensagem amigável para o usuário
@@ -362,7 +363,7 @@ const PaymentPage: React.FC = () => {
         <OrderTracking currentStep={2} />
         
         <div className="mt-8">
-          <h1 className="text-3xl font-bold mb-8 text-center">Pagamento PIX</h1>
+          <h1 className="text-3xl font-bold mb-8 text-center">Pagamento PIX - Parcela 1/2</h1>
           
           <div className="grid lg:grid-cols-2 gap-8">
             {/* Coluna principal - QR Code e instruções */}

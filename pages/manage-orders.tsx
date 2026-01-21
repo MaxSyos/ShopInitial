@@ -80,6 +80,24 @@ const ManageOrdersPage: React.FC = () => {
     // ✅ Adicionar delay pequeno para garantir que o token está pronto no tokenStore
     const timer = setTimeout(() => {
       fetchOrders();
+
+      // Polling automático a cada 10 segundos (econômico)
+      const pollInterval = setInterval(() => {
+        fetchOrders();
+      }, 10000);
+
+      // Listener para quando a página volta ao foco (aba ativa)
+      const handlePageFocus = () => {
+        console.log('[ManageOrders] Página voltou ao foco, atualizando pedidos...');
+        fetchOrders();
+      };
+
+      window.addEventListener('focus', handlePageFocus);
+
+      return () => {
+        clearInterval(pollInterval);
+        window.removeEventListener('focus', handlePageFocus);
+      };
     }, 100);
 
     return () => clearTimeout(timer);

@@ -1,23 +1,155 @@
-# Resumo das Alterações - Sistema de Faixas de Frete
+# Resumo de Mudanças - Sistema 2 Parcelas PIX
 
-## 📋 Resumo Executivo
+## 📋 Arquivos Modificados
 
-O sistema de cálculo de fretes foi completamente redesenhado para usar **faixas de quantidade de peças**. Ao invés de calcular dinamicamente do volume, agora o admin cria uma tabela com faixas (ex: até 10, até 15, até 20 peças) definindo altura, largura, comprimento e **peso**.
+### 1. **Prisma Schema** (`prisma/schema.prisma`)
+- ✅ Adicionado `enum InstallmentStatus` com 5 estados
+- ✅ Adicionada entidade `PaymentInstallment` com relacionamento 1:N com Order
+- ✅ Removidos campos antigos de parcelas da Order
+- ✅ Adicionado relacionamento `installments: PaymentInstallment[]` na Order
 
-## ✅ O que mudou
+### 2. **API de Pedidos** (`pages/api/orders.ts`)
+- ✅ Modificada criação de Order para usar transação atômica
+- ✅ Adicionada criação automática de 2 `PaymentInstallment` ao criar Order
+- ✅ Parcela 1: amount = 50% do total, expiresAt = 30 min
+- ✅ Parcela 2: amount = 50% restante, expiresAt = NULL
 
-### 1. Database Schema
-**Arquivo**: `/prisma/schema.prisma`
+### 3. **API de Pagamentos** (`pages/api/payments/create.ts`)
+- ✅ Modificado para buscar e utilizar Parcela 1
+- ✅ Criação de Preference no MP agora usa `external_reference: "ORDER_ID-INSTALLMENT-1"`
+- ✅ Atualiza `PaymentInstallment.status = PAYMENT_CREATED` com dados do MP
+- ✅ Retorna estrutura: `{ order, installment1, mp: { id, qr, qrBase64 } }`
 
-```diff
-- quantity: Int           // Quantidade de peças
-+ quantityUpTo: Int       // Quantidade até X peças
-+ weight: Float           // NOVO: Peso em kg
-- cep: String?            // Removido
-- destination: String?    // Removido
+### 4. **Webhook do MP** (`pages/api/payments/webhook.ts`)
+- ✅ Parse de `external_reference` para identificar `(orderId, installmentNumber)`
+- ✅ Busca `PaymentInstallment` ao invés de `Order`
+- ✅ Ao confirmar Parcela 1: cria Parcela 2 automaticamente no MP
+- ✅ Ao confirmar Parcela 2: marca Order como `PAID` e status = `CONFIRMED`
+- ✅ Usa `prisma.$transaction()` para atomicidade
+
+### 5. **Frontend - Payment** (`pages/payment.tsx`)
+- ✅ Atualizado `createPaymentForOrder()` para trabalhar com `installment1`
+- ✅ Alterado título para "Pagamento PIX - Parcela 1/2"
+- ✅ Normaliza status: `PAYMENT_CREATED` → `WAITING_PAYMENT`
+- ✅ Toast atualizado: "Pagamento PIX (Parcela 1/2) gerado com sucesso!"
+
+### 6. **Frontend - Payment by ID** (`pages/payment/[id].tsx`)
+- ✅ Mesmas alterações que `payment.tsx`
+- ✅ Compatível com rota dinâmica `/payment/[id]`
+
+## 📊 Fluxo de Dados
+
+### Criação de Pedido
+```
+POST /api/orders
+  ↓
+Criar Order (tx)
+  ├─ OrderItem[]
+  ├─ PaymentInstallment 1 (PENDING, expiresAt = NOW + 30min)
+  └─ PaymentInstallment 2 (PENDING, expiresAt = NULL)
+  ↓
+Retornar: { id: ORDER_ID, localOrder }
 ```
 
-### 2. Interface TypeScript
+### Criação de Pagamento
+```
+POST /api/payments/create { orderId, amount }
+  ↓
+Buscar PaymentInstallment 1
+  ↓
+POST https://api.mercadopago.com/v1/payments
+  - transaction_amount: installment1.amount
+  - external_reference: "ORDER_ID-INSTALLMENT-1"
+  - payment_method_id: "pix"
+  ↓
+Atualizar PaymentInstallment 1
+  - status: PAYMENT_CREATED
+  - mpPreferenceId: data.id
+  - mpQrCodeBase64, mpQrCodeUrl
+  ↓
+Retornar: { order, installment1, mp: { id, qr, qrBase64 } }
+```
+
+### Webhook Parcela 1 Paga
+```
+POST /api/payments/webhook (external_reference: "ORDER_ID-INSTALLMENT-1", status: approved)
+  ↓
+Buscar PaymentInstallment 1 (tx)
+  ├─ Atualizar status: PAID
+  ├─ Atualizar paidAt: NOW
+  │
+  └─ Criar Preference Parcela 2 no MP (tx)
+     - transaction_amount: installment2.amount
+     - external_reference: "ORDER_ID-INSTALLMENT-2"
+     - expires_in: [não definido = sem expiração]
+     └─ Atualizar PaymentInstallment 2
+        - status: PAYMENT_CREATED
+        - mpPreferenceId, mpQrCodeBase64, mpQrCodeUrl
+```
+
+### Webhook Parcela 2 Paga
+```
+POST /api/payments/webhook (external_reference: "ORDER_ID-INSTALLMENT-2", status: approved)
+  ↓
+Buscar PaymentInstallment 2 (tx)
+  ├─ Atualizar status: PAID
+  ├─ Atualizar paidAt: NOW
+  │
+  └─ Validar ambas as parcelas
+     └─ if (installment1.PAID && installment2.PAID)
+        ├─ Order.paymentStatus = PAID
+        └─ Order.status = CONFIRMED ✅
+```
+
+## 🔑 Mudanças Chave de Lógica
+
+### Antes (Antigo)
+- ❌ 1 Payment por Order
+- ❌ Sem suporte a parcelas
+- ❌ Campos duplicados: `mpPreferenceId`, `installment1Status`, `installment2Status`, etc.
+
+### Depois (Novo)
+- ✅ 2+ Payments por Order via `PaymentInstallment`
+- ✅ Suporte completo a parcelamento
+- ✅ Estrutura normalizada: 1 `PaymentInstallment` = 1 linhas com tudo que precisa
+- ✅ `external_reference` inclui número da parcela
+- ✅ Webhook trata cada parcela independentemente
+
+## 🧮 Validações Implementadas
+
+1. **Soma de Parcelas**: `sum(installment.amount) === order.total` (tolerância: 0.01)
+2. **Parcela 2 só após Parcela 1**: Status deve ser PAID antes de criar Parcela 2
+3. **Expiração Parcela 2**: Sempre NULL (sem expiração)
+4. **Order status**: Apenas PAID quando ambas as parcelas estão PAID
+5. **Idempotência**: Mesma chave nunca cria 2 preferences
+
+## 🚨 Impacto em Outras Áreas
+
+### Queries que precisam atualizar
+
+- ❌ `Order.mpPreferenceId` → use `Order.installments[0].mpPreferenceId`
+- ❌ `Order.paymentExpiresAt` → use `Order.installments[0].expiresAt`
+- ❌ `Order.paidAt` → use `max(Order.installments[*].paidAt)` ou check paymentStatus
+- ✅ `Order.paymentStatus` → mantém o mesmo significado
+
+### Endpoints que precisam atualizar
+
+- [ ] `GET /api/orders/[id]` - Incluir installments na resposta
+- [ ] `GET /api/orders/list` - Incluir installments na resposta
+- [ ] `/api/payments/[id]/pix-status` - Buscar status da Parcela 1 (ou especificar qual)
+- [ ] Dashboard Admin - Exibir status de parcelas separadamente
+
+## 📚 Documentação Adicionada
+
+1. **PAYMENT_INSTALLMENTS_LOGIC.md** - Lógica completa + boas práticas
+2. **SCHEMA_UPDATES.md** - Mudanças do schema + migrations SQL
+3. **IMPLEMENTATION_GUIDE.md** - Guia passo a passo para deploy
+4. **paymentInstallmentsService.ts** - Implementação pronta em TypeScript
+
+---
+
+**Data**: 20/01/2026  
+**Versão**: 1.0
 **Arquivo**: `/pages/manage-shipping-rates.tsx`
 
 ```diff

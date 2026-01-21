@@ -190,27 +190,31 @@ const PaymentByIdPage: React.FC = () => {
       const paymentResponse = await api.post('/payments/create', paymentDataReq);
 
       const respData = paymentResponse.data || {};
+      const installment1 = respData.installment1 || {};
       const mp = respData.mp || {};
 
       let pixQrBase64: string | undefined = undefined;
       if (mp.qrBase64) {
         const raw = mp.qrBase64 as string;
         pixQrBase64 = raw.startsWith('data:') ? raw.split(',')[1] ?? raw : raw;
-      } else if (respData.order && respData.order.mpQrCodeBase64) {
-        const raw = respData.order.mpQrCodeBase64 as string;
+      } else if (installment1?.mpQrCodeBase64) {
+        const raw = installment1.mpQrCodeBase64 as string;
         pixQrBase64 = raw.startsWith('data:') ? raw.split(',')[1] ?? raw : raw;
       }
 
-      const rawStatus = (respData.order && respData.order.paymentStatus) || 'WAITING_PAYMENT';
-      const normalizedStatus = rawStatus === 'PENDING' ? 'WAITING_PAYMENT' : rawStatus;
+      const rawStatus = installment1?.status || 'PAYMENT_CREATED' || 'WAITING_PAYMENT';
+      const normalizedStatus = ['PENDING', 'PAYMENT_CREATED'].includes(rawStatus) ? 'WAITING_PAYMENT' : rawStatus;
+
+      // Usar o amount real da parcela 1 do banco de dados (não dividir por 2)
+      const installmentAmount = installment1?.amount || (paymentDataReq.amount / 2);
 
       const paymentState: PaymentData = {
-        id: (mp.id || (respData.order && respData.order.mpPreferenceId) || orderIdParam).toString(),
+        id: (mp.id || installment1?.mpPreferenceId || orderIdParam).toString(),
         status: normalizedStatus,
-        pixCode: mp.qr || (respData.order && respData.order.mpQrCodeUrl) || undefined,
+        pixCode: mp.qr || installment1?.mpQrCodeUrl || undefined,
         pixQrCode: pixQrBase64,
-        pixExpiresAt: respData.order?.paymentExpiresAt ? new Date(respData.order.paymentExpiresAt).toISOString() : undefined,
-        amount: paymentDataReq.amount
+        pixExpiresAt: installment1?.expiresAt ? new Date(installment1.expiresAt).toISOString() : undefined,
+        amount: installmentAmount
       };
 
       setPaymentData(paymentState);
@@ -218,7 +222,7 @@ const PaymentByIdPage: React.FC = () => {
       if (respData.order || respData.localOrder) {
         setOrderSummary(respData.order || respData.localOrder);
       }
-      toast.success('Pagamento PIX gerado com sucesso!');
+      toast.success('Pagamento PIX (Parcela 1/2) gerado com sucesso!');
     } catch (error: any) {
       console.error('Erro ao gerar pagamento PIX:', error);
       const message = error?.response?.data?.error || error?.message || 'Erro ao gerar pagamento';
@@ -359,7 +363,7 @@ const PaymentByIdPage: React.FC = () => {
         <OrderTracking currentStep={2} />
 
         <div className="mt-8">
-          <h1 className="text-3xl font-bold mb-8 text-center">Pagamento PIX</h1>
+          <h1 className="text-3xl font-bold mb-8 text-center">Pagamento PIX - Parcela 1/2</h1>
 
           <div className="grid lg:grid-cols-2 gap-8">
             {/* Coluna principal - QR Code e instruções */}
@@ -393,6 +397,13 @@ const PaymentByIdPage: React.FC = () => {
                   {/* QR Code */}
                   {(pixDataUrl || paymentData.pixQrCode) && paymentData.status === 'WAITING_PAYMENT' && (
                     <div className="bg-palette-card p-6 rounded-lg shadow-md text-center">
+                      <div className="mb-6 p-4 bg-palette-fill rounded-lg border-2 border-palette-primary">
+                        <p className="text-sm text-palette-mute mb-1">Valor da Parcela</p>
+                        <p className="text-3xl font-bold text-palette-primary">
+                          R$ {Number(paymentData.amount).toFixed(2)}
+                        </p>
+                        <p className="text-xs text-palette-mute mt-1">Parcela 1/2</p>
+                      </div>
                       <h2 className="text-xl font-semibold mb-4">Escaneie o QR Code</h2>
                       <div className="flex justify-center mb-4">
                         <img 
@@ -489,10 +500,10 @@ const PaymentByIdPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Total */}
-                <div className="border-t pt-4">
+                {/* Total do Pedido */}
+                <div className="border-t pt-4 mb-6">
                   <div className="flex justify-between font-bold text-lg">
-                    <span>Total</span>
+                    <span>Total do Pedido</span>
                     <span>
                       R$ {Number(
                         orderSummary?.totalAmount ?? 
@@ -502,6 +513,19 @@ const PaymentByIdPage: React.FC = () => {
                     </span>
                   </div>
                 </div>
+
+                {/* Valor da Parcela 1 */}
+                {paymentData && (
+                  <div className="bg-palette-primary/10 border-2 border-palette-primary rounded-lg p-4">
+                    <p className="text-sm text-palette-mute mb-1">Você está pagando agora:</p>
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold">Parcela 1/2</span>
+                      <span className="text-2xl font-bold text-palette-primary">
+                        R$ {Number(paymentData.amount).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Endereço de entrega */}
