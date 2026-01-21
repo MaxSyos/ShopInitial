@@ -97,17 +97,24 @@ const OrderStatusPage: React.FC = () => {
     }
 
     if (id) {
+      const idStr = Array.isArray(id) ? id[0] : id;
       fetchOrderData();
+
+      // Sincronizar Parcela 2 (sem depender de webhook)
+      syncSecondInstallment(idStr);
 
       // Polling a cada 10 segundos (econômico)
       const pollInterval = setInterval(() => {
         fetchOrderData();
+        // Sincronizar Parcela 2 também durante o polling
+        syncSecondInstallment(idStr);
       }, 10000);
 
       // Listener para quando a página volta ao foco (aba ativa)
       const handlePageFocus = () => {
         console.log('[Order Status] Página voltou ao foco, atualizando dados...');
         fetchOrderData();
+        syncSecondInstallment(idStr);
       };
 
       window.addEventListener('focus', handlePageFocus);
@@ -118,6 +125,36 @@ const OrderStatusPage: React.FC = () => {
       };
     }
   }, [userInfo, id]);
+
+  /**
+   * Sincroniza o status da Parcela 2 com Mercado Pago
+   * Sem dependência de webhook - funciona como fallback
+   */
+  const syncSecondInstallment = async (orderId: string) => {
+    if (!orderId) return;
+    
+    try {
+      console.log(`[Order Status] Sincronizando Parcela 2 para Order: ${orderId}`);
+      
+      const response = await api.post('/payments/sync-second-installment', { orderId });
+      
+      if (response.data.success) {
+        console.log(`[Order Status] Parcela 2 sincronizada:`, response.data);
+        
+        // Se foi atualizada, refrescar os dados da Order
+        if (response.data.updated) {
+          console.log(`[Order Status] Parcela 2 foi atualizada! Refrescando dados...`);
+          fetchOrderData();
+        }
+      }
+    } catch (error: any) {
+      // Erros silenciosos (pode ser que Parcela 2 não exista ainda)
+      const errorMsg = error?.response?.data?.error || error.message;
+      if (!errorMsg?.includes('não encontrada') && !errorMsg?.includes('não foi criada')) {
+        console.warn(`[Order Status] Erro ao sincronizar Parcela 2:`, errorMsg);
+      }
+    }
+  };
 
   const fetchOrderData = async () => {
     try {
@@ -280,46 +317,51 @@ const OrderStatusPage: React.FC = () => {
     try {
       console.log(`[Order Status] Gerando QR para parcela ${installmentNumber} do pedido ${orderData.id}`);
       
-      const res = await api.post('/payments/generate-installment-qr', {
-        orderId: orderData.id,
-        installmentNumber
-      });
-
-      if (res.data?.installment) {
-        console.log(`[Order Status] QR gerado com sucesso para parcela ${installmentNumber}`);
-        
-        // Atualizar os dados do pedido com a nova parcela
-        setOrderData(prev => {
-          if (!prev) return null;
-          
-          const updatedInstallments = (prev.installments || []).map(inst => 
-            inst.id === installmentId 
-              ? {
-                  ...inst,
-                  status: res.data.installment.status,
-                  mpPreferenceId: res.data.installment.mpPreferenceId,
-                  mpQrCodeBase64: res.data.installment.mpQrCodeBase64,
-                  mpQrCodeUrl: res.data.installment.mpQrCodeUrl,
-                  expiresAt: res.data.installment.expiresAt
-                }
-              : inst
-          );
-          
-          return {
-            ...prev,
-            installments: updatedInstallments
-          };
+      // Se for Parcela 1, usar endpoint antigo
+      if (installmentNumber === 1) {
+        const res = await api.post('/payments/generate-installment-qr', {
+          orderId: orderData.id,
+          installmentNumber
         });
-        
-        toast.success(`QR Code da Parcela ${installmentNumber} gerado com sucesso!`);
-        
-        // Refrescar dados após 2 segundos para capturar alterações do webhook (ex: Inst2 criada)
-        setTimeout(() => {
-          console.log(`[Order Status] Refrescando dados após geração de QR`);
-          fetchOrderData();
-        }, 2000);
-      } else {
-        toast.error('Erro ao processar resposta do servidor');
+
+        if (res.data?.installment) {
+          console.log(`[Order Status] QR gerado com sucesso para parcela ${installmentNumber}`);
+          
+          // Atualizar os dados do pedido com a nova parcela
+          setOrderData(prev => {
+            if (!prev) return null;
+            
+            const updatedInstallments = (prev.installments || []).map(inst => 
+              inst.id === installmentId 
+                ? {
+                    ...inst,
+                    status: res.data.installment.status,
+                    mpPreferenceId: res.data.installment.mpPreferenceId,
+                    mpQrCodeBase64: res.data.installment.mpQrCodeBase64,
+                    mpQrCodeUrl: res.data.installment.mpQrCodeUrl,
+                    expiresAt: res.data.installment.expiresAt
+                  }
+                : inst
+            );
+            
+            return {
+              ...prev,
+              installments: updatedInstallments
+            };
+          });
+          
+          toast.success(`QR Code da Parcela ${installmentNumber} gerado com sucesso!`);
+          
+          // Refrescar dados após 2 segundos para capturar alterações do webhook (ex: Inst2 criada)
+          setTimeout(() => {
+            console.log(`[Order Status] Refrescando dados após geração de QR`);
+            fetchOrderData();
+          }, 2000);
+        }
+      } else if (installmentNumber === 2) {
+        // Para Parcela 2, redirecionar à página de pagamento com installment=2
+        console.log(`[Order Status] Redirecionando para página de pagamento da Parcela 2`);
+        router.push(`/payment/${orderData.id}?installment=2`);
       }
     } catch (error: any) {
       console.error(`[Order Status] Erro ao gerar QR para parcela ${installmentNumber}:`, error);
@@ -584,7 +626,16 @@ const OrderStatusPage: React.FC = () => {
 
                           {/* Botão para gerar QR se estiver em PENDING ou sem QR */}
                           {(statusUpper === 'PENDING' || (statusUpper === 'PAYMENT_CREATED' && !installment.mpQrCodeBase64)) && (
-                            <div className="mt-4 pt-4 border-t border-palette-border">
+                            <div className="mt-4 pt-4 border-t border-palette-border space-y-3">
+                              {installment.installmentNumber === 2 && (
+                                <button
+                                  onClick={() => syncSecondInstallment(orderData.id)}
+                                  disabled={generatingQrId === installment.id}
+                                  className="w-full bg-palette-secondary text-palette-side px-4 py-2 rounded-lg hover:bg-palette-secondary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold text-sm"
+                                >
+                                  {generatingQrId === installment.id ? '⟳ Verificando...' : '⟳ Sincronizar Status'}
+                                </button>
+                              )}
                               <button
                                 onClick={() => generateInstallmentQr(installment.id, installment.installmentNumber)}
                                 disabled={generatingQrId === installment.id}

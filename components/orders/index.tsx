@@ -101,6 +101,38 @@ const Orders: React.FC = () => {
     return () => clearTimeout(timer);
   }, [userInfo, currentPage]);
 
+  /**
+   * Sincroniza a Parcela 2 de todos os pedidos
+   * Sem dependência de webhook
+   */
+  const syncAllSecondInstallments = async (ordersToSync: Order[]) => {
+    if (!ordersToSync || ordersToSync.length === 0) return;
+
+    console.log(`[Orders] Sincronizando Parcela 2 para ${ordersToSync.length} pedido(s)...`);
+
+    for (const order of ordersToSync) {
+      try {
+        // Verificar se o pedido tem Parcela 2 pendente
+        const inst2 = order.installments?.find(i => i.installmentNumber === 2);
+        if (inst2 && inst2.status !== 'PAID') {
+          console.log(`[Orders] Sincronizando Parcela 2 para Order: ${order.id}`);
+          
+          const response = await api.post('/payments/sync-second-installment', { orderId: order.id });
+          
+          if (response.data.success && response.data.updated) {
+            console.log(`[Orders] Parcela 2 atualizada para Order: ${order.id}`);
+          }
+        }
+      } catch (error: any) {
+        // Erros silenciosos (pode ser que Parcela 2 não exista)
+        const errorMsg = error?.response?.data?.error || error.message;
+        if (!errorMsg?.includes('não encontrada') && !errorMsg?.includes('não foi criada')) {
+          console.warn(`[Orders] Erro ao sincronizar Parcela 2 para ${order.id}:`, errorMsg);
+        }
+      }
+    }
+  };
+
   const fetchOrders = async (page: number) => {
     setLoading(true);
     try {
@@ -117,6 +149,9 @@ const Orders: React.FC = () => {
       const ordersData = data.orders || [];
       setOrders(ordersData);
       setPagination(data.pagination || null);
+
+      // 🔄 Sincronizar Parcela 2 de todos os pedidos (sem depender de webhook)
+      syncAllSecondInstallments(ordersData);
 
       // Calcular frete para cada pedido
       const shippingCalcs: Record<string, ShippingInfo> = {};

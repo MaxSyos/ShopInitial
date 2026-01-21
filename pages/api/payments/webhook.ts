@@ -102,32 +102,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Fallback 3: Se a external_reference foi encontrada mas a Parcela 2 ainda não foi localizada,
-    // isso significa que a Parcela 2 ainda não foi criada. Procurar pela Parcela 2 esperando apenas que exista
+    // Fallback 3: Buscar em Orders por external_reference para encontrar a Parcela 2
+    // (casos em que external_reference contém ORDER_ID-INSTALLMENT-2)
     if (!installment && mpDetails?.external_reference) {
-      const match = mpDetails.external_reference.match(/^([0-9a-f]{24})-INSTALLMENT-([12])$/);
+      console.log(`[Webhook] Fallback 3: Procurando Parcela 2 por external_reference: ${mpDetails.external_reference}`);
+      const match = mpDetails.external_reference.match(/^([0-9a-f]{24})-INSTALLMENT-2$/);
       if (match) {
         const orderId = match[1];
-        const installmentNumber = parseInt(match[2]);
-        
-        // Se é Parcela 2 e ainda não foi encontrada, procurar de novo
-        if (installmentNumber === 2) {
-          console.log(`[Webhook] Parcela 2 não localizada normalmente, procurando pela Parcela 2 de ordem ${orderId}`);
-          // @ts-ignore
-          installment = await prisma.paymentInstallment.findUnique({
-            where: {
-              orderId_installmentNumber: {
-                orderId,
-                installmentNumber: 2,
-              },
+        installment = await prisma.paymentInstallment.findUnique({
+          where: {
+            orderId_installmentNumber: {
+              orderId,
+              installmentNumber: 2,
             },
-            include: { order: true },
-          });
+          },
+          include: { order: true },
+        });
+        if (installment) {
+          order = installment.order;
+          console.log(`[Webhook] ✅ Parcela 2 encontrada via Fallback 3`);
+        }
+      }
+    }
 
-          if (installment) {
-            order = installment.order;
-            console.log(`[Webhook] ✅ Parcela 2 encontrada via fallback com external_reference`);
-          }
+    // Fallback 4: Se MP não enviou external_reference, procurar em TODAS as Parcelas 2 PENDING
+    // para ver se alguma corresponde ao preference_id antigo armazenado
+    if (!installment && mpId) {
+      console.log(`[Webhook] Fallback 4: Procurando Parcela 2 PENDING com mpPreferenceId antigo`);
+      const allInstallments2 = await prisma.paymentInstallment.findMany({
+        where: {
+          installmentNumber: 2,
+          status: InstallmentStatus.PAYMENT_CREATED,
+        },
+        include: { order: true },
+      });
+
+      // Procurar por mpPreferenceId (pode ser preference_id antigo ou payment_id novo)
+      for (const inst of allInstallments2) {
+        if (inst.mpPreferenceId === mpId.toString()) {
+          installment = inst;
+          order = inst.order;
+          console.log(`[Webhook] ✅ Parcela 2 encontrada via Fallback 4: ${inst.orderId}-INSTALLMENT-2`);
+          break;
         }
       }
     }

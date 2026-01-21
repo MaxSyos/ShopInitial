@@ -21,14 +21,30 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    // Buscar a Parcela 2
-    const installment2 = await prisma.paymentInstallment.findUnique({
+    // Buscar a Parcela 2 pelo ID ou pelo orderId
+    let installment2 = await prisma.paymentInstallment.findUnique({
       where: { id },
       include: { order: { include: { user: true } } }
     });
 
+    // Se não encontrou por ID direto, tentar como orderId
     if (!installment2) {
-      return res.status(404).json({ error: 'Parcela não encontrada' });
+      const order = await prisma.order.findUnique({
+        where: { id },
+        include: { installments: true, user: true }
+      });
+
+      if (order) {
+        // Buscar Parcela 2 do pedido
+        installment2 = order.installments?.find((i: any) => i.installmentNumber === 2) || null;
+        if (installment2) {
+          installment2 = { ...installment2, order } as any;
+        }
+      }
+    }
+
+    if (!installment2) {
+      return res.status(404).json({ error: 'Parcela 2 não encontrada' });
     }
 
     // Verificar se pertence ao usuário

@@ -8,27 +8,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { id } = req.query;
     if (!id || Array.isArray(id)) return res.status(400).json({ error: 'id é obrigatório' });
 
-    const mpId = String(id);
+    const idParam = String(id);
     const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
 
     // Tentar localizar pela Parcela (Payment Installment) ou pelo orderId
     let installment: any = null;
     let order: any = null;
 
-    // Primeiro: buscar por mpPreferenceId na Parcela 1
-    installment = await prisma.paymentInstallment.findFirst({
-      where: { mpPreferenceId: mpId },
+    // Primeiro: tentar buscar Parcela 1 direto (por ID da Parcela)
+    installment = await prisma.paymentInstallment.findUnique({
+      where: { id: idParam },
       include: { order: true }
     });
 
-    if (installment) {
+    if (installment && installment.installmentNumber === 1) {
       order = installment.order;
+    } else {
+      installment = null; // Reset se não for Parcela 1
     }
 
-    // Se não encontrado, talvez o id enviado é o id do pedido local
+    // Segundo: buscar por mpPreferenceId na Parcela 1
+    if (!installment) {
+      installment = await prisma.paymentInstallment.findFirst({
+        where: { mpPreferenceId: idParam, installmentNumber: 1 },
+        include: { order: true }
+      });
+
+      if (installment) {
+        order = installment.order;
+      }
+    }
+
+    // Terceiro: se não encontrado, talvez o id enviado é o id do pedido local
     if (!order) {
       order = await prisma.order.findUnique({
-        where: { id: mpId },
+        where: { id: idParam },
         include: { installments: true }
       });
       if (order) {
@@ -45,21 +59,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ status: uiStatus, localStatus, order });
     }
 
-    // Consultar detalhes do pagamento no MercadoPago
-    const resp = await fetch(`https://api.mercadopago.com/v1/payments/${mpId}`, {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    });
+    // Se temos o mpPreferenceId, consultar no MP; senão usar status local
+    let mpDetails: any = null;
+    if (installment?.mpPreferenceId && accessToken) {
+      // Consultar detalhes do pagamento no MercadoPago
+      const resp = await fetch(`https://api.mercadopago.com/v1/payments/${installment.mpPreferenceId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
 
-    if (!resp.ok) {
-      const text = await resp.text().catch(() => null);
-      console.warn('MP status fetch failed', mpId, text);
-      if (!order) return res.status(502).json({ error: 'Falha ao consultar MP', details: text });
-      const localStatus = order.paymentStatus || 'PENDING';
-      const uiStatus = localStatus === 'PENDING' ? 'WAITING_PAYMENT' : (localStatus === 'PAID' ? 'COMPLETED' : (localStatus === 'FAILED' ? 'FAILED' : localStatus));
-      return res.status(200).json({ status: uiStatus, localStatus, order, mpError: text });
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => null);
+        console.warn('MP status fetch failed', installment.mpPreferenceId, text);
+        if (!order) return res.status(502).json({ error: 'Falha ao consultar MP', details: text });
+        const localStatus = order.paymentStatus || 'PENDING';
+        const uiStatus = localStatus === 'PENDING' ? 'WAITING_PAYMENT' : (localStatus === 'PAID' ? 'COMPLETED' : (localStatus === 'FAILED' ? 'FAILED' : localStatus));
+        return res.status(200).json({ status: uiStatus, localStatus, order, mpError: text });
+      }
+
+      mpDetails = await resp.json();
     }
-
-    const mpDetails = await resp.json();
 
     // Se o MP retornou external_reference, tentar localizar pedido por ele
     if (!order && mpDetails?.external_reference) {
@@ -72,15 +90,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // Se ainda não temos order, retornar erro
+    if (!order) {
+      return res.status(404).json({ error: 'Pedido não encontrado' });
+    }
+
     // Mapear status MP para status de UI
     let status = 'WAITING_PAYMENT';
-    const mpStatus = mpDetails?.status || mpDetails?.status_detail || '';
-    if (mpStatus === 'approved' || mpStatus === 'paid' || mpStatus === 'success') {
-      status = 'COMPLETED';
-    } else if (mpStatus === 'rejected' || mpStatus === 'cancelled' || mpStatus === 'refunded') {
-      status = 'FAILED';
-    } else if (mpStatus === 'in_process' || mpStatus === 'pending' || mpStatus === '') {
-      status = 'WAITING_PAYMENT';
+    if (mpDetails) {
+      const mpStatus = mpDetails?.status || mpDetails?.status_detail || '';
+      if (mpStatus === 'approved' || mpStatus === 'paid' || mpStatus === 'success') {
+        status = 'COMPLETED';
+      } else if (mpStatus === 'rejected' || mpStatus === 'cancelled' || mpStatus === 'refunded') {
+        status = 'FAILED';
+      } else if (mpStatus === 'in_process' || mpStatus === 'pending' || mpStatus === '') {
+        status = 'WAITING_PAYMENT';
+      }
+    } else {
+      // Se não temos MP details, usar status local
+      const localStatus = order.paymentStatus || 'PENDING';
+      status = localStatus === 'PENDING' ? 'WAITING_PAYMENT' : (localStatus === 'PAID' ? 'COMPLETED' : (localStatus === 'FAILED' ? 'FAILED' : localStatus));
     }
 
     // Atualizar registro local com o status do pagamento quando possível
@@ -90,7 +119,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const updateData: any = {
           webhookLog: {
             lastCheck: new Date().toISOString(),
-            mpStatus: mpStatus,
+            mpStatus: mpDetails?.status || 'N/A',
             uiStatus: status
           }
         };

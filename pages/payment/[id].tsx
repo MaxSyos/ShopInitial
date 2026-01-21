@@ -25,7 +25,7 @@ interface PaymentData {
 const PaymentByIdPage: React.FC = () => {
   const { t } = useLanguage();
   const router = useRouter();
-  const { id } = router.query as { id?: string };
+  const { id, installment } = router.query as { id?: string; installment?: string };
 
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [pixDataUrl, setPixDataUrl] = useState<string | null>(null);
@@ -34,6 +34,7 @@ const PaymentByIdPage: React.FC = () => {
   const [orderId, setOrderId] = useState<string>('');
   const [shippingAddress, setShippingAddress] = useState<any>(null);
   const [orderSummary, setOrderSummary] = useState<any | null>(null);
+  const [currentInstallment, setCurrentInstallment] = useState<number>(1); // 1 ou 2
   const lastFetchOrderRef = React.useRef<number>(0);
   const isCheckingPaymentRef = React.useRef<boolean>(false);
 
@@ -51,7 +52,15 @@ const PaymentByIdPage: React.FC = () => {
       const idStr = Array.isArray(id) ? id[0] : id;
       setOrderId(idStr);
     }
-  }, [userInfo, id, router]);
+
+    // Definir qual parcela exibir (padrão: 1)
+    if (installment) {
+      const instNum = parseInt(Array.isArray(installment) ? installment[0] : installment);
+      if (instNum === 2) {
+        setCurrentInstallment(2);
+      }
+    }
+  }, [userInfo, id, installment]);
 
   useEffect(() => {
     // quando receber o orderId via rota, tentar criar o pagamento para esse pedido
@@ -179,6 +188,19 @@ const PaymentByIdPage: React.FC = () => {
       try { stored = JSON.parse(localStorage.getItem('createdOrder') || 'null'); } catch (e) { stored = null; }
       const idempotencyKey = stored?.idempotencyKey || undefined;
 
+      // Definir endpoint e campos baseado em qual parcela
+      let endpoint = '/payments/create';
+      let respKey = 'installment1';
+      let toastMsg = 'Pagamento PIX (Parcela 1/2) gerado com sucesso!';
+      let titleMsg = 'Pagamento PIX - Parcela 1/2';
+
+      if (currentInstallment === 2) {
+        endpoint = '/payments/create-second';
+        respKey = 'installment2';
+        toastMsg = 'Pagamento PIX (Parcela 2/2) gerado com sucesso!';
+        titleMsg = 'Pagamento PIX - Parcela 2/2';
+      }
+
       const paymentDataReq: any = {
         orderId: orderIdParam,
         amount: totalAmount,
@@ -187,33 +209,33 @@ const PaymentByIdPage: React.FC = () => {
       };
       if (idempotencyKey) paymentDataReq.idempotencyKey = idempotencyKey;
 
-      const paymentResponse = await api.post('/payments/create', paymentDataReq);
+      const paymentResponse = await api.post(endpoint, paymentDataReq);
 
       const respData = paymentResponse.data || {};
-      const installment1 = respData.installment1 || {};
+      const installmentData = respData[respKey] || {};
       const mp = respData.mp || {};
 
       let pixQrBase64: string | undefined = undefined;
       if (mp.qrBase64) {
         const raw = mp.qrBase64 as string;
         pixQrBase64 = raw.startsWith('data:') ? raw.split(',')[1] ?? raw : raw;
-      } else if (installment1?.mpQrCodeBase64) {
-        const raw = installment1.mpQrCodeBase64 as string;
+      } else if (installmentData?.mpQrCodeBase64) {
+        const raw = installmentData.mpQrCodeBase64 as string;
         pixQrBase64 = raw.startsWith('data:') ? raw.split(',')[1] ?? raw : raw;
       }
 
-      const rawStatus = installment1?.status || 'PAYMENT_CREATED' || 'WAITING_PAYMENT';
+      const rawStatus = installmentData?.status || 'PAYMENT_CREATED' || 'WAITING_PAYMENT';
       const normalizedStatus = ['PENDING', 'PAYMENT_CREATED'].includes(rawStatus) ? 'WAITING_PAYMENT' : rawStatus;
 
-      // Usar o amount real da parcela 1 do banco de dados (não dividir por 2)
-      const installmentAmount = installment1?.amount || (paymentDataReq.amount / 2);
+      // Usar o amount real da parcela do banco de dados (não dividir por 2)
+      const installmentAmount = installmentData?.amount || (paymentDataReq.amount / 2);
 
       const paymentState: PaymentData = {
-        id: (mp.id || installment1?.mpPreferenceId || orderIdParam).toString(),
+        id: (mp.id || installmentData?.mpPreferenceId || orderIdParam).toString(),
         status: normalizedStatus,
-        pixCode: mp.qr || installment1?.mpQrCodeUrl || undefined,
+        pixCode: mp.qr || installmentData?.mpQrCodeUrl || undefined,
         pixQrCode: pixQrBase64,
-        pixExpiresAt: installment1?.expiresAt ? new Date(installment1.expiresAt).toISOString() : undefined,
+        pixExpiresAt: installmentData?.expiresAt ? new Date(installmentData.expiresAt).toISOString() : undefined,
         amount: installmentAmount
       };
 
@@ -222,7 +244,7 @@ const PaymentByIdPage: React.FC = () => {
       if (respData.order || respData.localOrder) {
         setOrderSummary(respData.order || respData.localOrder);
       }
-      toast.success('Pagamento PIX (Parcela 1/2) gerado com sucesso!');
+      toast.success(toastMsg);
     } catch (error: any) {
       console.error('Erro ao gerar pagamento PIX:', error);
       const message = error?.response?.data?.error || error?.message || 'Erro ao gerar pagamento';
@@ -307,21 +329,36 @@ const PaymentByIdPage: React.FC = () => {
   };
 
   const checkPaymentStatus = async () => {
-    if (!paymentData?.id || isCheckingPaymentRef.current) return;
+    if (!orderId || isCheckingPaymentRef.current) return;
     
     isCheckingPaymentRef.current = true;
     try {
-      const response = await api.get(`/payments/${paymentData.id}/pix-status`);
+      console.log(`[Payment Check] Verificando status para orderId: ${orderId}, installment: ${currentInstallment}`);
+      
+      // Usar endpoint correto baseado na parcela
+      let statusEndpoint = `/payments/${orderId}/pix-status`;
+      if (currentInstallment === 2) {
+        statusEndpoint = `/payments/${orderId}/pix-status-second`;
+      }
+
+      const response = await api.get(statusEndpoint);
+      console.log(`[Payment Check] Response:`, response.data);
 
       if (response.data.status === 'COMPLETED') {
         toast.success('Pagamento aprovado!');
-        router.push(`/order-status/${orderId}`);
+        // Aguardar um pouco antes de redirecionar para garantir que os dados foram atualizados
+        setTimeout(() => {
+          router.push(`/order-status/${orderId}`);
+        }, 1500);
       } else if (response.data.status === 'FAILED' || response.data.status === 'EXPIRED') {
         toast.error('Pagamento não foi aprovado');
         setPaymentData(prev => prev ? { ...prev, status: response.data.status } : null);
+      } else {
+        toast.info('Pagamento ainda não foi confirmado. Tente novamente em breve.');
       }
-    } catch (error) {
-      console.error('Erro ao verificar status do pagamento:', error);
+    } catch (error: any) {
+      console.error('[Payment Check] Erro ao verificar status do pagamento:', error);
+      toast.error('Erro ao verificar pagamento. Tente novamente.');
     } finally {
       isCheckingPaymentRef.current = false;
     }
@@ -363,7 +400,9 @@ const PaymentByIdPage: React.FC = () => {
         <OrderTracking currentStep={2} />
 
         <div className="mt-8">
-          <h1 className="text-3xl font-bold mb-8 text-center">Pagamento PIX - Parcela 1/2</h1>
+          <h1 className="text-3xl font-bold mb-8 text-center">
+            Pagamento PIX - Parcela {currentInstallment}/2
+          </h1>
 
           <div className="grid lg:grid-cols-2 gap-8">
             {/* Coluna principal - QR Code e instruções */}
@@ -402,7 +441,7 @@ const PaymentByIdPage: React.FC = () => {
                         <p className="text-3xl font-bold text-palette-primary">
                           R$ {Number(paymentData.amount).toFixed(2)}
                         </p>
-                        <p className="text-xs text-palette-mute mt-1">Parcela 1/2</p>
+                        <p className="text-xs text-palette-mute mt-1">Parcela {currentInstallment}/2</p>
                       </div>
                       <h2 className="text-xl font-semibold mb-4">Escaneie o QR Code</h2>
                       <div className="flex justify-center mb-4">
@@ -514,12 +553,12 @@ const PaymentByIdPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Valor da Parcela 1 */}
+                {/* Valor da Parcela */}
                 {paymentData && (
                   <div className="bg-palette-primary/10 border-2 border-palette-primary rounded-lg p-4">
                     <p className="text-sm text-palette-mute mb-1">Você está pagando agora:</p>
                     <div className="flex justify-between items-center">
-                      <span className="text-lg font-semibold">Parcela 1/2</span>
+                      <span className="text-lg font-semibold">Parcela {currentInstallment}/2</span>
                       <span className="text-2xl font-bold text-palette-primary">
                         R$ {Number(paymentData.amount).toFixed(2)}
                       </span>
