@@ -37,6 +37,8 @@ const PaymentByIdPage: React.FC = () => {
   const [currentInstallment, setCurrentInstallment] = useState<number>(1); // 1 ou 2
   const lastFetchOrderRef = React.useRef<number>(0);
   const isCheckingPaymentRef = React.useRef<boolean>(false);
+  const pollingIntervalRef = React.useRef<number>(15000); // Começa em 15s (15000ms)
+  const pollingElapsedTimeRef = React.useRef<number>(0); // Tempo total decorrido
 
   const userInfo = useSelector((state: IUserInfoRootState) => state.userInfo.userInformation);
   const cartItems = useSelector((state: ICartRootState) => state.cart.items);
@@ -129,14 +131,44 @@ const PaymentByIdPage: React.FC = () => {
     let statusInterval: NodeJS.Timeout;
 
     if (paymentData?.id && paymentData.status === 'WAITING_PAYMENT') {
-      // verificar a cada 15 segundos em vez de 5s para reduzir chamadas API
-      statusInterval = setInterval(() => {
-        checkPaymentStatus();
-      }, 15000);
+      // Polling exponencial: 15s → 30s → 60s → parar após 10 min
+      const MAX_POLLING_TIME = 10 * 60 * 1000; // 10 minutos em ms
+      
+      const scheduleNextCheck = () => {
+        // Verificar se já atingiu o tempo máximo
+        if (pollingElapsedTimeRef.current >= MAX_POLLING_TIME) {
+          console.log('[Payment Polling] Tempo máximo de polling atingido (10 minutos)');
+          return;
+        }
+
+        // Agendar próxima verificação
+        statusInterval = setTimeout(() => {
+          checkPaymentStatus();
+          
+          // Atualizar tempo decorrido
+          pollingElapsedTimeRef.current += pollingIntervalRef.current;
+          
+          // Aumentar intervalo exponencialmente (15s → 30s → 60s)
+          if (pollingIntervalRef.current === 15000) {
+            pollingIntervalRef.current = 30000; // 30s
+          } else if (pollingIntervalRef.current === 30000) {
+            pollingIntervalRef.current = 60000; // 60s
+          }
+          // Mantém 60s para as próximas verificações
+          
+          console.log(`[Payment Polling] Próxima verificação em ${pollingIntervalRef.current / 1000}s`);
+          
+          // Agendar próxima verificação recursivamente
+          scheduleNextCheck();
+        }, pollingIntervalRef.current);
+      };
+
+      // Primeira verificação após 15s
+      scheduleNextCheck();
     }
 
     return () => {
-      if (statusInterval) clearInterval(statusInterval);
+      if (statusInterval) clearTimeout(statusInterval);
     };
   }, [paymentData?.id, paymentData?.status]);
 
@@ -239,6 +271,10 @@ const PaymentByIdPage: React.FC = () => {
         amount: installmentAmount
       };
 
+      // Resetar polling para novo pagamento
+      pollingIntervalRef.current = 15000;
+      pollingElapsedTimeRef.current = 0;
+
       setPaymentData(paymentState);
       // se a resposta trouxe o pedido local/upstream, usar para o resumo
       if (respData.order || respData.localOrder) {
@@ -272,8 +308,9 @@ const PaymentByIdPage: React.FC = () => {
       if (resolved && (resolved.items || resolved.itemsJson)) {
         // Extrair items — podem estar em diferentes formatos
         const rawItems = resolved.items || resolved.itemsJson || [];
-        const total = resolved.total ?? resolved.subtotal ?? resolved.amount ?? 0;
+        const subtotal = resolved.subtotal ?? 0;
         const shippingCost = resolved.shippingCost ?? 0;
+        const total = subtotal + shippingCost;
         
         // Normalizar items
         const normalizedItems = (rawItems || []).map((it: any) => ({
@@ -284,8 +321,8 @@ const PaymentByIdPage: React.FC = () => {
           totalPrice: it.total ?? it.totalPrice ?? ((it.unitPrice || it.price || 0) * (it.quantity || 1)),
         }));
         
-        setOrderSummary({ items: normalizedItems, totalAmount: total, shippingCost });
-        console.log('Order Summary carregado da API:', { items: normalizedItems, total, shippingCost });
+        setOrderSummary({ items: normalizedItems, subtotal, total, shippingCost });
+        console.log('Order Summary carregado da API:', { items: normalizedItems, subtotal, total, shippingCost });
         return;
       }
     } catch (e) {
@@ -296,8 +333,9 @@ const PaymentByIdPage: React.FC = () => {
     try {
       const stored = JSON.parse(localStorage.getItem('createdOrder') || 'null');
       if (stored && (stored.items || stored.itemsJson)) {
-        const total = stored.total ?? stored.totalAmount ?? 0;
+        const subtotal = stored.subtotal ?? 0;
         const shippingCost = stored.shippingCost ?? 0;
+        const total = subtotal + shippingCost;
         const rawItems = stored.items || stored.itemsJson || [];
         const normalizedItems = (rawItems || []).map((it: any) => ({
           id: it.id || it.productId,
@@ -306,8 +344,8 @@ const PaymentByIdPage: React.FC = () => {
           price: it.unitPrice || it.price || 0,
           totalPrice: it.totalPrice ?? ((it.unitPrice || it.price || 0) * (it.quantity || 1)),
         }));
-        setOrderSummary({ items: normalizedItems, totalAmount: total, shippingCost });
-        console.log('Order Summary carregado do localStorage:', { items: normalizedItems, total, shippingCost });
+        setOrderSummary({ items: normalizedItems, subtotal, total, shippingCost });
+        console.log('Order Summary carregado do localStorage:', { items: normalizedItems, subtotal, total, shippingCost });
         return;
       }
     } catch (fallbackErr) {
@@ -316,6 +354,9 @@ const PaymentByIdPage: React.FC = () => {
     
     // Se tudo falhar mas temos cartItems do Redux, usar como última opção
     if (cartItems && cartItems.length > 0) {
+      const subtotal = totalAmount;
+      const shippingCost = 0;
+      const total = subtotal + shippingCost;
       const normalizedItems = cartItems.map((item: any) => ({
         id: item.id || item.productId,
         name: item.productName || item.product?.name || item.name || '',
@@ -323,8 +364,8 @@ const PaymentByIdPage: React.FC = () => {
         price: item.unitPrice || item.price || item.pricePerQuantity || 0,
         totalPrice: item.totalPrice ?? item.total ?? ((item.unitPrice || item.price || item.pricePerQuantity || 0) * (item.quantity || 1)),
       }));
-      setOrderSummary({ items: normalizedItems, totalAmount, shippingCost: 0 });
-      console.log('Order Summary carregado do Redux cartItems:', { items: normalizedItems, totalAmount, shippingCost: 0 });
+      setOrderSummary({ items: normalizedItems, subtotal, total, shippingCost });
+      console.log('Order Summary carregado do Redux cartItems:', { items: normalizedItems, subtotal, total, shippingCost });
     }
   };
 
@@ -349,7 +390,7 @@ const PaymentByIdPage: React.FC = () => {
         // Aguardar um pouco antes de redirecionar para garantir que os dados foram atualizados
         setTimeout(() => {
           router.push(`/order-status/${orderId}`);
-        }, 1500);
+        }, 150000);
       } else if (response.data.status === 'FAILED' || response.data.status === 'EXPIRED') {
         toast.error('Pagamento não foi aprovado');
         setPaymentData(prev => prev ? { ...prev, status: response.data.status } : null);
@@ -523,7 +564,7 @@ const PaymentByIdPage: React.FC = () => {
                     <span>Subtotal</span>
                     <span>
                       R$ {Number(
-                        orderSummary?.totalAmount ? (orderSummary.totalAmount - (orderSummary.shippingCost || 0)) : 
+                        orderSummary?.subtotal ?? 
                         ((orderSummary?.items?.reduce((sum: number, item: any) => sum + (item.totalPrice || item.total || 0), 0) || 0) ||
                         totalAmount || 0)
                       ).toFixed(2)}
@@ -545,8 +586,8 @@ const PaymentByIdPage: React.FC = () => {
                     <span>Total do Pedido</span>
                     <span>
                       R$ {Number(
-                        orderSummary?.totalAmount ?? 
-                        ((orderSummary?.items?.reduce((sum: number, item: any) => sum + (item.totalPrice || item.total || 0), 0) || 0) ||
+                        orderSummary?.total ?? 
+                        (((orderSummary?.subtotal ?? 0) + (orderSummary?.shippingCost ?? 0)) ||
                         totalAmount || 0)
                       ).toFixed(2)}
                     </span>

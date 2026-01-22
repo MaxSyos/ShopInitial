@@ -1,4 +1,4 @@
-import prisma from '../../lib/prisma';
+import prisma from '../lib/prisma';
 
 async function investigatePayment() {
   const mpId = '142834461102';
@@ -7,9 +7,9 @@ async function investigatePayment() {
 
   // 1. Procurar por mpPreferenceId
   console.log('1. Procurando por mpPreferenceId na tabela PaymentInstallment...');
-  const installmentByPreference = await prisma.paymentInstallment.findUnique({
+  const installmentByPreference = await prisma.paymentInstallment.findFirst({
     where: { mpPreferenceId: mpId.toString() },
-    include: { order: { include: { user: true } } }
+    include: { order: { include: { user: true, installments: true } } }
   });
 
   if (installmentByPreference) {
@@ -42,12 +42,12 @@ async function investigatePayment() {
   const allInstallments = await prisma.paymentInstallment.findMany({
     where: {
       webhookLog: {
-        path: ['142834461102']
+        not: null
       }
     }
   });
 
-  console.log(`Encontrados ${allInstallments.length} registros com mpId no webhook log`);
+  console.log(`Encontrados ${allInstallments.length} registros com webhookLog`);
 
   // 4. Procurar na Order se tem referência ao MP
   console.log('\n4. Procurando em todas as Orders...');

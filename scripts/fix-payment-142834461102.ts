@@ -12,7 +12,7 @@ async function fixPayment() {
   try {
     // 1. Encontrar a parcela
     console.log('1. Procurando parcela com mpPreferenceId:', mpId);
-    const installment = await prisma.paymentInstallment.findUnique({
+    const installment = await prisma.paymentInstallment.findFirst({
       where: { mpPreferenceId: mpId.toString() },
       include: { order: true }
     });

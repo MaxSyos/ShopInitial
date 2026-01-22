@@ -71,6 +71,8 @@ const ManageOrdersPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [editingOrder, setEditingOrder] = useState<EditingOrder | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const pollingIntervalRef = React.useRef<number>(15000); // Começa em 15s
+  const pollingElapsedTimeRef = React.useRef<number>(0); // Tempo total decorrido
 
   const userInfo = useSelector(
     (state: IUserInfoRootState) => state.userInfo.userInformation
@@ -123,6 +125,64 @@ const ManageOrdersPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Verificar status de pagamento com polling exponencial
+  const checkPaymentStatus = async () => {
+    try {
+      const response = await api.get('/admin/orders');
+      const data = Array.isArray(response.data) ? response.data : response.data.orders || [];
+      setOrders(data);
+      
+      // Verificar se ainda há parcelas pendentes
+      const hasPendingInstallments = data.some((order: OrderData) => {
+        return order.installments?.some((inst: Installment) => 
+          inst.status === 'PENDING' || inst.status === 'PAYMENT_CREATED'
+        );
+      });
+
+      if (!hasPendingInstallments) {
+        console.log('[ManageOrders] Nenhuma parcela pendente, parando polling');
+        return;
+      }
+    } catch (error) {
+      console.error('[ManageOrders] Erro ao verificar status:', error);
+    }
+  };
+
+  // Polling exponencial para verificar status de pagamento
+  useEffect(() => {
+    let statusInterval: NodeJS.Timeout;
+    const MAX_POLLING_TIME = 10 * 60 * 1000; // 10 minutos
+
+    const scheduleNextCheck = () => {
+      if (pollingElapsedTimeRef.current >= MAX_POLLING_TIME) {
+        console.log('[ManageOrders Polling] Tempo máximo atingido');
+        return;
+      }
+
+      statusInterval = setTimeout(() => {
+        checkPaymentStatus();
+        
+        pollingElapsedTimeRef.current += pollingIntervalRef.current;
+        
+        if (pollingIntervalRef.current === 15000) {
+          pollingIntervalRef.current = 30000;
+        } else if (pollingIntervalRef.current === 30000) {
+          pollingIntervalRef.current = 60000;
+        }
+        
+        console.log(`[ManageOrders Polling] Próxima verificação em ${pollingIntervalRef.current / 1000}s`);
+        scheduleNextCheck();
+      }, pollingIntervalRef.current);
+    };
+
+    // Iniciar polling
+    scheduleNextCheck();
+
+    return () => {
+      if (statusInterval) clearTimeout(statusInterval);
+    };
+  }, []);
 
   const handleEditOrder = (order: OrderData) => {
     setEditingOrder({

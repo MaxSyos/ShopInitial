@@ -1,8 +1,11 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getUserFromRequest } from '../_utils/auth';
 import prisma from '../../../lib/prisma';
+import axios from 'axios';
 
 const DEFAULT_CEP = '39400115';
+const DEFAULT_LATITUDE = -20.3397; // Coordenadas do CEP padrão (Diamantina, MG)
+const DEFAULT_LONGITUDE = -43.5899;
 const RESTRICTED_CEP_START = 39400000;
 const RESTRICTED_CEP_END = 39409999;
 
@@ -95,6 +98,90 @@ const PAC_CUSTO_POR_KG: Record<string, number> = {
   R4: 6.2,
   R5: 7.8,
 };
+
+// ============================================================================
+// FUNÇÕES DE GEOLOCALIZAÇÃO E DISTÂNCIA
+// ============================================================================
+
+/**
+ * Calcula a distância entre dois pontos usando a Fórmula de Haversine
+ * @param lat1 - latitude do ponto 1
+ * @param lon1 - longitude do ponto 1
+ * @param lat2 - latitude do ponto 2
+ * @param lon2 - longitude do ponto 2
+ * @returns distância em km
+ */
+function calcularDistancia(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Raio da Terra em km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Busca as coordenadas de um CEP usando a API ViaCEP
+ * @param cep - CEP no formato 8 dígitos
+ * @returns objeto com latitude e longitude ou null se não encontrado
+ */
+async function obterCoordenadasDoCep(cep: string): Promise<{ latitude: number; longitude: number } | null> {
+  try {
+    // Usar a API ViaCEP que retorna latitude e longitude
+    const response = await axios.get(`https://viacep.com.br/ws/${cep}/json/`);
+    
+    if (response.data.erro) {
+      console.warn(`CEP ${cep} não encontrado na ViaCEP`);
+      return null;
+    }
+
+    // Usar coordenadas aproximadas baseadas na UF e localidade
+    // Para uma implementação mais precisa, seria necessário usar uma API de geocoding mais robusta
+    const { uf, localidade } = response.data;
+    
+    // Coordenadas aproximadas por estado (simplificado)
+    const coordenacoesPorUF: Record<string, { latitude: number; longitude: number }> = {
+      'MG': { latitude: -19.9191, longitude: -43.9386 },
+      'SP': { latitude: -23.5505, longitude: -46.6333 },
+      'RJ': { latitude: -22.9068, longitude: -43.1729 },
+      'BA': { latitude: -13.0039, longitude: -38.9108 },
+      'RS': { latitude: -30.0346, longitude: -51.2177 },
+      'PE': { latitude: -8.0476, longitude: -34.8770 },
+      'CE': { latitude: -3.7319, longitude: -38.5267 },
+      'PA': { latitude: -1.4558, longitude: -48.5039 },
+      'SC': { latitude: -27.5969, longitude: -48.5495 },
+      'GO': { latitude: -15.8267, longitude: -48.9385 },
+      'PB': { latitude: -7.1219, longitude: -34.8450 },
+      'ES': { latitude: -20.3155, longitude: -40.2802 },
+      'PI': { latitude: -5.0892, longitude: -42.8081 },
+      'RN': { latitude: -5.8035, longitude: -35.2075 },
+      'AL': { latitude: -9.5713, longitude: -36.7820 },
+      'MT': { latitude: -15.6267, longitude: -56.0244 },
+      'MS': { latitude: -20.2558, longitude: -54.5476 },
+      'DF': { latitude: -15.7942, longitude: -47.8822 },
+      'AM': { latitude: -3.0190, longitude: -60.0217 },
+      'RO': { latitude: -8.7619, longitude: -63.9039 },
+      'AC': { latitude: -9.9757, longitude: -67.8056 },
+      'AP': { latitude: 0.9028, longitude: -52.0061 },
+      'RR': { latitude: 2.8235, longitude: -60.6758 },
+      'TO': { latitude: -10.2361, longitude: -48.3237 },
+    };
+
+    const coordenadas = coordenacoesPorUF[uf];
+    if (coordenadas) {
+      return coordenadas;
+    }
+
+    console.warn(`Estado ${uf} não possui coordenadas pré-definidas`);
+    return null;
+  } catch (error) {
+    console.error('Erro ao buscar coordenadas do CEP:', error);
+    return null;
+  }
+}
 
 // ============================================================================
 // FUNÇÕES PURAS DE CÁLCULO
@@ -386,16 +473,34 @@ async function calculateOrderShipping(
     // Encontra a primeira taxa onde quantityUpTo >= quantidade do pedido
     let shippingRate = shippingRates.find((rate: any) => rate.quantityUpTo >= quantity);
 
+    // Calcular a distância real baseada no CEP de destino
+    let distanciaKm = 600; // valor padrão
+    try {
+      const coordenadas = await obterCoordenadasDoCep(cleanCep);
+      if (coordenadas) {
+        distanciaKm = calcularDistancia(
+          DEFAULT_LATITUDE,
+          DEFAULT_LONGITUDE,
+          coordenadas.latitude,
+          coordenadas.longitude
+        );
+        // Garantir uma distância mínima de 50km
+        distanciaKm = Math.max(distanciaKm, 50);
+      }
+    } catch (error) {
+      console.warn('Erro ao calcular distância, usando valor padrão:', error);
+    }
+
     // Se não encontrar nenhuma taxa, usar um cálculo padrão baseado no novo motor
     if (!shippingRate) {
-      // Cálculo padrão: assume 0.5kg por item, 10cm cúbicos, 100km de distância
+      // Cálculo padrão: assume 0.5kg por item, 10cm cúbicos, distância calculada
       const defaultWeight = quantity * 0.5;
       const calc = calcularFreteEstimado({
         pesoReal: defaultWeight,
         comprimento: 10,
         largura: 10,
         altura: 10,
-        raioKm: 100,
+        raioKm: distanciaKm,
       });
 
       return {
@@ -419,13 +524,13 @@ async function calculateOrderShipping(
       throw new Error('Faixa de frete inválida: peso não definido');
     }
 
-    // Assumir distância média (R3 = 600km)
+    // Usar distância calculada com base no CEP
     const calc = calcularFreteEstimado({
       pesoReal: shippingRate.weight,
       comprimento: shippingRate.length || 10,
       largura: shippingRate.width || 10,
       altura: shippingRate.height || 10,
-      raioKm: 600,
+      raioKm: distanciaKm,
     });
 
     return {
