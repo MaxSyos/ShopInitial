@@ -79,11 +79,6 @@ const Orders: React.FC = () => {
     const timer = setTimeout(() => {
       fetchOrders(currentPage);
 
-      // Polling automático a cada 10 segundos (econômico)
-      const pollInterval = setInterval(() => {
-        fetchOrders(currentPage);
-      }, 10000);
-
       // Listener para quando a página volta ao foco (aba ativa)
       const handlePageFocus = () => {
         console.log('[Orders] Página voltou ao foco, atualizando pedidos...');
@@ -93,7 +88,6 @@ const Orders: React.FC = () => {
       window.addEventListener('focus', handlePageFocus);
 
       return () => {
-        clearInterval(pollInterval);
         window.removeEventListener('focus', handlePageFocus);
       };
     }, 100);

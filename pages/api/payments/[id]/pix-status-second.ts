@@ -36,9 +36,9 @@ async function handler(req: NextApiRequest, res: NextApiResponse) {
 
       if (order) {
         // Buscar Parcela 2 do pedido
-        installment2 = order.installments?.find((i: any) => i.installmentNumber === 2) || null;
-        if (installment2) {
-          installment2 = { ...installment2, order } as any;
+        const inst2 = order.installments?.find((i: any) => i.installmentNumber === 2) || null;
+        if (inst2) {
+          installment2 = { ...inst2, order } as any;
         }
       }
     }

@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { Prisma, PaymentStatus, InstallmentStatus } from "@prisma/client";
-import prisma from "@/lib/prisma";
+import prisma from "../prisma";
 
 // ============================================================================
 // 1. TIPOS E INTERFACES

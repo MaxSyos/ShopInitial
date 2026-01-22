@@ -20,6 +20,17 @@ interface OrderItemData {
   sku?: string;
 }
 
+interface Installment {
+  id: string;
+  orderId: string;
+  installmentNumber: number;
+  amount: number;
+  status: string;
+  createdAt: string;
+  paidAt?: string;
+  expiresAt?: string;
+}
+
 interface OrderData {
   id: string;
   status: string;
@@ -42,6 +53,7 @@ interface OrderData {
   isDelivered?: boolean;
   deliveredAt?: string;
   isLocalPickup?: boolean;
+  installments?: Installment[];
 }
 
 interface EditingOrder {
@@ -81,11 +93,6 @@ const ManageOrdersPage: React.FC = () => {
     const timer = setTimeout(() => {
       fetchOrders();
 
-      // Polling automático a cada 10 segundos (econômico)
-      const pollInterval = setInterval(() => {
-        fetchOrders();
-      }, 10000);
-
       // Listener para quando a página volta ao foco (aba ativa)
       const handlePageFocus = () => {
         console.log('[ManageOrders] Página voltou ao foco, atualizando pedidos...');
@@ -95,7 +102,6 @@ const ManageOrdersPage: React.FC = () => {
       window.addEventListener('focus', handlePageFocus);
 
       return () => {
-        clearInterval(pollInterval);
         window.removeEventListener('focus', handlePageFocus);
       };
     }, 100);
@@ -153,8 +159,32 @@ const ManageOrdersPage: React.FC = () => {
     }
   };
 
+  const getPaymentStatusFromInstallments = (installments?: Installment[]): { status: string; text: string } => {
+    if (!installments || installments.length === 0) {
+      return { status: 'PENDING', text: 'Pendente' };
+    }
+
+    const inst1 = installments.find(i => i.installmentNumber === 1);
+    const inst2 = installments.find(i => i.installmentNumber === 2);
+
+    // Se ambas as parcelas estão pagas, é "Pago"
+    if (inst1?.status === 'PAID' && inst2?.status === 'PAID') {
+      return { status: 'PAID', text: 'Pago' };
+    }
+
+    // Se apenas a primeira parcela está paga, é "Parcial"
+    if (inst1?.status === 'PAID' && inst2?.status !== 'PAID') {
+      return { status: 'PARTIAL', text: 'Parcial' };
+    }
+
+    // Caso contrário, é "Pendente"
+    return { status: 'PENDING', text: 'Pendente' };
+  };
+
   const getPaymentStatusColor = (status: string) => {
     switch (status?.toUpperCase()) {
+      case 'PARTIAL':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
       case 'PENDING':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
       case 'PAID':
@@ -381,9 +411,14 @@ const ManageOrdersPage: React.FC = () => {
                         R$ {Number(order.totalAmount).toFixed(2)}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded-md text-xs font-medium ${getPaymentStatusColor(order.paymentStatus)}`}>
-                          {order.paymentStatus === 'PENDING' ? 'Pendente' : order.paymentStatus === 'PAID' ? 'Pago' : order.paymentStatus}
-                        </span>
+                        {(() => {
+                          const paymentInfo = getPaymentStatusFromInstallments(order.installments);
+                          return (
+                            <span className={`px-2 py-1 rounded-md text-xs font-medium ${getPaymentStatusColor(paymentInfo.status)}`}>
+                              {paymentInfo.text}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 rounded-md text-xs font-medium ${getDeliveryStatusColor(order.deliveryMethod || '', order.isDelivered || false, order.isLocalPickup)}`}>
@@ -475,9 +510,9 @@ const ManageOrdersPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Checkbox de entrega confirmada (apenas para LOCAL) */}
-                {editingOrder.deliveryMethod === 'LOCAL' && (
-                  <div className="flex items-center gap-3">
+                {/* Checkbox de entrega confirmada (para todos os tipos de entrega) */}
+                {editingOrder.deliveryMethod !== 'PENDING' && (
+                  <div className="flex items-center gap-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-3">
                     <input
                       type="checkbox"
                       id="isDelivered"
@@ -490,8 +525,8 @@ const ManageOrdersPage: React.FC = () => {
                       }
                       className="w-4 h-4 cursor-pointer"
                     />
-                    <label htmlFor="isDelivered" className="text-sm font-medium cursor-pointer">
-                      Marcar como Entregue
+                    <label htmlFor="isDelivered" className="text-sm font-medium cursor-pointer text-green-800 dark:text-green-300">
+                      ✓ Marcar como Entregue
                     </label>
                   </div>
                 )}

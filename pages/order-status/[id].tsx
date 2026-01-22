@@ -103,13 +103,6 @@ const OrderStatusPage: React.FC = () => {
       // Sincronizar Parcela 2 (sem depender de webhook)
       syncSecondInstallment(idStr);
 
-      // Polling a cada 10 segundos (econômico)
-      const pollInterval = setInterval(() => {
-        fetchOrderData();
-        // Sincronizar Parcela 2 também durante o polling
-        syncSecondInstallment(idStr);
-      }, 10000);
-
       // Listener para quando a página volta ao foco (aba ativa)
       const handlePageFocus = () => {
         console.log('[Order Status] Página voltou ao foco, atualizando dados...');
@@ -120,7 +113,6 @@ const OrderStatusPage: React.FC = () => {
       window.addEventListener('focus', handlePageFocus);
 
       return () => {
-        clearInterval(pollInterval);
         window.removeEventListener('focus', handlePageFocus);
       };
     }

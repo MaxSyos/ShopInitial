@@ -39,7 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 2. Buscar no Mercado Pago
     const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-    let mpStatus = { error: 'Sem token' };
+    let mpStatus: any = { error: 'Sem token' };
 
     if (accessToken) {
       try {

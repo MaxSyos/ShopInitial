@@ -2,7 +2,7 @@
  * Script para atualizar manualmente o status de um pagamento no banco de dados
  * quando o webhook falhou em processar
  */
-import prisma from '../../lib/prisma';
+import prisma from '../lib/prisma';
 
 async function fixPayment() {
   const mpId = '142834461102';

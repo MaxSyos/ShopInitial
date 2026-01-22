@@ -207,8 +207,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           where: { id: orderId },
           data: {
             paymentStatus: 'PAID',
-            status: 'CONFIRMED',
-            paidAt: new Date()
+            status: 'CONFIRMED'
           }
         });
       }
